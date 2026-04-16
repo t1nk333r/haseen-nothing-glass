@@ -1,0 +1,226 @@
+import QtQuick
+import QtQuick.Layouts
+import org.kde.plasma.plasmoid
+import org.kde.plasma.core as PlasmaCore
+import "components"
+import "widget"
+
+PlasmoidItem {
+    id: root
+
+    Plasmoid.backgroundHints: PlasmaCore.Types.NoBackground
+    preferredRepresentation: fullRepresentation
+
+    MacOSColors {
+        id: colors
+        themeMode: plasmoid.configuration.themeMode
+    }
+
+    FontLoader {
+        id: sfRegular
+        source: Qt.resolvedUrl("../fonts/sf_pro_display_regular.otf")
+    }
+    FontLoader {
+        id: sfThin
+        source: Qt.resolvedUrl("../fonts/sf_pro_display_thin.otf")
+    }
+
+    // --- Date state ---
+    property date today: new Date()
+    property int viewYear: today.getFullYear()
+    property int viewMonth: today.getMonth() // 0..11
+
+    // First day of week: 0 = Sunday, 1 = Monday
+    readonly property int firstDow: plasmoid.configuration.firstDayOfWeek
+
+    readonly property var monthNames: [
+        "January", "February", "March", "April", "May", "June",
+        "July", "August", "September", "October", "November", "December"
+    ]
+    readonly property var weekdayShortSun: ["S", "M", "T", "W", "T", "F", "S"]
+    readonly property var weekdayShortMon: ["M", "T", "W", "T", "F", "S", "S"]
+    readonly property var weekdayShort: firstDow === 1 ? weekdayShortMon : weekdayShortSun
+
+    // Column [0..6] → is this a Sat/Sun column, given the current firstDow?
+    function isWeekendCol(col) {
+        return firstDow === 1
+            ? (col === 5 || col === 6) // Mon-first: cols 5,6 = Sat,Sun
+            : (col === 0 || col === 6) // Sun-first: cols 0,6 = Sun,Sat
+    }
+
+    // Rollover at midnight
+    Timer {
+        interval: 60 * 1000
+        running: true
+        repeat: true
+        onTriggered: {
+            const n = new Date()
+            if (n.getDate() !== root.today.getDate()
+                || n.getMonth() !== root.today.getMonth()
+                || n.getFullYear() !== root.today.getFullYear()) {
+                root.today = n
+                root.viewYear = n.getFullYear()
+                root.viewMonth = n.getMonth()
+            }
+        }
+    }
+
+    // --- Grid math ---
+    // Returns the day-of-month at grid slot [0..41], or 0 for empty slots.
+    function gridDay(slot) {
+        const firstOfMonth = new Date(viewYear, viewMonth, 1)
+        // getDay(): 0 = Sun ... 6 = Sat
+        let offset = firstOfMonth.getDay() - firstDow
+        if (offset < 0) offset += 7
+
+        const day = slot - offset + 1
+        const lastDay = new Date(viewYear, viewMonth + 1, 0).getDate()
+        if (day < 1 || day > lastDay) return 0
+        return day
+    }
+
+    fullRepresentation: Item {
+        id: full
+        Layout.preferredWidth: 220
+        Layout.preferredHeight: 220
+        Layout.minimumWidth: 200
+        Layout.minimumHeight: 200
+
+        // Single unified type scale — everything uses this size.
+        readonly property real labelSize: Math.max(10, Math.round(Math.min(full.width, full.height) * 0.058))
+
+        LiquidGlass {
+            id: glass
+            anchors.fill: parent
+            radius: plasmoid.configuration.cornerRadius
+            roundness: plasmoid.configuration.roundness
+            refractThickness: plasmoid.configuration.refractThickness
+            refractIOR: plasmoid.configuration.refractIORx100 / 100
+            refractScale: plasmoid.configuration.refractScale
+            tint: colors.glassTint
+            tintAlpha: plasmoid.configuration.tintAlphaPct / 100
+            chromaStrength: plasmoid.configuration.chromaStrengthPct / 100
+            specRadiusPx: plasmoid.configuration.specRadiusPx
+            specStrength: plasmoid.configuration.specStrengthPct / 100
+            fallbackOpacity: colors.glassFallbackOpacity
+        }
+
+        ColumnLayout {
+            anchors.fill: parent
+            anchors.margins: Math.round(Math.min(full.width, full.height) * 0.09)
+            anchors.topMargin: Math.round(Math.min(full.width, full.height) * 0.14)
+            spacing: Math.round(full.height * 0.02)
+
+            // --- Month header — left edge aligned with the optical left
+            //     edge of the "S" below (first column's center minus half
+            //     the "S" width).
+            Item {
+                Layout.fillWidth: true
+                Layout.preferredHeight: full.labelSize * 1.4
+
+                TextMetrics {
+                    id: sMetrics
+                    font.family: sfRegular.name
+                    font.pixelSize: full.labelSize
+                    text: root.weekdayShort[0]
+                }
+
+                Text {
+                    x: parent.width / 7 / 2 - sMetrics.width / 2
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: root.monthNames[root.viewMonth].toUpperCase()
+                    color: "#ffffff"
+                    font.family: sfRegular.name
+                    font.pixelSize: full.labelSize
+                    font.weight: Font.Regular
+                    font.letterSpacing: 1
+                }
+            }
+
+            // --- Weekday header (S M T W T F S) ---
+            Item {
+                Layout.fillWidth: true
+                Layout.preferredHeight: full.labelSize * 1.4
+
+                Row {
+                    anchors.fill: parent
+                    Repeater {
+                        model: 7
+                        delegate: Item {
+                            width: parent.width / 7
+                            height: parent.height
+                            Text {
+                                anchors.centerIn: parent
+                                text: root.weekdayShort[index]
+                                color: "#ffffff"
+                                opacity: root.isWeekendCol(index) ? 0.45 : 0.75
+                                font.family: sfRegular.name
+                                font.pixelSize: full.labelSize
+                                font.weight: Font.Regular
+                            }
+                        }
+                    }
+                }
+            }
+
+            // --- Day grid: 6 rows × 7 columns ---
+            Item {
+                id: gridWrap
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+
+                readonly property real cellW: width / 7
+                readonly property real cellH: height / 6
+                // Circle diameter — slightly tighter so it reads as a chip,
+                // not a blob that fills the whole cell.
+                readonly property real badgeDiameter: Math.min(cellW, cellH) * 0.78
+
+                Grid {
+                    id: dayGrid
+                    anchors.fill: parent
+                    rows: 6
+                    columns: 7
+
+                    Repeater {
+                        model: 42
+                        delegate: Item {
+                            width: gridWrap.cellW
+                            height: gridWrap.cellH
+
+                            readonly property int day: {
+                                root.viewYear; root.viewMonth; root.firstDow
+                                return root.gridDay(index)
+                            }
+                            readonly property bool empty: day === 0
+                            readonly property bool isCurrent: !empty
+                                && day === root.today.getDate()
+                                && root.viewMonth === root.today.getMonth()
+                                && root.viewYear === root.today.getFullYear()
+                            readonly property bool isWeekend: root.isWeekendCol(index % 7)
+
+                            Text {
+                                anchors.centerIn: parent
+                                visible: !empty && !isCurrent
+                                text: day
+                                color: "#ffffff"
+                                opacity: isWeekend ? 0.45 : 1.0
+                                font.family: sfRegular.name
+                                font.pixelSize: full.labelSize
+                                font.weight: Font.Regular
+                            }
+
+                            TodayBadge {
+                                anchors.centerIn: parent
+                                visible: isCurrent
+                                dayNumber: day
+                                diameter: gridWrap.badgeDiameter
+                                fontFamily: sfRegular.name
+                                badgeColor: "#ffffff"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

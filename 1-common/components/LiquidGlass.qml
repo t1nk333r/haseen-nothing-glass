@@ -34,6 +34,11 @@ Item {
     property real tintAlpha: 0.18
     property real chromaStrength: 0.5
 
+    // Mouse-following specular highlight
+    property bool specEnabled: true
+    property real specRadiusPx: 140
+    property real specStrength: 0.6
+
     // Placeholder for blur (currently disabled in the pipeline)
     property real blurRadiusPx: 32
 
@@ -76,6 +81,36 @@ Item {
         const p = glass.mapToItem(wallpaperItem, 0, 0)
         if (p.x !== _offX) _offX = p.x
         if (p.y !== _offY) _offY = p.y
+    }
+
+    // --- Mouse tracking for specular highlight ---
+    // _mouseU/_mouseV are in widget-local UV (0..1). (-1,-1) means no hover.
+    property real _mouseU: -1
+    property real _mouseV: -1
+    property real _mouseFade: 0
+
+    Behavior on _mouseFade {
+        NumberAnimation { duration: 180; easing.type: Easing.OutQuad }
+    }
+
+    MouseArea {
+        id: hoverArea
+        anchors.fill: parent
+        hoverEnabled: glass.specEnabled
+        acceptedButtons: Qt.NoButton   // never consume clicks
+        propagateComposedEvents: true
+
+        onPositionChanged: (mouse) => {
+            glass._mouseU = mouse.x / Math.max(1, glass.width)
+            glass._mouseV = mouse.y / Math.max(1, glass.height)
+            glass._mouseFade = 1
+        }
+        onEntered: glass._mouseFade = 1
+        onExited: {
+            glass._mouseFade = 0
+            glass._mouseU = -1
+            glass._mouseV = -1
+        }
     }
     Timer {
         interval: 16
@@ -123,6 +158,11 @@ Item {
         property real refractScale: glass.refractScale
         property real chromaStrength: glass.chromaStrength
         property vector4d tint: Qt.vector4d(glass.tint.r, glass.tint.g, glass.tint.b, glass.tintAlpha)
+
+        property vector2d mousePos: Qt.vector2d(glass._mouseU, glass._mouseV)
+        property real mouseFade: glass._mouseFade
+        property real specRadiusPx: glass.specRadiusPx
+        property real specStrength: glass.specEnabled ? glass.specStrength : 0.0
 
         property vector2d uvOffset: glass.active
             ? Qt.vector2d(glass._offX / glass.wallpaperItem.width,

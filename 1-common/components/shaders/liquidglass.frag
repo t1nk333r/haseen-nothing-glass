@@ -1,23 +1,23 @@
 #version 440
 
-// Liquid-glass fragment shader — Snell-on-a-dome refraction.
+// Liquid-glass fragment shader — Snell-on-a-dome refraction + mouse specular.
 //
-// Ported from iyinchao/liquid-glass-studio's fragment-main.glsl.
+// Ported from iyinchao/liquid-glass-studio's fragment-main.glsl with extras.
 // Key ideas:
 //   * Edge refraction uses Snell's law through a dome-shaped bevel:
 //         sinθI = (1 - t)^2      where t = 0..1 across the edge band
 //         θT    = asin(sinθI / IOR)
 //         mag   = tan(θI - θT)   // lateral shift of the refracted ray
-//     That (1-t)^2 term is what gives the "curved glass lens" look
-//     vs. a linear ramp.
-//   * SDF gradient is kept UNNORMALIZED; its magnitude naturally falls off
-//     at corners and acts as a built-in AA gate.
-//   * Chromatic dispersion: same refraction vector, different magnitudes
-//     per channel via per-channel IOR (R=1+k, G=1, B=1-k).
+//   * SDF gradient is kept UNNORMALIZED and its magnitude is reused as a
+//     corner-AA gate on the specular.
+//   * Chromatic dispersion: R/B sampled at an extra offset along the
+//     refraction direction, scaled by how deep we are in the edge band.
+//   * Mouse specular: radial gaussian glow centered on mousePos (in
+//     widget-local UV), boosted where the SDF gradient points toward the
+//     mouse (fake "curvature facing the light").
 //
 // qt_TexCoord0 is widget-local UV (0..1).
-// uvOffset/uvScale map widget UV into the wallpaper texture's UV space.
-// `backdrop` is the wallpaper ShaderEffectSource (blur currently disabled).
+// uvOffset/uvScale map widget UV -> wallpaper UV.
 
 layout(location = 0) in vec2 qt_TexCoord0;
 layout(location = 0) out vec4 fragColor;
@@ -29,21 +29,21 @@ layout(std140, binding = 0) uniform buf {
     float radius;            // corner radius in px
     float roundness;         // superellipse exponent; 2 = circle, 5 ≈ iOS squircle
     float refractThickness;  // edge band width in px
-    float refractIOR;        // index of refraction, e.g. 1.4
-    float refractScale;      // global multiplier on Snell displacement
+    float refractIOR;
+    float refractScale;
     float chromaStrength;    // 0..1 chromatic aberration
     vec4  tint;
     vec2  uvOffset;
     vec2  uvScale;
+    vec2  mousePos;          // widget-local UV (0..1); (-1,-1) = no mouse
+    float mouseFade;         // 0..1 hover fade
+    float specRadiusPx;      // radius of the specular glow in px
+    float specStrength;      // 0..1 intensity
 };
 
 layout(binding = 1) uniform sampler2D backdrop;
 
 // --- Shape SDF: superellipse-cornered rounded rect (squircle) ---
-//
-// Interior / edge box: standard rectangle SDF.
-// Corner quadrants: L^n norm so the corner follows a superellipse.
-// n = 2 gives a true circle (plain rounded rect); n ≈ 5 matches iOS squircle.
 
 float superellipseCorner(vec2 p, float r, float n) {
     p = abs(p);
@@ -55,36 +55,57 @@ float sceneSDF(vec2 p) {
     vec2 b = size * 0.5;
     float r = radius;
     vec2 d = abs(p) - b;
-
-    // Corner region: both components are within r of the edge.
     if (d.x > -r && d.y > -r) {
         vec2 cornerCenter = sign(p) * (b - vec2(r));
         vec2 cp = p - cornerCenter;
         return superellipseCorner(cp, r, roundness);
     }
-
-    // Edge region: plain box SDF.
     return min(max(d.x, d.y), 0.0) + length(max(d, vec2(0.0)));
 }
 
-// Numerical gradient of the SDF. Intentionally NOT normalized — its
-// magnitude collapses at the corners and is used downstream as an AA gate.
 vec2 sceneGradient(vec2 p) {
     float dx = sceneSDF(p + vec2(1.0, 0.0)) - sceneSDF(p - vec2(1.0, 0.0));
     float dy = sceneSDF(p + vec2(0.0, 1.0)) - sceneSDF(p - vec2(0.0, 1.0));
     return vec2(dx, dy);
 }
 
-// Sample the backdrop at a widget-local UV (0..1), mapping through
-// uvOffset/uvScale into wallpaper UV space.
 vec3 sampleBackdrop(vec2 localUV) {
     vec2 wpUV = clamp(uvOffset + localUV * uvScale, vec2(0.0), vec2(1.0));
     return texture(backdrop, wpUV).rgb;
 }
 
+// Mouse specular: gaussian halo around mousePos, with a small anisotropic
+// bump that leans the highlight toward the surface facing the mouse
+// (dot product with the SDF normal direction).
+vec3 mouseSpec(vec2 localUV, vec2 ndir) {
+    if (mouseFade <= 0.0 || specStrength <= 0.0) return vec3(0.0);
+    if (mousePos.x < 0.0 || mousePos.y < 0.0) return vec3(0.0);
+
+    // Distance from this fragment to the mouse, in widget pixels.
+    vec2 toMousePx = (mousePos - localUV) * size;
+    float distPx = length(toMousePx);
+
+    // Gaussian-ish falloff: exp(-x^2 / r^2). Half strength at ~0.6*radius.
+    float r = max(1.0, specRadiusPx);
+    float base = exp(-(distPx * distPx) / (r * r));
+
+    // Directional lean: fragments whose outward normal points roughly
+    // toward the mouse get a lightness boost, simulating a convex lens
+    // reflecting the "light" positioned at the mouse. This is subtle on
+    // the interior (normal is undefined there) and strongest at the lip.
+    vec2 toMouseDir = distPx > 0.001 ? (toMousePx / distPx) : vec2(0.0);
+    float facing = clamp(dot(ndir, -toMouseDir), 0.0, 1.0);
+    float lean = pow(facing, 2.0) * 0.6;
+
+    float intensity = base * (0.7 + lean) * specStrength * mouseFade;
+
+    // Slightly warm white so it reads as "light" not "flash".
+    return vec3(1.0, 0.98, 0.94) * intensity;
+}
+
 void main() {
     vec2 uv = qt_TexCoord0;
-    vec2 p  = (uv - vec2(0.5)) * size;      // pixel-space centered
+    vec2 p  = (uv - vec2(0.5)) * size;
     float d = sceneSDF(p);
 
     // Outside the shape: fully transparent.
@@ -93,73 +114,52 @@ void main() {
         return;
     }
 
-    // Depth INTO the shape, in pixels. 0 at the border, grows toward center.
+    vec3 col;
+    vec2 ndir = vec2(0.0);
     float depthPx = -d;
 
-    // Outside the edge band: flat glass, no refraction.
     if (depthPx >= refractThickness) {
-        vec3 col = sampleBackdrop(uv);
+        // Interior: flat glass (pass-through + tint), no refraction.
+        col = sampleBackdrop(uv);
         col = mix(col, tint.rgb, tint.a);
 
-        // Final AA: blend to raw background right at the silhouette.
-        float mask = 1.0 - smoothstep(-1.0, 0.0, d);
-        fragColor = vec4(col, mask) * qt_Opacity;
-        return;
+        // Normal direction is still useful for the spec lean; approximate
+        // it from the gradient even though the gradient is ~0 in the deep
+        // interior (lean term harmlessly goes to 0).
+        vec2 grad = sceneGradient(p);
+        float gradLen = length(grad);
+        ndir = gradLen > 1e-4 ? grad / gradLen : vec2(0.0);
+    } else {
+        // --- Edge band: Snell on a dome ---
+        float t = depthPx / refractThickness;
+        float sinThetaI = (1.0 - t) * (1.0 - t);
+        float thetaI = asin(clamp(sinThetaI, 0.0, 1.0));
+        float sinThetaT = sinThetaI / refractIOR;
+        float thetaT = asin(clamp(sinThetaT, 0.0, 1.0));
+        float edgeMag = tan(thetaI - thetaT);
+
+        vec2 grad = sceneGradient(p);
+        float gradLen = length(grad);
+        ndir = gradLen > 1e-4 ? grad / gradLen : vec2(0.0);
+
+        vec2 displacePx = -ndir * edgeMag * refractScale;
+        vec2 displaceUV = displacePx / size;
+
+        float edgeWeight = 1.0 - t;
+        float chromaPx = chromaStrength * refractThickness * 0.35 * edgeWeight;
+        vec2 chromaUV = -ndir * chromaPx / size;
+
+        col.r = sampleBackdrop(uv + displaceUV + chromaUV).r;
+        col.g = sampleBackdrop(uv + displaceUV).g;
+        col.b = sampleBackdrop(uv + displaceUV - chromaUV).b;
+
+        col = mix(col, tint.rgb, tint.a);
     }
 
-    // --- Edge band: Snell on a dome ---
+    // Mouse specular — additive, applied to both interior and edge paths.
+    col += mouseSpec(uv, ndir);
 
-    // t = 0 right at the outer edge, 1 at the band's inner boundary
-    float t = depthPx / refractThickness;
-
-    // sinθI follows a curved bevel: (1-t)^2 means the surface rises
-    // steeply right at the edge and flattens by the inner boundary.
-    float sinThetaI = (1.0 - t) * (1.0 - t);
-    float thetaI = asin(clamp(sinThetaI, 0.0, 1.0));
-
-    // Snell: n1 sinθI = n2 sinθT, n1=1 (air), n2=refractIOR
-    float sinThetaT = sinThetaI / refractIOR;
-    float thetaT = asin(clamp(sinThetaT, 0.0, 1.0));
-
-    // Lateral shift magnitude of the refracted ray, per unit of the
-    // normal direction. Positive value pulls the sampled point inward,
-    // which is what produces the "magnifying glass lip".
-    float edgeMag = tan(thetaI - thetaT);
-
-    // Unit direction along the outward surface normal. We use the unit
-    // vector for the refraction direction (so strength is controlled
-    // purely by edgeMag + refractScale), and use the raw gradient's
-    // magnitude separately as a corner-AA gate.
-    vec2 grad = sceneGradient(p);
-    float gradLen = length(grad);
-    vec2 ndir = gradLen > 1e-4 ? grad / gradLen : vec2(0.0);
-
-    // Displacement in widget pixels -> UV by dividing by size.
-    // refractScale is a user-facing strength knob; 40 is a good default
-    // for this coordinate system (widget-pixel SDF, not normalized).
-    vec2 displacePx = -ndir * edgeMag * refractScale;
-    vec2 displaceUV = displacePx / size;
-
-    // Chromatic aberration: R and B sampled at an extra offset along
-    // the refraction direction, INDEPENDENT of the Snell magnitude so
-    // the dispersion stays visible at both ends of the edge band. The
-    // offset grows with how far we are into the band so the center is
-    // clean and the edge fringe is strongest.
-    //   edgeWeight: 0 at inner boundary (t=1), 1 right at the outer edge (t=0)
-    float edgeWeight = 1.0 - t;
-    float chromaPx = chromaStrength * refractThickness * 0.35 * edgeWeight;
-    vec2 chromaUV = -ndir * chromaPx / size;
-
-    vec3 col;
-    col.r = sampleBackdrop(uv + displaceUV + chromaUV).r;
-    col.g = sampleBackdrop(uv + displaceUV).g;
-    col.b = sampleBackdrop(uv + displaceUV - chromaUV).b;
-
-    // Tint
-    col = mix(col, tint.rgb, tint.a);
-
-    // Final AA mask at the silhouette — a narrow smoothstep across d=0.
+    // Final AA mask at the silhouette.
     float mask = 1.0 - smoothstep(-1.0, 0.0, d);
-
     fragColor = vec4(col, mask) * qt_Opacity;
 }

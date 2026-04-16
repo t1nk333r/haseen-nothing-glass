@@ -14,11 +14,18 @@ Kirigami.FormLayout {
     property alias cfg_chromaStrengthPct: chromaSpin.value
     property alias cfg_specRadiusPx: specRadiusSpin.value
     property alias cfg_specStrengthPct: specStrengthSpin.value
+    property alias cfg_firstDayOfWeek: firstDayCombo.currentIndex
 
     ComboBox {
         id: themeCombo
         Kirigami.FormData.label: i18n("Theme:")
         model: [i18n("Dark"), i18n("Light"), i18n("Follow system")]
+    }
+
+    ComboBox {
+        id: firstDayCombo
+        Kirigami.FormData.label: i18n("First day of week:")
+        model: [i18n("Sunday"), i18n("Monday")]
     }
 
     SpinBox {

@@ -36,5 +36,8 @@
         <entry name="specStrengthPct" type="Int">
             <default>60</default>
         </entry>
+        <entry name="firstDayOfWeek" type="Int">
+            <default>0</default>
+        </entry>
     </group>
 </kcfg>

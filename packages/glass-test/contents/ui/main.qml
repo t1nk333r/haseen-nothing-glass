@@ -32,6 +32,8 @@ PlasmoidItem {
             tint: colors.glassTint
             tintAlpha: plasmoid.configuration.tintAlphaPct / 100
             chromaStrength: plasmoid.configuration.chromaStrengthPct / 100
+            specRadiusPx: plasmoid.configuration.specRadiusPx
+            specStrength: plasmoid.configuration.specStrengthPct / 100
             fallbackOpacity: colors.glassFallbackOpacity
         }
 
@@ -41,17 +43,10 @@ PlasmoidItem {
 
             Text {
                 Layout.alignment: Qt.AlignHCenter
-                text: "Liquid Glass"
+                text: "Liquid glASS"
                 color: colors.labelPrimary
                 font.pixelSize: 28
                 font.weight: Font.DemiBold
-            }
-
-            Text {
-                Layout.alignment: Qt.AlignHCenter
-                text: glass.active ? "wallpaper sampled" : "fallback (no wallpaper)"
-                color: colors.labelSecondary
-                font.pixelSize: 11
             }
         }
     }
