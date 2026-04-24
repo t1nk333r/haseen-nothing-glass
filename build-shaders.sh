@@ -9,8 +9,8 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SHADER_DIR="${SCRIPT_DIR}/1-common/components/shaders"
 
-QSB="$(command -v qsb || echo /usr/lib/qt6/bin/qsb)"
-if [[ ! -x "$QSB" ]]; then
+QSB="$(command -v qsb6 || command -v /usr/lib/qt6/bin/qsb || command -v qsb)"
+if [[ -z "$QSB" || ! -x "$QSB" ]]; then
 	echo "[!] qsb not found. Install qt6-base-dev-tools."
 	exit 1
 fi

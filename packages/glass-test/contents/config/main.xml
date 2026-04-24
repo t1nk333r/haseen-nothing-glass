@@ -31,7 +31,7 @@
             <default>60</default>
         </entry>
         <entry name="specRadiusPx" type="Int">
-            <default>140</default>
+            <default>100</default>
         </entry>
         <entry name="specStrengthPct" type="Int">
             <default>60</default>

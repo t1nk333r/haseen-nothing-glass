@@ -1,6 +1,6 @@
 #version 440
 
-// Liquid-glass fragment shader — Snell-on-a-dome refraction + mouse specular.
+// Liquid-glass fragment shader — Snell-on-a-dome refraction + corner specular.
 //
 // Ported from iyinchao/liquid-glass-studio's fragment-main.glsl with extras.
 // Key ideas:
@@ -9,12 +9,12 @@
 //         θT    = asin(sinθI / IOR)
 //         mag   = tan(θI - θT)   // lateral shift of the refracted ray
 //   * SDF gradient is kept UNNORMALIZED and its magnitude is reused as a
-//     corner-AA gate on the specular.
+//     corner-AA gate.
 //   * Chromatic dispersion: R/B sampled at an extra offset along the
 //     refraction direction, scaled by how deep we are in the edge band.
-//   * Mouse specular: radial gaussian glow centered on mousePos (in
-//     widget-local UV), boosted where the SDF gradient points toward the
-//     mouse (fake "curvature facing the light").
+//   * Corner specular: on hover, the two corners on the diagonal nearest
+//     the cursor light up; brightness tapers exponentially along the
+//     border from each apex; applied on the outer lip only.
 //
 // qt_TexCoord0 is widget-local UV (0..1).
 // uvOffset/uvScale map widget UV -> wallpaper UV.
@@ -37,7 +37,7 @@ layout(std140, binding = 0) uniform buf {
     vec2  uvScale;
     vec2  mousePos;          // widget-local UV (0..1); (-1,-1) = no mouse
     float mouseFade;         // 0..1 hover fade
-    float specRadiusPx;      // radius of the specular glow in px
+    float specRadiusPx;      // corner specular arc-length taper in px
     float specStrength;      // 0..1 intensity
 };
 
@@ -74,33 +74,76 @@ vec3 sampleBackdrop(vec2 localUV) {
     return texture(backdrop, wpUV).rgb;
 }
 
-// Mouse specular: gaussian halo around mousePos, with a small anisotropic
-// bump that leans the highlight toward the surface facing the mouse
-// (dot product with the SDF normal direction).
-vec3 mouseSpec(vec2 localUV, vec2 ndir) {
+// Corner border specular. Thin stroke on the silhouette with per-corner
+// prominence: dominant corner (nearest cursor) full, diagonal opposite
+// half, the other two minimal. Slight feather.
+vec3 cornerSpec(vec2 p, float depthPx) {
     if (mouseFade <= 0.0 || specStrength <= 0.0) return vec3(0.0);
     if (mousePos.x < 0.0 || mousePos.y < 0.0) return vec3(0.0);
 
-    // Distance from this fragment to the mouse, in widget pixels.
-    vec2 toMousePx = (mousePos - localUV) * size;
-    float distPx = length(toMousePx);
+    // Hard cap on stroke thickness at the dominant apex, in px.
+    const float MAX_STROKE_PX = 3.0;
+    const float DOMINANT     = 1.0;  // the single nearest corner
+    const float DIAGONAL     = 0.5;  // its diagonal opposite
+    const float OTHER        = 0.12; // the other two corners (thin)
 
-    // Gaussian-ish falloff: exp(-x^2 / r^2). Half strength at ~0.6*radius.
-    float r = max(1.0, specRadiusPx);
-    float base = exp(-(distPx * distPx) / (r * r));
+    vec2 b = size * 0.5;
+    vec2 mousePx = (mousePos - vec2(0.5)) * size;
 
-    // Directional lean: fragments whose outward normal points roughly
-    // toward the mouse get a lightness boost, simulating a convex lens
-    // reflecting the "light" positioned at the mouse. This is subtle on
-    // the interior (normal is undefined there) and strongest at the lip.
-    vec2 toMouseDir = distPx > 0.001 ? (toMousePx / distPx) : vec2(0.0);
-    float facing = clamp(dot(ndir, -toMouseDir), 0.0, 1.0);
-    float lean = pow(facing, 2.0) * 0.6;
+    // Corner apexes (outer-rectangle corners).
+    vec2 aTL = vec2(-b.x,  b.y);
+    vec2 aTR = vec2( b.x,  b.y);
+    vec2 aBL = vec2(-b.x, -b.y);
+    vec2 aBR = vec2( b.x, -b.y);
 
-    float intensity = base * (0.7 + lean) * specStrength * mouseFade;
+    // Softmax over the four corners to pick the dominant one without a
+    // hard pop when the cursor crosses an axis. The sharpness constant
+    // determines how decisively the nearest corner wins; larger = harder.
+    float sharp = 1.0 / (max(size.x, size.y) * 0.30);
+    float dTL = distance(mousePx, aTL);
+    float dTR = distance(mousePx, aTR);
+    float dBL = distance(mousePx, aBL);
+    float dBR = distance(mousePx, aBR);
+    float wTL = exp(-dTL * sharp);
+    float wTR = exp(-dTR * sharp);
+    float wBL = exp(-dBL * sharp);
+    float wBR = exp(-dBR * sharp);
+    float wSum = wTL + wTR + wBL + wBR + 1e-6;
+    wTL /= wSum; wTR /= wSum; wBL /= wSum; wBR /= wSum;
 
-    // Slightly warm white so it reads as "light" not "flash".
-    return vec3(1.0, 0.98, 0.94) * intensity;
+    // Per-corner prominence is a softmax-weighted blend of the three
+    // roles (dominant / diagonal / other). Each corner sees itself as
+    // dominant with weight w_self, the opposite diagonal as diagonal
+    // with weight w_opp, and the other two as "other".
+    float promTL = wTL*DOMINANT + wBR*DIAGONAL + (wTR + wBL)*OTHER;
+    float promTR = wTR*DOMINANT + wBL*DIAGONAL + (wTL + wBR)*OTHER;
+    float promBL = wBL*DOMINANT + wTR*DIAGONAL + (wTL + wBR)*OTHER;
+    float promBR = wBR*DOMINANT + wTL*DIAGONAL + (wTR + wBL)*OTHER;
+
+    // Arc-length attenuation along the border from each apex.
+    float taper = max(1.0, specRadiusPx);
+    float aTLa = exp(-distance(p, aTL) / taper);
+    float aTRa = exp(-distance(p, aTR) / taper);
+    float aBLa = exp(-distance(p, aBL) / taper);
+    float aBRa = exp(-distance(p, aBR) / taper);
+
+    // Effective stroke thickness at this fragment. Take the max so
+    // contributions don't double up.
+    float tPx = 0.0;
+    tPx = max(tPx, promTL * aTLa * MAX_STROKE_PX);
+    tPx = max(tPx, promTR * aTRa * MAX_STROKE_PX);
+    tPx = max(tPx, promBL * aBLa * MAX_STROKE_PX);
+    tPx = max(tPx, promBR * aBRa * MAX_STROKE_PX);
+
+    // Render the stroke with a 2px feather on the inner lip so it
+    // reads as a softened hairline rather than a hard slab.
+    const float FEATHER_PX = 2.0;
+    float stroke = 1.0 - smoothstep(tPx - FEATHER_PX, tPx, depthPx);
+
+    // Global tone-down multiplier so the effect stays subtle even at
+    // specStrength = 1.0.
+    float I = stroke * specStrength * mouseFade * 0.55;
+    return vec3(1.0, 0.98, 0.94) * I;
 }
 
 void main() {
@@ -115,20 +158,12 @@ void main() {
     }
 
     vec3 col;
-    vec2 ndir = vec2(0.0);
     float depthPx = -d;
 
     if (depthPx >= refractThickness) {
         // Interior: flat glass (pass-through + tint), no refraction.
         col = sampleBackdrop(uv);
         col = mix(col, tint.rgb, tint.a);
-
-        // Normal direction is still useful for the spec lean; approximate
-        // it from the gradient even though the gradient is ~0 in the deep
-        // interior (lean term harmlessly goes to 0).
-        vec2 grad = sceneGradient(p);
-        float gradLen = length(grad);
-        ndir = gradLen > 1e-4 ? grad / gradLen : vec2(0.0);
     } else {
         // --- Edge band: Snell on a dome ---
         float t = depthPx / refractThickness;
@@ -140,7 +175,7 @@ void main() {
 
         vec2 grad = sceneGradient(p);
         float gradLen = length(grad);
-        ndir = gradLen > 1e-4 ? grad / gradLen : vec2(0.0);
+        vec2 ndir = gradLen > 1e-4 ? grad / gradLen : vec2(0.0);
 
         vec2 displacePx = -ndir * edgeMag * refractScale;
         vec2 displaceUV = displacePx / size;
@@ -154,10 +189,11 @@ void main() {
         col.b = sampleBackdrop(uv + displaceUV - chromaUV).b;
 
         col = mix(col, tint.rgb, tint.a);
-    }
 
-    // Mouse specular — additive, applied to both interior and edge paths.
-    col += mouseSpec(uv, ndir);
+        // Corner specular — hairline stroke on the silhouette (self-gated
+        // by its own stroke-thickness test in depthPx).
+        col += cornerSpec(p, depthPx);
+    }
 
     // Final AA mask at the silhouette.
     float mask = 1.0 - smoothstep(-1.0, 0.0, d);

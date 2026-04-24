@@ -34,9 +34,10 @@ Item {
     property real tintAlpha: 0.18
     property real chromaStrength: 0.5
 
-    // Mouse-following specular highlight
+    // Corner border specular (nearest + diagonal-opposite corners on hover).
+    // specRadiusPx is the arc-length taper in px from each corner apex.
     property bool specEnabled: true
-    property real specRadiusPx: 140
+    property real specRadiusPx: 100
     property real specStrength: 0.6
 
     // Placeholder for blur (currently disabled in the pipeline)
