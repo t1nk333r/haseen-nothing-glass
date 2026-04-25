@@ -1,15 +1,10 @@
 import QtQuick
 
-// 60 radial tick marks at true clock angles. Each tick is a pill-shaped
-// stroke running from an INNER squircle frame to an OUTER squircle
-// frame. Both frames are the widget's actual shape (matching glass
-// cornerRadius + roundness) offset inward by different amounts, so the
-// ticks lie within a "band" that hugs the widget silhouette.
-//
-// Because the widget is a squircle — not a circle — rays at corner
-// angles (45° etc) reach farther from center than rays at edge midpoints
-// (0°/90°/180°/270°). That length difference IS the "corner ticks are
-// longer" effect, free from geometry. No per-tick length table.
+// 60 radial tick marks at true clock angles. Each tick is a fixed-length
+// pill stroke, with its outer endpoint inset from the widget silhouette
+// and its inner endpoint stepped inward along the same ray. Corner ticks
+// are moved out toward the corners, so edge padding stays consistent
+// while all ticks keep the same length.
 //
 // Clock convention: 0° = 12 o'clock, clockwise positive.
 Item {
@@ -48,20 +43,20 @@ Item {
     // purposes of "is this point inside?" and "find boundary along a ray"
     // the level-set sign is what matters, not Euclidean distance.
     function _squircleLevel(x, y, hw, hh, r, n) {
-        const ax = Math.abs(x)
-        const ay = Math.abs(y)
-        const qx = ax - hw + r
-        const qy = ay - hh + r
+        const ax = Math.abs(x);
+        const ay = Math.abs(y);
+        const qx = ax - hw + r;
+        const qy = ay - hh + r;
         if (qx <= 0 && qy <= 0) {
             // Interior relative to the inner straight-edge box; distance
             // is max(qx,qy) which is negative.
-            return Math.max(qx, qy) - r
+            return Math.max(qx, qy) - r;
         }
-        const mx = Math.max(qx, 0)
-        const my = Math.max(qy, 0)
+        const mx = Math.max(qx, 0);
+        const my = Math.max(qy, 0);
         // p-norm for corner wedge; straight edge degenerates to |mx|/|my|.
-        const arc = Math.pow(Math.pow(mx, n) + Math.pow(my, n), 1 / n)
-        return Math.min(Math.max(qx, qy), 0) + arc - r
+        const arc = Math.pow(Math.pow(mx, n) + Math.pow(my, n), 1 / n);
+        return Math.min(Math.max(qx, qy), 0) + arc - r;
     }
 
     // Find t ≥ 0 where the ray from origin (cx, cy) at direction
@@ -69,9 +64,9 @@ Item {
     // bracket. Pure-JS, called 60× per geometry change — cost trivial.
     function _squircleRayHit(cx, cy, dx, dy, hw, hh, r, n) {
         // Start by bounding t with the axis-aligned bounding rectangle.
-        const tX = Math.abs(dx) > 1e-9 ? hw / Math.abs(dx) : Infinity
-        const tY = Math.abs(dy) > 1e-9 ? hh / Math.abs(dy) : Infinity
-        let tHi = Math.min(tX, tY)
+        const tX = Math.abs(dx) > 1e-9 ? hw / Math.abs(dx) : Infinity;
+        const tY = Math.abs(dy) > 1e-9 ? hh / Math.abs(dy) : Infinity;
+        let tHi = Math.min(tX, tY);
         // For n >= 2 the squircle lies inside its bounding rect along
         // the 45° diagonal (at n=2 the inscribed circle is smaller than
         // the square's diagonal), so tHi is >= the true hit. For n→∞
@@ -82,20 +77,26 @@ Item {
         // origin is inside; otherwise the ray doesn't intersect a
         // centered squircle enclosing the origin, which can't happen
         // here (cx=cy=0 is always inside).
-        let tLo = 0
+        let tLo = 0;
         // 20 iterations of bisection → ~1e-6 * tHi precision. Plenty.
         for (let i = 0; i < 24; i++) {
-            const tm = 0.5 * (tLo + tHi)
-            const lvl = _squircleLevel(tm * dx, tm * dy, hw, hh, r, n)
-            if (lvl < 0) tLo = tm; else tHi = tm
+            const tm = 0.5 * (tLo + tHi);
+            const lvl = _squircleLevel(tm * dx, tm * dy, hw, hh, r, n);
+            if (lvl < 0)
+                tLo = tm;
+            else
+                tHi = tm;
         }
-        const t = 0.5 * (tLo + tHi)
-        return { x: cx + t * dx, y: cy + t * dy }
+        const t = 0.5 * (tLo + tHi);
+        return {
+            x: cx + t * dx,
+            y: cy + t * dy
+        };
     }
 
     function _rebuild() {
-        const cx = width / 2
-        const cy = height / 2
+        const cx = width / 2;
+        const cy = height / 2;
 
         // OUTER endpoints: sit exactly `outerInsetPx` pixels back from
         // the widget silhouette along each ray. This gives uniform
@@ -106,42 +107,73 @@ Item {
         //  squircle by MORE than outerInsetPx along the 45° diagonal
         //  because the superellipse is fatter there, which makes corner
         //  ticks appear too short.)
-        const outerInsetPx = outerInset * _minSide
+        const outerInsetPx = outerInset * _minSide;
 
-        // INNER endpoints: follow a rounded-rectangle frame. Keep the
-        // same "shrink hw/hh/r" approach since the user confirmed the
-        // inner positions look right as a rounded rect.
-        const innerPad = (outerInset + tickLength) * _minSide
-        const innerHw = Math.max(1, width  / 2 - innerPad)
-        const innerHh = Math.max(1, height / 2 - innerPad)
-        const innerR  = Math.max(0, cornerRadius - innerPad)
+        const tickLengthPx = tickLength * _minSide;
 
         // Widget silhouette for the outer endpoints.
-        const silHw = width  / 2
-        const silHh = height / 2
-        const silR  = cornerRadius
+        const silHw = width / 2;
+        const silHh = height / 2;
+        const silR = cornerRadius;
 
-        const outer = new Array(60)
-        const inner = new Array(60)
+        const outer = new Array(60);
+        const inner = new Array(60);
+        const smoothstep = function (a, b, x) {
+            const t = Math.max(0, Math.min(1, (x - a) / (b - a)));
+            return t * t * (3 - 2 * t);
+        };
+
         for (let i = 0; i < 60; i++) {
-            const rad = i * 6 * Math.PI / 180
-            const dx = Math.sin(rad)
-            const dy = -Math.cos(rad)
+            const rad = i * 6 * Math.PI / 180;
+            const dx = Math.sin(rad);
+            const dy = -Math.cos(rad);
+            const ax = Math.abs(dx);
+            const ay = Math.abs(dy);
 
             // Hit the widget silhouette, then step back along the ray
             // by outerInsetPx (the ray is a unit vector so this is an
             // exact pixel step).
-            const hit = _squircleRayHit(cx, cy, dx, dy, silHw, silHh, silR, roundness)
+            const hit = _squircleRayHit(cx, cy, dx, dy, silHw, silHh, silR, roundness);
             outer[i] = {
                 x: hit.x - dx * outerInsetPx,
                 y: hit.y - dy * outerInsetPx
+            };
+
+            const fixedInner = {
+                x: outer[i].x - dx * tickLengthPx,
+                y: outer[i].y - dy * tickLengthPx
+            };
+
+            // On the visual straight edges, align the inner tick starts
+            // to the same inset side line so neighboring starts are even.
+            // Blend back to fixed-length ticks through the corner arcs.
+            let edgeInner;
+            if (ay >= ax) {
+                const sideY = cy + Math.sign(dy) * (silHh - outerInsetPx - tickLengthPx);
+                const t = Math.abs(dy) > 1e-9 ? (sideY - cy) / dy : 0;
+                edgeInner = {
+                    x: cx + t * dx,
+                    y: sideY
+                };
+            } else {
+                const sideX = cx + Math.sign(dx) * (silHw - outerInsetPx - tickLengthPx);
+                const t = Math.abs(dx) > 1e-9 ? (sideX - cx) / dx : 0;
+                edgeInner = {
+                    x: sideX,
+                    y: cy + t * dy
+                };
             }
 
-            inner[i] = _squircleRayHit(cx, cy, dx, dy, innerHw, innerHh, innerR, roundness)
+            const cornerness = Math.min(ax, ay) / Math.max(ax, ay);
+            const cornerBlend = smoothstep(0.45, 0.85, cornerness);
+            inner[i] = {
+                x: edgeInner.x + (fixedInner.x - edgeInner.x) * cornerBlend,
+                y: edgeInner.y + (fixedInner.y - edgeInner.y) * cornerBlend
+            };
         }
-        _ticksOuter = outer
-        _ticksInner = inner
-        canvas.requestPaint()
+        _ticksOuter = outer;
+        _ticksInner = inner;
+        canvas.requestPaint();
     }
 
     onWidthChanged: _rebuild()
@@ -164,13 +196,13 @@ Item {
         renderStrategy: Canvas.Immediate
 
         onPaint: {
-            const ctx = getContext("2d")
-            ctx.reset()
-            if (!root._ticksOuter || root._ticksOuter.length !== 60) return
-
-            const base = root.baseOpacity
+            const ctx = getContext("2d");
+            ctx.reset();
+            if (!root._ticksOuter || root._ticksOuter.length !== 60)
+                return;
+            const base = root.baseOpacity;
             // Comet trail length: 270° behind the prev tick.
-            const trailDeg = 270.0
+            const trailDeg = 270.0;
 
             // Discrete-step head with sub-second crossfade. The trail
             // is anchored to the PREVIOUS tick (not the continuous
@@ -178,51 +210,53 @@ Item {
             // animation is still 60fps because `sHead` (the crossfade
             // fraction) is recomputed every paint, which happens every
             // 16ms via secondHandAngle updates.
-            const pos = root.secondHandAngle / 6.0
-            const curIdx  = Math.floor(pos) % 60
-            const prevIdx = (curIdx - 1 + 60) % 60
+            const pos = root.secondHandAngle / 6.0;
+            const curIdx = Math.floor(pos) % 60;
+            const prevIdx = (curIdx - 1 + 60) % 60;
             // Sub-second crossfade fraction for the head, eased.
-            let fadeT = pos - Math.floor(pos)
-            if (fadeT < 0) fadeT = 0
-            else if (fadeT > 1) fadeT = 1
-            const sHead = fadeT * fadeT * (3 - 2 * fadeT)
+            let fadeT = pos - Math.floor(pos);
+            if (fadeT < 0)
+                fadeT = 0;
+            else if (fadeT > 1)
+                fadeT = 1;
+            const sHead = fadeT * fadeT * (3 - 2 * fadeT);
 
-            ctx.lineCap = "round"
-            ctx.lineJoin = "round"
-            ctx.lineWidth = root.tickWidthPx
-            ctx.strokeStyle = Qt.rgba(root.tickColor.r, root.tickColor.g, root.tickColor.b, 1)
+            ctx.lineCap = "round";
+            ctx.lineJoin = "round";
+            ctx.lineWidth = root.tickWidthPx;
+            ctx.strokeStyle = Qt.rgba(root.tickColor.r, root.tickColor.g, root.tickColor.b, 1);
 
             for (let i = 0; i < 60; i++) {
-                let s = 0   // base envelope above baseOpacity, in [0, 1]
+                let s = 0;   // base envelope above baseOpacity, in [0, 1]
 
                 if (i === curIdx) {
                     // New head: crossfade in from base to full bright.
-                    s = sHead
+                    s = sHead;
                 } else {
                     // Trail anchored at the previous tick. Degrees this
                     // tick is BEHIND prevIdx along the dial (clockwise
                     // semantics: positive = older).
-                    const angle = i * 6
-                    const prevAngle = prevIdx * 6
-                    const off = (prevAngle - angle + 360) % 360
+                    const angle = i * 6;
+                    const prevAngle = prevIdx * 6;
+                    const off = (prevAngle - angle + 360) % 360;
                     if (off >= 0 && off <= trailDeg) {
                         // u = 1 at prevIdx (head of trail), 0 at the
                         // far end where it has fully faded to base.
-                        const u = 1 - off / trailDeg
-                        s = Math.pow(u, 0.6)
+                        const u = 1 - off / trailDeg;
+                        s = Math.pow(u, 0.6);
                     }
                 }
 
-                const op = base + (1 - base) * s
-                const o = root._ticksOuter[i]
-                const ii = root._ticksInner[i]
-                ctx.globalAlpha = op
-                ctx.beginPath()
-                ctx.moveTo(ii.x, ii.y)
-                ctx.lineTo(o.x, o.y)
-                ctx.stroke()
+                const op = base + (1 - base) * s;
+                const o = root._ticksOuter[i];
+                const ii = root._ticksInner[i];
+                ctx.globalAlpha = op;
+                ctx.beginPath();
+                ctx.moveTo(ii.x, ii.y);
+                ctx.lineTo(o.x, o.y);
+                ctx.stroke();
             }
-            ctx.globalAlpha = 1
+            ctx.globalAlpha = 1;
         }
     }
 }

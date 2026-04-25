@@ -41,11 +41,9 @@ PlasmoidItem {
         repeat: true
         running: true
         onTriggered: {
-            const n = new Date()
-            if (n.getMinutes() !== root.now.getMinutes()
-                || n.getHours() !== root.now.getHours()
-                || n.getDate() !== root.now.getDate()) {
-                root.now = n
+            const n = new Date();
+            if (n.getMinutes() !== root.now.getMinutes() || n.getHours() !== root.now.getHours() || n.getDate() !== root.now.getDate()) {
+                root.now = n;
             }
         }
     }
@@ -83,7 +81,7 @@ PlasmoidItem {
             outerInset: 0.05
             tickLength: 0.05
             tickWidthPx: 2.2
-            baseOpacity: colors.isGlass ? 0.18 : 0.5
+            baseOpacity: colors.isGlass ? 0.18 : 0.30
             tickColor: colors.foreground
         }
 
@@ -95,8 +93,8 @@ PlasmoidItem {
             repeat: true
             running: full.visible
             onTriggered: {
-                const ms = Date.now() % 60000
-                ticks.secondHandAngle = (ms / 60000) * 360
+                const ms = Date.now() % 60000;
+                ticks.secondHandAngle = (ms / 60000) * 360;
             }
         }
 
@@ -109,8 +107,7 @@ PlasmoidItem {
             // Usable interior: widget width minus the same visual gap
             // on both sides that the ticks leave to the edge (5% inset
             // + 5% tick length + 5% pad = 15% each side).
-            availableWidth: Math.max(40,
-                full.width - 2 * Math.min(full.width, full.height) * 0.15)
+            availableWidth: Math.max(40, full.width - 2 * Math.min(full.width, full.height) * 0.15)
             hour12: root.hour12
             minute: root.minute
             digitOpacity: colors.isGlass ? 0.55 : 1.0
