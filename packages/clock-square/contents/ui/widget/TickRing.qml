@@ -1,10 +1,9 @@
 import QtQuick
 
-// 60 radial tick marks at true clock angles. Each tick is a fixed-length
-// pill stroke, with its outer endpoint inset from the widget silhouette
-// and its inner endpoint stepped inward along the same ray. Corner ticks
-// are moved out toward the corners, so edge padding stays consistent
-// while all ticks keep the same length.
+// 60 radial tick marks at true clock angles. Each tick is a pill-shaped
+// stroke running from an inner squircle frame to an outer squircle frame.
+// Corner ticks naturally become longer than straight-edge ticks because
+// the ray distance between inset squircles is larger through the corners.
 //
 // Clock convention: 0° = 12 o'clock, clockwise positive.
 Item {
@@ -98,78 +97,26 @@ Item {
         const cx = width / 2;
         const cy = height / 2;
 
-        // OUTER endpoints: sit exactly `outerInsetPx` pixels back from
-        // the widget silhouette along each ray. This gives uniform
-        // spacing between the tick tip and the widget edge at every
-        // clock angle, including corners.
-        //
-        // (Naively shrinking hw/hh/r by outerInsetPx shrinks the
-        //  squircle by MORE than outerInsetPx along the 45° diagonal
-        //  because the superellipse is fatter there, which makes corner
-        //  ticks appear too short.)
         const outerInsetPx = outerInset * _minSide;
+        const innerPad = (outerInset + tickLength) * _minSide;
 
-        const tickLengthPx = tickLength * _minSide;
+        const outerHw = Math.max(1, width / 2 - outerInsetPx);
+        const outerHh = Math.max(1, height / 2 - outerInsetPx);
+        const outerR = Math.max(0, cornerRadius - outerInsetPx);
 
-        // Widget silhouette for the outer endpoints.
-        const silHw = width / 2;
-        const silHh = height / 2;
-        const silR = cornerRadius;
+        const innerHw = Math.max(1, width / 2 - innerPad);
+        const innerHh = Math.max(1, height / 2 - innerPad);
+        const innerR = Math.max(0, cornerRadius - innerPad);
 
         const outer = new Array(60);
         const inner = new Array(60);
-        const smoothstep = function (a, b, x) {
-            const t = Math.max(0, Math.min(1, (x - a) / (b - a)));
-            return t * t * (3 - 2 * t);
-        };
-
         for (let i = 0; i < 60; i++) {
             const rad = i * 6 * Math.PI / 180;
             const dx = Math.sin(rad);
             const dy = -Math.cos(rad);
-            const ax = Math.abs(dx);
-            const ay = Math.abs(dy);
 
-            // Hit the widget silhouette, then step back along the ray
-            // by outerInsetPx (the ray is a unit vector so this is an
-            // exact pixel step).
-            const hit = _squircleRayHit(cx, cy, dx, dy, silHw, silHh, silR, roundness);
-            outer[i] = {
-                x: hit.x - dx * outerInsetPx,
-                y: hit.y - dy * outerInsetPx
-            };
-
-            const fixedInner = {
-                x: outer[i].x - dx * tickLengthPx,
-                y: outer[i].y - dy * tickLengthPx
-            };
-
-            // On the visual straight edges, align the inner tick starts
-            // to the same inset side line so neighboring starts are even.
-            // Blend back to fixed-length ticks through the corner arcs.
-            let edgeInner;
-            if (ay >= ax) {
-                const sideY = cy + Math.sign(dy) * (silHh - outerInsetPx - tickLengthPx);
-                const t = Math.abs(dy) > 1e-9 ? (sideY - cy) / dy : 0;
-                edgeInner = {
-                    x: cx + t * dx,
-                    y: sideY
-                };
-            } else {
-                const sideX = cx + Math.sign(dx) * (silHw - outerInsetPx - tickLengthPx);
-                const t = Math.abs(dx) > 1e-9 ? (sideX - cx) / dx : 0;
-                edgeInner = {
-                    x: sideX,
-                    y: cy + t * dy
-                };
-            }
-
-            const cornerness = Math.min(ax, ay) / Math.max(ax, ay);
-            const cornerBlend = smoothstep(0.45, 0.85, cornerness);
-            inner[i] = {
-                x: edgeInner.x + (fixedInner.x - edgeInner.x) * cornerBlend,
-                y: edgeInner.y + (fixedInner.y - edgeInner.y) * cornerBlend
-            };
+            outer[i] = _squircleRayHit(cx, cy, dx, dy, outerHw, outerHh, outerR, roundness);
+            inner[i] = _squircleRayHit(cx, cy, dx, dy, innerHw, innerHh, innerR, roundness);
         }
         _ticksOuter = outer;
         _ticksInner = inner;
