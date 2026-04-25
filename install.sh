@@ -4,6 +4,44 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+restart_plasmashell() {
+	echo "[*] Reloading plasmashell..."
+
+	if pgrep -x plasmashell >/dev/null; then
+		if command -v kquitapp6 >/dev/null; then
+			kquitapp6 plasmashell >/dev/null 2>&1 || true
+		elif command -v qdbus6 >/dev/null; then
+			qdbus6 org.kde.plasmashell /MainApplication quit >/dev/null 2>&1 || true
+		else
+			echo "[!] kquitapp6/qdbus6 not found; falling back to SIGTERM"
+			killall plasmashell >/dev/null 2>&1 || true
+		fi
+
+		for _ in {1..50}; do
+			if ! pgrep -x plasmashell >/dev/null; then
+				break
+			fi
+			sleep 0.1
+		done
+
+		if pgrep -x plasmashell >/dev/null; then
+			echo "[!] Plasmashell did not quit cleanly; sending SIGTERM"
+			killall plasmashell >/dev/null 2>&1 || true
+			sleep 0.5
+		fi
+	fi
+
+	if command -v kstart6 >/dev/null; then
+		kstart6 plasmashell >/dev/null 2>&1
+	elif command -v kstart >/dev/null; then
+		kstart plasmashell >/dev/null 2>&1
+	else
+		nohup plasmashell >/dev/null 2>&1 &
+	fi
+
+	echo "[+] Plasmashell reloaded"
+}
+
 install_widget() {
 	local WIDGET_NAME="$1"
 	local SKIP_RELOAD="${2:-false}"
@@ -35,9 +73,7 @@ install_widget() {
 	fi
 
 	if [[ "$SKIP_RELOAD" != "true" ]]; then
-		echo "[*] Post-install hook: restarting plasmashell..."
-		killall plasmashell && kstart plasmashell
-		echo "[+] Plasmashell restarted"
+		restart_plasmashell
 	fi
 
 	return 0
@@ -84,8 +120,7 @@ if [[ "$1" == "--all" || "$1" == "-a" ]]; then
 	fi
 
 	echo ""
-	echo "[*] Reloading plasmashell..."
-	killall plasmashell && kstart plasmashell
+	restart_plasmashell
 	echo "[+] All done!"
 
 elif [[ -n "$1" && -d "packages/$1" ]]; then
