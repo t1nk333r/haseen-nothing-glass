@@ -13,6 +13,9 @@ Item {
     property real outerInset: 0.05
     // Inner frame = widget silhouette shrunk by outerInset + tickLength.
     property real tickLength: 0.05
+    // Pull corner ticks slightly outward so their gap to the edge feels
+    // closer to the gap they leave on the inside.
+    property real cornerOuterExtension: 0.012
 
     // Squircle parameters, matching the glass shape.
     property real cornerRadius: 100
@@ -99,14 +102,7 @@ Item {
 
         const outerInsetPx = outerInset * _minSide;
         const innerPad = (outerInset + tickLength) * _minSide;
-
-        const outerHw = Math.max(1, width / 2 - outerInsetPx);
-        const outerHh = Math.max(1, height / 2 - outerInsetPx);
-        const outerR = Math.max(0, cornerRadius - outerInsetPx);
-
-        const innerHw = Math.max(1, width / 2 - innerPad);
-        const innerHh = Math.max(1, height / 2 - innerPad);
-        const innerR = Math.max(0, cornerRadius - innerPad);
+        const cornerExtensionPx = cornerOuterExtension * _minSide;
 
         const outer = new Array(60);
         const inner = new Array(60);
@@ -114,6 +110,18 @@ Item {
             const rad = i * 6 * Math.PI / 180;
             const dx = Math.sin(rad);
             const dy = -Math.cos(rad);
+
+            // 0 on flat edges, 1 on the 45° corner diagonals.
+            const cornerBlend = 1 - Math.abs(Math.abs(dx) - Math.abs(dy));
+            const tickOuterInsetPx = Math.max(0, outerInsetPx - cornerExtensionPx * cornerBlend);
+
+            const outerHw = Math.max(1, width / 2 - tickOuterInsetPx);
+            const outerHh = Math.max(1, height / 2 - tickOuterInsetPx);
+            const outerR = Math.max(0, cornerRadius - tickOuterInsetPx);
+
+            const innerHw = Math.max(1, width / 2 - innerPad);
+            const innerHh = Math.max(1, height / 2 - innerPad);
+            const innerR = Math.max(0, cornerRadius - innerPad);
 
             outer[i] = _squircleRayHit(cx, cy, dx, dy, outerHw, outerHh, outerR, roundness);
             inner[i] = _squircleRayHit(cx, cy, dx, dy, innerHw, innerHh, innerR, roundness);
@@ -127,6 +135,7 @@ Item {
     onHeightChanged: _rebuild()
     onOuterInsetChanged: _rebuild()
     onTickLengthChanged: _rebuild()
+    onCornerOuterExtensionChanged: _rebuild()
     onCornerRadiusChanged: _rebuild()
     onRoundnessChanged: _rebuild()
     Component.onCompleted: _rebuild()

@@ -79,7 +79,8 @@ PlasmoidItem {
             cornerRadius: glass.radius
             roundness: glass.roundness
             outerInset: 0.05
-            tickLength: 0.05
+            tickLength: 0.026
+            cornerOuterExtension: 0.012
             tickWidthPx: 2.2
             baseOpacity: colors.isGlass ? 0.18 : 0.30
             tickColor: colors.foreground
