@@ -10,7 +10,9 @@ PlasmoidItem {
     id: root
 
     Plasmoid.backgroundHints: PlasmaCore.Types.NoBackground
-    preferredRepresentation: fullRepresentation
+    preferredRepresentation: (Plasmoid.formFactor === PlasmaCore.Types.Horizontal ||
+                              Plasmoid.formFactor === PlasmaCore.Types.Vertical)
+                             ? compactRepresentation : fullRepresentation
 
     MacOSColors {
         id: colors
@@ -53,7 +55,7 @@ PlasmoidItem {
     // gives the RollingDigit entrance animations time to play first
     Timer {
         id: startDelayTimer
-        interval: 420
+        interval: 1000
         repeat: false
         onTriggered: root.targetTime = Date.now() + root.remainingMs
     }
@@ -94,6 +96,129 @@ PlasmoidItem {
     }
 
     // ── UI ────────────────────────────────────────────────────────────────
+    compactRepresentation: Item {
+        id: compact
+
+        readonly property bool _isActive: root.timerState !== 0
+
+        states: [
+            State {
+                name: "horizontalPanel"
+                when: Plasmoid.formFactor === PlasmaCore.Types.Horizontal
+                PropertyChanges {
+                    compact.Layout.fillHeight: true
+                    compact.Layout.fillWidth: false
+                    compact.Layout.minimumWidth: compactRow.implicitWidth + compact.height * 0.3
+                    compact.Layout.maximumWidth: compact.Layout.minimumWidth
+                }
+            },
+            State {
+                name: "verticalPanel"
+                when: Plasmoid.formFactor === PlasmaCore.Types.Vertical
+                PropertyChanges {
+                    compact.Layout.fillHeight: false
+                    compact.Layout.fillWidth: true
+                    compact.Layout.minimumHeight: compactRow.implicitHeight + compact.width * 0.3
+                    compact.Layout.maximumHeight: compact.Layout.minimumHeight
+                }
+            },
+            State {
+                name: "desktop"
+                when: Plasmoid.formFactor !== PlasmaCore.Types.Horizontal &&
+                      Plasmoid.formFactor !== PlasmaCore.Types.Vertical
+                PropertyChanges {
+                    compact.Layout.minimumWidth: compactRow.implicitWidth + 8
+                    compact.Layout.minimumHeight: compactRow.implicitHeight + 8
+                }
+            }
+        ]
+
+        SequentialAnimation on opacity {
+            running: root.timerState === 3
+            loops: Animation.Infinite
+            NumberAnimation { to: 0.3; duration: 500; easing.type: Easing.InOutQuad }
+            NumberAnimation { to: 1.0; duration: 500; easing.type: Easing.InOutQuad }
+            onRunningChanged: if (!running) compact.opacity = 1.0
+        }
+
+        Row {
+            id: compactRow
+            anchors.centerIn: parent
+            spacing: Math.round(compact.height * 0.18)
+
+            Canvas {
+                id: progressRing
+                width: compact.height * 0.72
+                height: compact.height * 0.72
+                anchors.verticalCenter: parent.verticalCenter
+                antialiasing: true
+
+                property real _p: root.totalMs > 0
+                    ? (root.totalMs - root.remainingMs) / root.totalMs : 0
+                property int _state: root.timerState
+
+                on_PChanged: requestPaint()
+                on_StateChanged: requestPaint()
+                Component.onCompleted: requestPaint()
+
+                onPaint: {
+                    var ctx = getContext("2d")
+                    ctx.reset()
+
+                    var cx = width / 2
+                    var cy = height / 2
+                    var sw = Math.max(2, width * 0.10)
+                    var r = cx - sw / 2 - 1
+
+                    // Static ring — no fill effect, always full circle
+                    ctx.beginPath()
+                    ctx.arc(cx, cy, r, 0, 2 * Math.PI)
+                    ctx.strokeStyle = "#FF8D00"
+                    ctx.lineWidth = sw
+                    ctx.stroke()
+
+                    // Clock hand: from center, tip leaves a gap = sw from the ring inner edge
+                    var handAngle = -Math.PI / 2 - _p * 2 * Math.PI
+                    var handLen = r - sw - sw  // inner edge of ring minus one stroke width gap
+                    var dx = Math.cos(handAngle)
+                    var dy = Math.sin(handAngle)
+                    ctx.beginPath()
+                    ctx.moveTo(cx, cy)
+                    ctx.lineTo(cx + dx * handLen, cy + dy * handLen)
+                    ctx.strokeStyle = "#FF8D00"
+                    ctx.lineWidth = sw
+                    ctx.lineCap = "round"
+                    ctx.stroke()
+                }
+            }
+
+            Text {
+                id: compactLabel
+                anchors.verticalCenter: parent.verticalCenter
+                width: compactLabelMetrics.width
+                text: compact._isActive
+                    ? (root.displayMinutes < 10 ? "0" + root.displayMinutes : "" + root.displayMinutes) + ":" +
+                      (root.displaySeconds < 10 ? "0" + root.displaySeconds : "" + root.displaySeconds)
+                    : "Timer"
+                color: "#ffffff"
+                font.family: sfRegular.name
+                font.pixelSize: Math.round(compact.height * 0.36)
+                horizontalAlignment: Text.AlignLeft
+
+                TextMetrics {
+                    id: compactLabelMetrics
+                    font: compactLabel.font
+                    text: "00:00"
+                }
+            }
+        }
+
+        MouseArea {
+            anchors.fill: parent
+            onClicked: root.expanded = !root.expanded
+        }
+    }
+
     fullRepresentation: Item {
         id: full
         Layout.preferredWidth: 200
@@ -107,7 +232,10 @@ PlasmoidItem {
         LiquidGlass {
             id: glass
             anchors.fill: parent
-            radius: plasmoid.configuration.cornerRadius
+            radius: (Plasmoid.formFactor === PlasmaCore.Types.Horizontal ||
+                     Plasmoid.formFactor === PlasmaCore.Types.Vertical)
+                    ? Math.min(plasmoid.configuration.cornerRadius, 20)
+                    : plasmoid.configuration.cornerRadius
             roundness: plasmoid.configuration.roundnessX10 / 10
             refractThickness: plasmoid.configuration.refractThickness
             refractIOR: plasmoid.configuration.refractIORx100 / 100
@@ -145,10 +273,12 @@ PlasmoidItem {
                     count: 100
                     currentIndex: root.selectedMinutes
                     label: "min"
-                    fontFamily: sfThin.name
+                    fontFamily: sfRegular.name
                     labelFontFamily: sfRegular.name
                     textColor: colors.foreground
                     separatorColor: colors.foreground
+                    fontWeight: Font.Medium
+                    fontSizeScale: 0.82
                     height: pickerArea.height * 0.86
                     width: full._minSide * 0.22
                     onCurrentIndexChanged: root.selectedMinutes = currentIndex
@@ -159,10 +289,12 @@ PlasmoidItem {
                     count: 60
                     currentIndex: root.selectedSeconds
                     label: "sec"
-                    fontFamily: sfThin.name
+                    fontFamily: sfRegular.name
                     labelFontFamily: sfRegular.name
                     textColor: colors.foreground
                     separatorColor: colors.foreground
+                    fontWeight: Font.Medium
+                    fontSizeScale: 0.82
                     height: pickerArea.height * 0.86
                     width: full._minSide * 0.22
                     onCurrentIndexChanged: root.selectedSeconds = currentIndex
@@ -190,7 +322,7 @@ PlasmoidItem {
                 minutes: root.displayMinutes
                 seconds: root.displaySeconds
                 fontFamily: sfRegular.name
-                textColor: "#FF8B00"
+                textColor: colors.isGlass ? "#ffffff" : "#FF8B00"
                 digitOpacity: 1.0
                 flashing: root.timerState === 3
             }
@@ -212,8 +344,10 @@ PlasmoidItem {
                 id: cancelBtn
                 diameter: full._btnSize
                 iconSource: Qt.resolvedUrl("widget/icons/cancel.svg")
-                iconColor: "#ffffff"
-                backgroundColor: Qt.rgba(1, 1, 1, 0.15)
+                iconColor: colors.isGlass ? "#ffffff" : colors.foreground
+                backgroundColor: colors.isGlass
+                    ? Qt.rgba(1, 1, 1, 0.25)
+                    : Qt.rgba(colors.foreground.r, colors.foreground.g, colors.foreground.b, 0.12)
                 visible: root.timerState !== 0
                 opacity: root.timerState !== 0 ? 1.0 : 0.0
                 Behavior on opacity { NumberAnimation { duration: 160 } }
@@ -233,12 +367,15 @@ PlasmoidItem {
                     return Qt.resolvedUrl("widget/icons/play.svg")
                 }
 
-                iconColor: root.timerState === 1 ? "#FF8E00" : "#00D443"
+                iconColor: colors.isGlass ? "#ffffff" : (root.timerState === 1 ? "#FF8E00" : "#00A832")
 
                 backgroundColor: {
-                    if (root.timerState === 1)
-                        return Qt.rgba(1, 0.557, 0, 0.18)
-                    return Qt.rgba(0, 0.831, 0.263, 0.18)
+                    if (colors.isGlass) {
+                        if (root.timerState === 1) return "#FF8E00"
+                        return "#00A832"
+                    }
+                    if (root.timerState === 1) return Qt.rgba(1, 0.557, 0, 0.18)
+                    return Qt.rgba(0, 0.659, 0.196, 0.18)
                 }
 
                 Behavior on iconColor { ColorAnimation { duration: 180 } }

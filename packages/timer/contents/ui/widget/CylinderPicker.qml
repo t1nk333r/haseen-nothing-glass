@@ -12,6 +12,8 @@ Item {
     property color textColor: "#ffffff"
     property color separatorColor: "#ffffff"
     property string labelFontFamily: ""
+    property int fontWeight: Font.Thin
+    property real fontSizeScale: 0.72
 
     readonly property real _itemHeight: height / 5
     readonly property real _visibleRadius: height / 2
@@ -160,8 +162,8 @@ Item {
                     text: index < 10 ? "0" + index : String(index)
                     color: root.textColor
                     font.family: root.fontFamily
-                    font.pixelSize: root._itemHeight * 0.72
-                    font.weight: Font.Thin
+                    font.pixelSize: root._itemHeight * root.fontSizeScale
+                    font.weight: root.fontWeight
                     horizontalAlignment: Text.AlignHCenter
                     verticalAlignment: Text.AlignVCenter
                     renderType: Text.NativeRendering
