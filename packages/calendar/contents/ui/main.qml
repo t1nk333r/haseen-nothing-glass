@@ -185,8 +185,8 @@ PlasmoidItem {
                     textColor: colors.foreground
                     fontFamily: sfRegular.name
                     fontSize: leftPanel._cardSize
-                    isGlass: colors.isGlass
-                    isLight: colors.isLight
+                    cardBg: colors.cardBackground
+                    cardBgOpacity: colors.cardBackgroundOpacity
                 }
             }
         }
@@ -313,7 +313,7 @@ PlasmoidItem {
                                 fontFamily: sfRegular.name
                                 badgeColor: colors.todayAccent
                                 textColor: "#ffffff"
-                                punchOutText: colors.isGlass
+                                punchOutText: colors.punchOutText
                             }
                         }
                     }

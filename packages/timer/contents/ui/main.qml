@@ -320,8 +320,10 @@ PlasmoidItem {
                     textColor: colors.foreground
                     fontFamily: sfRegular.name
                     fontSize: leftPanel._cardSize
-                    isGlass: colors.isGlass
-                    isLight: colors.isLight
+                    cardBg: colors.cardBackground
+                    cardBgOpacity: colors.cardBackgroundOpacity
+                    cardHoverOpacity: colors.cardHoverOpacity
+                    cardPressOpacity: colors.cardPressOpacity
                     active: root.timerState === 0
                     onClicked: {
                         root.selectedMinutes = model.mins
@@ -418,7 +420,7 @@ PlasmoidItem {
                 minutes: root.displayMinutes
                 seconds: root.displaySeconds
                 fontFamily: sfRegular.name
-                textColor: colors.isGlass ? "#ffffff" : "#FF8B00"
+                textColor: colors.countdownText
                 digitOpacity: 1.0
                 flashing: root.timerState === 3
             }
@@ -441,10 +443,8 @@ PlasmoidItem {
                 id: cancelBtn
                 diameter: full._btnSize
                 iconSource: Qt.resolvedUrl("widget/icons/cancel.svg")
-                iconColor: colors.isGlass ? "#ffffff" : colors.foreground
-                backgroundColor: colors.isGlass
-                    ? Qt.rgba(1, 1, 1, 0.25)
-                    : Qt.rgba(colors.foreground.r, colors.foreground.g, colors.foreground.b, 0.12)
+                iconColor: colors.buttonIcon
+                backgroundColor: colors.cancelButtonBg
                 visible: root.timerState !== 0
                 opacity: root.timerState !== 0 ? 1.0 : 0.0
                 Behavior on opacity { NumberAnimation { duration: 160 } }
@@ -464,16 +464,8 @@ PlasmoidItem {
                     return Qt.resolvedUrl("widget/icons/play.svg")
                 }
 
-                iconColor: colors.isGlass ? "#ffffff" : (root.timerState === 1 ? "#FF8E00" : "#00A832")
-
-                backgroundColor: {
-                    if (colors.isGlass) {
-                        if (root.timerState === 1) return "#FF8E00"
-                        return "#00A832"
-                    }
-                    if (root.timerState === 1) return Qt.rgba(1, 0.557, 0, 0.18)
-                    return Qt.rgba(0, 0.659, 0.196, 0.18)
-                }
+                iconColor: colors.isGlass ? "#ffffff" : (root.timerState === 1 ? colors.actionOrange : colors.actionGreen)
+                backgroundColor: root.timerState === 1 ? colors.actionOrangeBg : colors.actionGreenBg
 
                 Behavior on iconColor { ColorAnimation { duration: 180 } }
                 Behavior on x { NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }

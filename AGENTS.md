@@ -55,10 +55,45 @@ Shader specifics (`liquidglass.frag`):
 Widgets follow a consistent shape — look at `packages/calendar/contents/ui/main.qml` or `packages/clock-square/contents/ui/main.qml` as templates:
 
 - `PlasmoidItem { Plasmoid.backgroundHints: PlasmaCore.Types.NoBackground; preferredRepresentation: fullRepresentation }` — the glass IS the background.
-- `MacOSColors { id: colors; themeMode: plasmoid.configuration.themeMode }` — light/dark/system color tokens. Use `colors.glassTint`, `colors.labelPrimary`, etc.; don't hardcode colors.
+- `MacOSColors { id: colors; styleMode: plasmoid.configuration.styleMode; appearance: plasmoid.configuration.appearance }` — semantic color/opacity tokens. Use `colors.foreground`, `colors.cardBackground`, etc.; never hardcode colors or branch on `colors.isGlass` / `colors.isLight` inline.
 - Standard glass property bindings in every main.qml (cornerRadius, roundnessX10/10, refractThickness, refractIORx100/100, refractScale, tintAlphaPct/100, chromaStrengthPct/100, specStrengthPct/100, realtimeRefraction). Config stores fractional values scaled by 100 (or 10 for roundness) because kcfg entries are Int.
 - Plasmoid config lives in `contents/config/main.xml` (kcfg) + `contents/config/config.qml` (ConfigModel) + `contents/ui/config/ConfigGeneral.qml` (Kirigami.FormLayout with `cfg_*` alias properties). The three files must agree entry-by-entry.
 - Widget-specific QML components go under `contents/ui/widget/` (e.g. calendar's `TodayBadge.qml`, clock-square's `TickRing.qml` and `DigitalTime.qml`).
+
+## MacOSColors token reference
+
+`1-common/components/MacOSColors.qml` is the single source of truth for all colors and opacities. **Never hardcode a color or branch on `colors.isGlass` / `colors.isLight` in widget code** — add a token here instead.
+
+**Mode axes:**
+- `styleMode`: 0 = Glass (translucent shader), 1 = Solid (opaque)
+- `appearance`: 0 = Dark, 1 = Light, 2 = Follow system
+- `isGlass` / `isSolid` — derived booleans
+- `isLight` — **always false in glass mode** (`!isGlass && (appearance===1 || systemLight)`). Glass is always dark-on-dark.
+
+**Core palette (solid mode, adapts light/dark):**
+- `background`, `surface`, `surfaceAlt` — fill colors
+- `labelPrimary/Secondary/Tertiary/Quaternary` — text hierarchy
+- `separator` — divider lines
+- `solidBackground`, `solidForeground` — opaque widget bg/fg
+
+**Glass-aware tokens (use these in widgets):**
+- `foreground` — white in glass, `solidForeground` in solid
+- `glassTint`, `glassFallbackOpacity` — passed directly to `LiquidGlass`
+- `todayAccent` — white in glass, red in solid (calendar today badge)
+- `punchOutText` — `true` in glass (use destination-out canvas compositing for badge text)
+
+**Card tokens:**
+- `cardBackground` — `#ffffff` dark modes, `#000000` light solid
+- `cardBackgroundOpacity` — base opacity (0.10 dark, 0.08 light)
+- `cardHoverOpacity` — hovered state (0.17 dark, 0.14 light)
+- `cardPressOpacity` — pressed state (0.22 dark, 0.20 light)
+
+**Timer action tokens:**
+- `countdownText` — white in glass, orange `#FF8B00` in solid
+- `actionGreen` / `actionOrange` — icon colors for solid mode buttons
+- `actionGreenBg` / `actionOrangeBg` — button background (solid fill in glass, tinted in solid)
+- `buttonIcon` — white in glass, `solidForeground` in solid (for cancel/neutral buttons)
+- `cancelButtonBg` — semi-white in glass, semi-foreground in solid
 
 ## Timer / power conventions
 
@@ -73,6 +108,60 @@ Widgets follow a consistent shape — look at `packages/calendar/contents/ui/mai
 3. Symlink fonts from `1-common/fonts/` into `contents/fonts/` for each font you actually use.
 4. Mirror `contents/config/main.xml` and `contents/ui/config/ConfigGeneral.qml` from an existing package; drop the entries you don't need (e.g. `firstDayOfWeek` is calendar-only).
 5. `./install.sh <name>` to register with `kpackagetool6`.
+
+## Compact panel representation
+
+The timer widget has a compact representation for use in Plasma panels. The pattern can be applied to other widgets:
+
+- Set `preferredRepresentation` conditionally: compact in panels, full on desktop:
+  ```qml
+  preferredRepresentation: (Plasmoid.formFactor === PlasmaCore.Types.Horizontal ||
+                            Plasmoid.formFactor === PlasmaCore.Types.Vertical)
+                           ? compactRepresentation : fullRepresentation
+  ```
+- The `compactRepresentation` uses panel-responsive layout `states` (horizontalPanel / verticalPanel / desktop) and a `MouseArea` that toggles `root.expanded`.
+- For panel popup context, cap `cornerRadius` to avoid an overly circular popup: `Math.min(plasmoid.configuration.cornerRadius, 20)` when `formFactor` is Horizontal or Vertical.
+- Canvas-based indicators inside compact views must bind local mirror properties (e.g. `property real _p: ...`) and call `requestPaint()` in their `onXxxChanged` handlers — Canvas does not auto-repaint on bound property changes.
+- Use `TextMetrics` to pre-measure the widest possible label text and pin `width` to that value, so switching label content never causes the compact widget to resize.
+
+## Wide-mode side panel layout
+
+Both the calendar and timer widgets support a side-panel layout when stretched wider than 2:1. The pattern to follow when adding this to a widget:
+
+**Trigger condition:**
+```qml
+readonly property bool isWide: full.width >= full.height * 2
+readonly property real wideGap: Math.round(full.height * 0.04)
+```
+
+**Structure:** `LiquidGlass` stays `anchors.fill: parent` (single backdrop for the full widget). The content area splits into two sibling Items:
+
+```
+Item { id: leftPanel;  anchors { ...; right: rightPanel.left; rightMargin: wideGap } }
+Item { id: rightPanel; width: isWide ? full.height : full.width; anchors.right: parent.right }
+```
+
+- `rightPanel` is always the original square content, sized `height × height` in wide mode.
+- `leftPanel` is `visible: isWide` and fills the remaining horizontal space.
+- Existing content items are reparented into `rightPanel` via `parent: rightPanel` — their internal anchors (`top/left/right/bottom: parent.*`) continue to work unchanged.
+- `leftPanel` should have `clip: true` to prevent content overflow.
+
+**Card component pattern (`widget/XxxCard.qml`):**
+- Thin cards with compact padding. Height ≈ `fontSize * 2.8`, radius ≈ `height * 0.25`.
+- Background: use `colors.cardBackground` (color) + `colors.cardBackgroundOpacity` (real) — automatically resolves to white-on-dark or black-on-light. Pass these as properties; never branch on `isGlass`/`isLight` inside a card component.
+- Hover/press opacity: use `colors.cardHoverOpacity` and `colors.cardPressOpacity` tokens.
+- Left vertical pill tag (3 px wide, `radius: 1.5`, height = card inner height, colored per entry) for event/category cards. Preset cards omit the pill.
+- Font size derived from `full.height`, not width, to stay consistent with the right panel.
+- Scrollable lists use `ListView` with `clip: true` and `interactive: true` (default). A `Column + Repeater` is only appropriate for very short fixed lists.
+
+**Left panel sizing constants (scale from `full.height`):**
+- `_margin`: `Math.round(full.height * 0.09)` — outer padding matching the right panel's grid margins
+- `_cardSize`: `Math.round(full.height * 0.052)` — font size for card text
+- `_cardSpacing`: `Math.round(full.height * 0.025)` — gap between cards
+
+**Reference implementations:**
+- `packages/calendar/contents/ui/main.qml` + `packages/calendar/contents/ui/widget/EventCard.qml`
+- `packages/timer/contents/ui/main.qml` + `packages/timer/contents/ui/widget/PresetCard.qml`
 
 ## Plan files
 

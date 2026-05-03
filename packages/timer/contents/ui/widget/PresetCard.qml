@@ -8,8 +8,10 @@ Item {
     property color textColor: "#ffffff"
     property string fontFamily: ""
     property real fontSize: 11
-    property bool isGlass: true
-    property bool isLight: false
+    property color cardBg: "#ffffff"
+    property real cardBgOpacity: 0.10
+    property real cardHoverOpacity: 0.17
+    property real cardPressOpacity: 0.22
     property bool active: true
 
     signal clicked()
@@ -22,18 +24,13 @@ Item {
     Behavior on opacity { NumberAnimation { duration: 150 } }
 
     Rectangle {
-        id: cardBg
+        id: cardBgRect
         anchors.fill: parent
         radius: Math.round(card.height * 0.25)
-        color: "#ffffff"
-        opacity: {
-            var base = card.isGlass
-                ? (card.isLight ? 0.18 : 0.10)
-                : (card.isLight ? 0.08 : 0.15)
-            if (mouseArea.pressed) return base * 2.2
-            if (mouseArea.containsMouse) return base * 1.7
-            return base
-        }
+        color: card.cardBg
+        opacity: mouseArea.pressed
+            ? card.cardPressOpacity
+            : (mouseArea.containsMouse ? card.cardHoverOpacity : card.cardBgOpacity)
         Behavior on opacity { NumberAnimation { duration: 100 } }
     }
 

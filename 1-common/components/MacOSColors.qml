@@ -16,7 +16,7 @@ QtObject {
         var luminance = 0.299 * bg.r + 0.587 * bg.g + 0.114 * bg.b
         return luminance < 0.5
     }
-    readonly property bool isLight: appearance === 1 || (useSystem && !systemIsDark)
+    readonly property bool isLight: !isGlass && (appearance === 1 || (useSystem && !systemIsDark))
     readonly property bool isGlass: styleMode === 0
     readonly property bool isSolid: styleMode === 1
 
@@ -52,4 +52,24 @@ QtObject {
 
     // Today/highlight accent: white in Glass (monochrome) and red in Solid.
     readonly property color todayAccent: isGlass ? "#ffffff" : accentRed
+
+    // Badge punch-out: glass uses destination-out compositing, solid uses normal text.
+    readonly property bool punchOutText: isGlass
+
+    // Card backgrounds — white on dark modes, black on light solid mode.
+    readonly property color cardBackground:        isLight ? "#000000" : "#ffffff"
+    readonly property real  cardBackgroundOpacity: isLight ? 0.08 : 0.10
+    readonly property real  cardHoverOpacity:      isLight ? 0.14 : 0.17
+    readonly property real  cardPressOpacity:      isLight ? 0.20 : 0.22
+
+    // Timer action colors — solid-filled in glass, tinted in solid.
+    readonly property color countdownText:  isGlass ? "#ffffff" : "#FF8B00"
+    readonly property color actionGreen:    "#00A832"
+    readonly property color actionOrange:   "#FF8E00"
+    readonly property color buttonIcon:     isGlass ? "#ffffff" : solidForeground
+    readonly property color cancelButtonBg: isGlass
+        ? Qt.rgba(1, 1, 1, 0.25)
+        : Qt.rgba(solidForeground.r, solidForeground.g, solidForeground.b, 0.12)
+    readonly property color actionGreenBg:  isGlass ? "#00A832" : Qt.rgba(0, 0.659, 0.196, 0.18)
+    readonly property color actionOrangeBg: isGlass ? "#FF8E00" : Qt.rgba(1, 0.557, 0, 0.18)
 }

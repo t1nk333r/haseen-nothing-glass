@@ -9,8 +9,8 @@ Item {
     property color textColor: "#ffffff"
     property string fontFamily: ""
     property real fontSize: 11
-    property bool isGlass: true
-    property bool isLight: false
+    property color cardBg: "#ffffff"
+    property real cardBgOpacity: 0.10
 
     readonly property real _pad: Math.round(height * 0.22)
 
@@ -19,10 +19,8 @@ Item {
     Rectangle {
         anchors.fill: parent
         radius: Math.round(card.height * 0.25)
-        color: "#ffffff"
-        opacity: card.isGlass
-            ? (card.isLight ? 0.18 : 0.10)
-            : (card.isLight ? 0.08 : 0.15)
+        color: card.cardBg
+        opacity: card.cardBgOpacity
     }
 
     Rectangle {
