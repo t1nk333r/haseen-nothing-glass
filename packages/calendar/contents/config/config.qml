@@ -17,8 +17,21 @@ ConfigModel {
         source: "config/ConfigGeneral.qml"
     }
 
-    // Dynamically add config pages for each enabled calendar plugin
-    // (e.g. PIM Events shows a collection picker, Holidays shows a region picker)
+    ConfigCategory {
+        name: i18n("Calendar Events")
+        icon: "view-calendar"
+        source: "config/ConfigPimEvents.qml"
+        visible: Plasmoid.configuration.enabledCalendarPlugins.indexOf("pimevents") > -1
+    }
+
+    ConfigCategory {
+        name: i18n("Holidays")
+        icon: "view-calendar-holiday"
+        source: "config/ConfigHolidays.qml"
+        visible: Plasmoid.configuration.enabledCalendarPlugins.indexOf("holidaysevents") > -1
+    }
+
+    // Remaining plugins (e.g. astronomical) use their own built-in config pages.
     readonly property PlasmaCalendar.EventPluginsManager _epm: PlasmaCalendar.EventPluginsManager {
         Component.onCompleted: {
             populateEnabledPluginsList(Plasmoid.configuration.enabledCalendarPlugins);
@@ -40,7 +53,8 @@ ConfigModel {
             source: configUi
             configUiModule: configModule
             configUiComponent: configComponent
-            visible: Plasmoid.configuration.enabledCalendarPlugins.indexOf(pluginId) > -1
+            visible: pluginId !== "pimevents" && pluginId !== "holidaysevents"
+                     && Plasmoid.configuration.enabledCalendarPlugins.indexOf(pluginId) > -1
         }
 
         onObjectAdded: (index, object) => configModel.appendCategory(object)
