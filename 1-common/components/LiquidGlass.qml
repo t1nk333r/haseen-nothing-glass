@@ -4,12 +4,15 @@ import org.kde.plasma.plasmoid
 // Reusable frosted/liquid-glass background.
 // Place inside a PlasmoidItem, anchors.fill: parent.
 //
-// Current pipeline (blur disabled):
-//   wallpaperTex (ShaderEffectSource of the wallpaper item)
-//     -> glassShader (refraction + chromatic aberration + tint + AA mask)
+// Pipeline:
+//   wallpaperTex -> crop (extract widget region) -> blurH1 -> blurV1
+//     -> blurH2 -> blurV2 -> glassShader (refraction + chroma + tint)
 //
-// Blur is a TODO — the separable-gaussian version had coord mismatches
-// between downscaled intermediates and the final UV math.
+// The crop shader maps wallpaper UV to widget-local UV so the blur
+// passes operate in widget pixel space. The glass shader then applies
+// refraction on the blurred result with identity UV mapping. When
+// blurRadius <= 0 the crop/blur chain is inert and the glass shader
+// samples wallpaperTex directly with uvOffset/uvScale.
 //
 // Falls back to a flat translucent rounded rect when wallpaperGraphicsObject
 // is null or zero-size (panels, plasmoidviewer).
@@ -31,10 +34,13 @@ Item {
     property real refractIOR: 1.6
     property real refractScale: 65
     property color tint: "#ffffff"
-    property real tintAlpha: 0.15
+    property real tintAlpha: 0.25
     property real chromaStrength: 0.20
 
-    // Corner border specular (dominant + diagonal-opposite corners).
+    // Blur spread in widget pixels; 0 = disabled.
+    property real blurRadius: 8
+
+    // Border specular (free-following primary + antipodal secondary).
     property bool specEnabled: true
     property real specStrength: 0.70
 
@@ -134,20 +140,12 @@ Item {
     }
     Component.onCompleted: updateGeometry()
 
-    // --- Single pass: direct wallpaper capture (blur disabled for now) ---
-    //
-    // The blur pipeline (H -> V -> H -> V, downsampled 4x) had coordinate
-    // mismatches between the downscaled intermediate and the final glass
-    // shader's uvOffset/uvScale. Disabled until we untangle it. The glass
-    // shader now samples wallpaperTex directly and does refraction +
-    // chromatic aberration only.
+    // --- Wallpaper capture ---
 
     ShaderEffectSource {
         id: wallpaperTex
         anchors.fill: parent
         opacity: 0
-        // In solid mode we don't need the wallpaper at all — drop the
-        // sourceItem so Plasma stops paying for the capture entirely.
         sourceItem: glass.solidMode ? null : glass.wallpaperItem
         live: !glass.solidMode && glass.realtimeRefraction
         hideSource: false
@@ -156,10 +154,6 @@ Item {
         mipmap: false
         textureMirroring: ShaderEffectSource.MirrorVertically
 
-        // When live is false we still need to re-capture on layout
-        // changes — size, wallpaper swap, or widget move (triggered from
-        // updateGeometry). Resize/wallpaper handled here; move is
-        // handled inside updateGeometry() above.
         onSourceItemChanged: scheduleUpdate()
         Connections {
             target: glass
@@ -168,12 +162,138 @@ Item {
         }
     }
 
-    // --- Pass 4: glass (refraction + chroma + tint + rim + mask) ---
+    // --- Frosted-glass blur pipeline ---
     //
-    // In solid mode we still run the shader so the squircle silhouette
-    // (AA mask) and corner specular highlight render the same way, but
-    // we force tintAlpha = 1.0 with `solidColor`. The wallpaper sample
-    // is hidden behind the opaque tint and doesn't matter.
+    // crop → blurH1 → blurV1 → blurH2 → blurV2
+    //
+    // The crop shader extracts the widget's wallpaper region into a
+    // widget-sized texture (widget-local UV space). The four separable
+    // Gaussian passes (17-tap each, two full H+V iterations) then blur
+    // in that local space — no wallpaper-vs-widget UV mismatch.
+    //
+    // The glass shader receives the blurred crop with identity UV
+    // mapping (uvOffset=0, uvScale=1) and applies refraction + chroma
+    // on top of the already-blurred image.
+    //
+    // When blurRadius <= 0 or in solid mode, the crop/blur chain is
+    // inert and the glass shader samples wallpaperTex directly with
+    // the standard uvOffset/uvScale.
+
+    readonly property bool _blurActive: !glass.solidMode && glass.blurRadius > 0 && glass.active
+
+    readonly property vector2d _uvOff: glass.active
+        ? Qt.vector2d(glass._offX / glass.wallpaperItem.width,
+                      glass._offY / glass.wallpaperItem.height)
+        : Qt.vector2d(0, 0)
+    readonly property vector2d _uvSc: glass.active
+        ? Qt.vector2d(glass.width  / glass.wallpaperItem.width,
+                      glass.height / glass.wallpaperItem.height)
+        : Qt.vector2d(1, 1)
+
+    readonly property real _widgetW: Math.max(1, glass.width)
+    readonly property real _widgetH: Math.max(1, glass.height)
+
+    ShaderEffect {
+        id: cropPass
+        anchors.fill: parent
+        visible: false
+        fragmentShader: Qt.resolvedUrl("shaders/crop.frag.qsb")
+        property variant source: wallpaperTex
+        property vector2d uvOffset: glass._uvOff
+        property vector2d uvScale: glass._uvSc
+    }
+    ShaderEffectSource {
+        id: cropTex
+        anchors.fill: parent
+        opacity: 0
+        sourceItem: glass._blurActive ? cropPass : null
+        live: glass._blurActive
+        hideSource: true
+        smooth: true
+    }
+
+    ShaderEffect {
+        id: blurH1
+        anchors.fill: parent
+        visible: false
+        fragmentShader: Qt.resolvedUrl("shaders/blur_h.frag.qsb")
+        property variant source: cropTex
+        property real radiusPx: glass.blurRadius
+        property vector2d sourceSizePx: Qt.vector2d(glass._widgetW, glass._widgetH)
+    }
+    ShaderEffectSource {
+        id: blurH1Tex
+        anchors.fill: parent
+        opacity: 0
+        sourceItem: glass._blurActive ? blurH1 : null
+        live: glass._blurActive
+        hideSource: true
+        smooth: true
+    }
+
+    ShaderEffect {
+        id: blurV1
+        anchors.fill: parent
+        visible: false
+        fragmentShader: Qt.resolvedUrl("shaders/blur_v.frag.qsb")
+        property variant source: blurH1Tex
+        property real radiusPx: glass.blurRadius
+        property vector2d sourceSizePx: Qt.vector2d(glass._widgetW, glass._widgetH)
+    }
+    ShaderEffectSource {
+        id: blurV1Tex
+        anchors.fill: parent
+        opacity: 0
+        sourceItem: glass._blurActive ? blurV1 : null
+        live: glass._blurActive
+        hideSource: true
+        smooth: true
+    }
+
+    ShaderEffect {
+        id: blurH2
+        anchors.fill: parent
+        visible: false
+        fragmentShader: Qt.resolvedUrl("shaders/blur_h.frag.qsb")
+        property variant source: blurV1Tex
+        property real radiusPx: glass.blurRadius
+        property vector2d sourceSizePx: Qt.vector2d(glass._widgetW, glass._widgetH)
+    }
+    ShaderEffectSource {
+        id: blurH2Tex
+        anchors.fill: parent
+        opacity: 0
+        sourceItem: glass._blurActive ? blurH2 : null
+        live: glass._blurActive
+        hideSource: true
+        smooth: true
+    }
+
+    ShaderEffect {
+        id: blurV2
+        anchors.fill: parent
+        visible: false
+        fragmentShader: Qt.resolvedUrl("shaders/blur_v.frag.qsb")
+        property variant source: blurH2Tex
+        property real radiusPx: glass.blurRadius
+        property vector2d sourceSizePx: Qt.vector2d(glass._widgetW, glass._widgetH)
+    }
+    ShaderEffectSource {
+        id: blurV2Tex
+        anchors.fill: parent
+        opacity: 0
+        sourceItem: glass._blurActive ? blurV2 : null
+        live: glass._blurActive
+        hideSource: true
+        smooth: true
+    }
+
+    // --- Glass shader (refraction + chroma + tint + specular + mask) ---
+    //
+    // When blur is active, backdrop is the blurred crop in widget-local
+    // UV (uvOffset=0, uvScale=1). Refraction displaces into the blurred
+    // image. When blur is off, falls back to wallpaperTex with the
+    // standard offset/scale mapping.
 
     ShaderEffect {
         id: glassShader
@@ -181,8 +301,8 @@ Item {
         visible: glass.solidMode || glass.active
         fragmentShader: Qt.resolvedUrl("shaders/liquidglass.frag.qsb")
 
-        property variant backdrop: wallpaperTex
-        property size size: Qt.size(Math.max(1, glass.width), Math.max(1, glass.height))
+        property variant backdrop: glass._blurActive ? blurV2Tex : wallpaperTex
+        property size size: Qt.size(glass._widgetW, glass._widgetH)
         property real radius: glass.radius
         property real roundness: glass.roundness
         property real refractThickness: glass.solidMode ? 0.0 : glass.refractThickness
@@ -200,14 +320,10 @@ Item {
         property real mouseFade: glass._mouseFade
         property real specStrength: glass.specEnabled ? glass.specStrength : 0.0
 
-        property vector2d uvOffset: glass.active
-            ? Qt.vector2d(glass._offX / glass.wallpaperItem.width,
-                          glass._offY / glass.wallpaperItem.height)
-            : Qt.vector2d(0, 0)
-        property vector2d uvScale: glass.active
-            ? Qt.vector2d(glass.width  / glass.wallpaperItem.width,
-                          glass.height / glass.wallpaperItem.height)
-            : Qt.vector2d(1, 1)
+        property vector2d uvOffset: glass._blurActive
+            ? Qt.vector2d(0, 0) : glass._uvOff
+        property vector2d uvScale: glass._blurActive
+            ? Qt.vector2d(1, 1) : glass._uvSc
     }
 
     // --- Fallback ---

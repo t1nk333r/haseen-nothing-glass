@@ -21,6 +21,7 @@ ColumnLayout {
     property alias cfg_tintAlphaPct: tintSpin.value
     property alias cfg_chromaStrengthPct: chromaSpin.value
     property alias cfg_specStrengthPct: specStrengthSpin.value
+    property alias cfg_blurRadiusPx: blurRadiusSpin.value
     property alias cfg_realtimeRefraction: realtimeCheck.checked
 
     Kirigami.FormLayout {
@@ -97,6 +98,12 @@ ColumnLayout {
             id: specStrengthSpin
             Kirigami.FormData.label: i18n("Specular strength (%):")
             from: 0; to: 100; stepSize: 5
+        }
+
+        SpinBox {
+            id: blurRadiusSpin
+            Kirigami.FormData.label: i18n("Blur radius (px):")
+            from: 0; to: 30; stepSize: 1
         }
 
         CheckBox {

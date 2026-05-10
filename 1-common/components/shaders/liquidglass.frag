@@ -12,9 +12,9 @@
 //     corner-AA gate.
 //   * Chromatic dispersion: R/B sampled at an extra offset along the
 //     refraction direction, scaled by how deep we are in the edge band.
-//   * Corner specular: on hover, the two corners on the diagonal nearest
-//     the cursor light up; brightness tapers exponentially along the
-//     border from each apex; applied on the outer lip only.
+//   * Free-following specular: on hover, a primary highlight follows the
+//     cursor with exponential arc-length taper; a secondary highlight
+//     appears at the antipodal point at ~65% intensity.
 //
 // qt_TexCoord0 is widget-local UV (0..1).
 // uvOffset/uvScale map widget UV -> wallpaper UV.
@@ -117,89 +117,33 @@ vec3 sampleBackdrop(vec2 localUV) {
     return texture(backdrop, wpUV).rgb;
 }
 
-// Corner border specular. Visible at rest as a thin stroke on the
-// TL+BR diagonal; hover steers the dominant corner/diagonal toward the
-// cursor. Prominence: dominant corner full, diagonal opposite 80%.
+// Free-following border specular. A primary highlight tracks the
+// cursor (or rests at TL); a secondary highlight appears at the
+// antipodal point at reduced intensity. Both attenuate exponentially
+// from their respective positions.
 vec3 cornerSpec(vec2 p, float depthPx) {
     if (specStrength <= 0.0) return vec3(0.0);
 
-    // Hard cap on stroke thickness at the dominant apex, in px.
     const float MAX_STROKE_PX = 3.0;
-    const float DOMINANT     = 1.0;  // the single dominant corner
-    const float DIAGONAL     = 0.8;  // its diagonal opposite
-    const float OTHER        = 0.0;  // the other two corners (off)
+    const float FEATHER_PX    = 2.0;
+    const float SECONDARY_INT = 0.65;
 
     vec2 b = size * 0.5;
 
-    // Corner apexes (outer-rectangle corners).
-    vec2 aTL = vec2(-b.x,  b.y);
-    vec2 aTR = vec2( b.x,  b.y);
-    vec2 aBL = vec2(-b.x, -b.y);
-    vec2 aBR = vec2( b.x, -b.y);
-
-    // Virtual "light" position that drives the softmax dominance. At
-    // rest it is parked just outside TL; hover blends it toward the
-    // cursor so the diagonal rotates without popping.
-    vec2 restLight = aTL * 1.2;
+    vec2 restLight = vec2(-b.x, b.y) * 1.2;
     bool hovering  = mouseFade > 0.0 && mousePos.x >= 0.0 && mousePos.y >= 0.0;
     vec2 cursorPx  = (mousePos - vec2(0.5)) * size;
     vec2 lightPx   = hovering ? mix(restLight, cursorPx, mouseFade) : restLight;
 
-    // Distances from each corner to the virtual light.
-    float dTL = distance(lightPx, aTL);
-    float dTR = distance(lightPx, aTR);
-    float dBL = distance(lightPx, aBL);
-    float dBR = distance(lightPx, aBR);
+    vec2 antiLight = -lightPx;
 
-    // Diagonal selection: TL+BR vs TR+BL. Use min-distance within each
-    // pair so the diagonal containing the closest corner wins. Smooth
-    // crossover with a softmax so there's no hard pop on the axis.
-    float diag1Near = min(dTL, dBR);  // TL+BR
-    float diag2Near = min(dTR, dBL);  // TR+BL
-    float diagSharp = 1.0 / (max(size.x, size.y) * 0.12);
-    float wD1 = exp(-diag1Near * diagSharp);
-    float wD2 = exp(-diag2Near * diagSharp);
-    float wDsum = wD1 + wD2 + 1e-6;
-    wD1 /= wDsum; wD2 /= wDsum;
-
-    // Within each diagonal, whichever corner is closer to the light
-    // gets DOMINANT, the other gets DIAGONAL.
-    float d1_TL_role = (dTL <= dBR) ? DOMINANT : DIAGONAL;
-    float d1_BR_role = (dTL <= dBR) ? DIAGONAL : DOMINANT;
-    float d2_TR_role = (dTR <= dBL) ? DOMINANT : DIAGONAL;
-    float d2_BL_role = (dTR <= dBL) ? DIAGONAL : DOMINANT;
-
-    // Per-corner prominence: role from its diagonal, weighted by that
-    // diagonal's softmax weight. Corners on the losing diagonal get 0.
-    float promTL = wD1 * d1_TL_role;
-    float promBR = wD1 * d1_BR_role;
-    float promTR = wD2 * d2_TR_role;
-    float promBL = wD2 * d2_BL_role;
-
-    // Arc-length attenuation along the border from each apex.
-    // Taper scales with widget size so the stroke reads the same
-    // at 150px and 500px widgets.
     float taper = max(size.x, size.y) * 0.7;
-    float aTLa = exp(-distance(p, aTL) / taper);
-    float aTRa = exp(-distance(p, aTR) / taper);
-    float aBLa = exp(-distance(p, aBL) / taper);
-    float aBRa = exp(-distance(p, aBR) / taper);
+    float primaryAtt   = exp(-distance(p, lightPx)   / taper);
+    float secondaryAtt = exp(-distance(p, antiLight)  / taper) * SECONDARY_INT;
 
-    // Effective stroke thickness at this fragment. Take the max so
-    // contributions don't double up.
-    float tPx = 0.0;
-    tPx = max(tPx, promTL * aTLa * MAX_STROKE_PX);
-    tPx = max(tPx, promTR * aTRa * MAX_STROKE_PX);
-    tPx = max(tPx, promBL * aBLa * MAX_STROKE_PX);
-    tPx = max(tPx, promBR * aBRa * MAX_STROKE_PX);
-
-    // Render the stroke with a 2px feather on the inner lip so it
-    // reads as a softened hairline rather than a hard slab.
-    const float FEATHER_PX = 2.0;
+    float tPx = max(primaryAtt, secondaryAtt) * MAX_STROKE_PX;
     float stroke = 1.0 - smoothstep(tPx - FEATHER_PX, tPx, depthPx);
 
-    // Global tone-down multiplier so the effect stays subtle even at
-    // specStrength = 1.0.
     float I = stroke * specStrength * 0.55;
     return vec3(1.0, 0.98, 0.94) * I;
 }
