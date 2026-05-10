@@ -51,6 +51,7 @@ Item {
     // the macOS material feel is preserved.
     property bool solidMode: false
     property color solidColor: "#1A1B1E"
+    property color solidColorBottom: "transparent"
 
     readonly property var wallpaperItem: {
         const c = Plasmoid.containment
@@ -191,6 +192,9 @@ Item {
         property vector4d tint: glass.solidMode
             ? Qt.vector4d(glass.solidColor.r, glass.solidColor.g, glass.solidColor.b, 1.0)
             : Qt.vector4d(glass.tint.r, glass.tint.g, glass.tint.b, glass.tintAlpha)
+        property vector4d tintBottom: glass.solidMode && glass.solidColorBottom.a > 0
+            ? Qt.vector4d(glass.solidColorBottom.r, glass.solidColorBottom.g, glass.solidColorBottom.b, 1.0)
+            : Qt.vector4d(0, 0, 0, 0)
 
         property vector2d mousePos: Qt.vector2d(glass._mouseU, glass._mouseV)
         property real mouseFade: glass._mouseFade

@@ -33,6 +33,7 @@ layout(std140, binding = 0) uniform buf {
     float refractScale;
     float chromaStrength;    // 0..1 chromatic aberration
     vec4  tint;
+    vec4  tintBottom;
     vec2  uvOffset;
     vec2  uvScale;
     vec2  mousePos;          // widget-local UV (0..1); (-1,-1) = no mouse
@@ -233,10 +234,13 @@ void main() {
 
     bool canRefract = refractThickness > 0.0;
 
+    vec3 tintColor = mix(tint.rgb, tintBottom.rgb, tintBottom.a > 0.0 ? uv.y : 0.0);
+    float tintAlpha = tint.a;
+
     if (!canRefract || depthPx >= refractThickness) {
         // Interior: flat glass (pass-through + tint), no refraction.
         col = sampleBackdrop(uv);
-        col = mix(col, tint.rgb, tint.a);
+        col = mix(col, tintColor, tintAlpha);
     } else {
         // --- Edge band: Snell on a dome ---
         // Clamp t so fragments in the outer feather band (d > 0) produce
@@ -259,7 +263,7 @@ void main() {
         col.g = sampleBackdrop(uv + displaceUV).g;
         col.b = sampleBackdrop(uv + displaceUV - chromaUV).b;
 
-        col = mix(col, tint.rgb, tint.a);
+        col = mix(col, tintColor, tintAlpha);
 
     }
 

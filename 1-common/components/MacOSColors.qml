@@ -72,4 +72,41 @@ QtObject {
         : Qt.rgba(solidForeground.r, solidForeground.g, solidForeground.b, 0.12)
     readonly property color actionGreenBg:  isGlass ? "#00A832" : Qt.rgba(0, 0.659, 0.196, 0.18)
     readonly property color actionOrangeBg: isGlass ? "#FF8E00" : Qt.rgba(1, 0.557, 0, 0.18)
+
+    // ── Weather tokens ────────────────────────────────────────────────
+    property string weatherGradientCategory: "clear"
+
+    readonly property color weatherGradientTop: {
+        if (isGlass) return "transparent"
+        var cat = weatherGradientCategory
+        if (cat === "clear")       return "#5188BD"
+        if (cat === "cloudy")      return "#8E9EAF"
+        if (cat === "rain")        return "#607B8A"
+        if (cat === "storm")       return "#3A3A4A"
+        if (cat === "snow")        return "#B0C4DE"
+        if (cat === "fog")         return "#9CA3AF"
+        if (cat === "nightclear")  return "#1A1A3E"
+        if (cat === "nightcloudy") return "#2C3040"
+        return "#5188BD"
+    }
+
+    readonly property color weatherGradientBottom: {
+        if (isGlass) return "transparent"
+        var cat = weatherGradientCategory
+        if (cat === "clear")       return "#194E84"
+        if (cat === "cloudy")      return "#4A5568"
+        if (cat === "rain")        return "#2C3E50"
+        if (cat === "storm")       return "#1A1A2E"
+        if (cat === "snow")        return "#708090"
+        if (cat === "fog")         return "#6B7280"
+        if (cat === "nightclear")  return "#0D0D2B"
+        if (cat === "nightcloudy") return "#1A1E2A"
+        return "#194E84"
+    }
+
+    readonly property color weatherForeground: "#ffffff"
+    readonly property string weatherIconSet: isGlass ? "mono-light" : "default"
+    readonly property color weatherSeparator: isGlass ? Qt.rgba(1, 1, 1, 0.15) : Qt.rgba(1, 1, 1, 0.20)
+    readonly property color weatherRangeBarBg: isGlass ? Qt.rgba(1, 1, 1, 0.12) : Qt.rgba(1, 1, 1, 0.15)
+    readonly property color weatherRangeBarFill: isGlass ? Qt.rgba(1, 1, 1, 0.50) : Qt.rgba(1, 1, 1, 0.60)
 }
