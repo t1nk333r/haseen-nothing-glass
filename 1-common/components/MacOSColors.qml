@@ -104,6 +104,12 @@ QtObject {
         return "#194E84"
     }
 
+    // Music widget — secondary text (artist name, time labels)
+    readonly property color musicSecondary: {
+        var c = foreground
+        return Qt.rgba(c.r, c.g, c.b, 0.55)
+    }
+
     readonly property color weatherForeground: "#ffffff"
     readonly property string weatherIconSet: isGlass ? "mono-light" : "default"
     readonly property color weatherSeparator: isGlass ? Qt.rgba(1, 1, 1, 0.15) : Qt.rgba(1, 1, 1, 0.20)
