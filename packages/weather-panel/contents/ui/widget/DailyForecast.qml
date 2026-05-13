@@ -1,0 +1,1 @@
+../../../../weather/contents/ui/widget/DailyForecast.qml

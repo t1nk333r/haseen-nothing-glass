@@ -170,16 +170,30 @@ PlasmoidItem {
                     var sw = Math.max(2, width * 0.10)
                     var r = cx - sw / 2 - 1
 
-                    // Static ring — no fill effect, always full circle
-                    ctx.beginPath()
-                    ctx.arc(cx, cy, r, 0, 2 * Math.PI)
-                    ctx.strokeStyle = "#FF8D00"
-                    ctx.lineWidth = sw
-                    ctx.stroke()
+                    // Ghost trail — elapsed portion, counter-clockwise from 12 o'clock
+                    if (_p > 0) {
+                        var ghostEnd = -Math.PI / 2 - _p * 2 * Math.PI
+                        ctx.beginPath()
+                        ctx.arc(cx, cy, r, ghostEnd, -Math.PI / 2)
+                        ctx.strokeStyle = "rgba(255, 141, 0, 0.25)"
+                        ctx.lineWidth = sw
+                        ctx.stroke()
+                    }
 
-                    // Clock hand: from center, tip leaves a gap = sw from the ring inner edge
+                    // Remaining arc — full opacity, shrinks counter-clockwise
+                    if (_p < 1) {
+                        var remainEnd = -Math.PI / 2 - _p * 2 * Math.PI
+                        ctx.beginPath()
+                        ctx.arc(cx, cy, r, -Math.PI / 2 - 2 * Math.PI, remainEnd)
+                        ctx.strokeStyle = "#FF8D00"
+                        ctx.lineWidth = sw
+                        ctx.lineCap = "round"
+                        ctx.stroke()
+                    }
+
+                    // Clock hand
                     var handAngle = -Math.PI / 2 - _p * 2 * Math.PI
-                    var handLen = r - sw - sw  // inner edge of ring minus one stroke width gap
+                    var handLen = r - sw - sw
                     var dx = Math.cos(handAngle)
                     var dy = Math.sin(handAngle)
                     ctx.beginPath()

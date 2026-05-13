@@ -500,7 +500,7 @@ PlasmoidItem {
                     x: parent.width / 7 / 2 - sMetrics.width / 2
                     anchors.verticalCenter: parent.verticalCenter
                     text: root.monthNames[root.viewMonth].toUpperCase()
-                    color: colors.foreground
+                    color: colors.todayAccent
                     font.family: sfRegular.name
                     font.pixelSize: full.labelSize
                     font.weight: Font.Regular

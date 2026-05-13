@@ -1,0 +1,21 @@
+{
+    "KPackageStructure": "Plasma/Applet",
+    "KPlugin": {
+        "Authors": [
+            {
+                "Email": "zinczorphin@email.com",
+                "Name": "Jack Faith"
+            }
+        ],
+        "Category": "Date and Time",
+        "Description": "Weather widget for KDE panels with native theming",
+        "EnabledByDefault": true,
+        "Icon": "weather-clear",
+        "Id": "com.jaxparrow07.macoswidgets.weatherpanel",
+        "License": "GPL-3.0",
+        "Name": "Weather (Panel)",
+        "Version": "0.1",
+        "Website": "https://github.com/jaxparrow07/macos-widgets"
+    },
+    "X-Plasma-API-Minimum-Version": "6.0"
+}
