@@ -19,25 +19,25 @@
             <default>75</default>
         </entry>
         <entry name="refractThickness" type="Int">
-            <default>30</default>
+            <default>35</default>
         </entry>
         <entry name="refractIORx100" type="Int">
-            <default>160</default>
+            <default>170</default>
         </entry>
         <entry name="refractScale" type="Int">
             <default>65</default>
         </entry>
         <entry name="tintAlphaPct" type="Int">
-            <default>25</default>
+            <default>10</default>
         </entry>
         <entry name="chromaStrengthPct" type="Int">
-            <default>20</default>
+            <default>30</default>
         </entry>
         <entry name="specStrengthPct" type="Int">
             <default>70</default>
         </entry>
         <entry name="blurRadiusPx" type="Int">
-            <default>8</default>
+            <default>6</default>
         </entry>
         <entry name="realtimeRefraction" type="Bool">
             <default>false</default>

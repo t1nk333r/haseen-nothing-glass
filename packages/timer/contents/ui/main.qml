@@ -244,10 +244,12 @@ PlasmoidItem {
         LiquidGlass {
             id: glass
             anchors.fill: parent
-            radius: (Plasmoid.formFactor === PlasmaCore.Types.Horizontal ||
-                     Plasmoid.formFactor === PlasmaCore.Types.Vertical)
-                    ? Math.min(plasmoid.configuration.cornerRadius, 20)
-                    : plasmoid.configuration.cornerRadius
+            radius: {
+                const r = plasmoid.configuration.cornerRadius
+                return (Plasmoid.formFactor === PlasmaCore.Types.Horizontal ||
+                        Plasmoid.formFactor === PlasmaCore.Types.Vertical)
+                       ? Math.min(r, 20) : r
+            }
             roundness: plasmoid.configuration.roundnessX10 / 10
             refractThickness: plasmoid.configuration.refractThickness
             refractIOR: plasmoid.configuration.refractIORx100 / 100

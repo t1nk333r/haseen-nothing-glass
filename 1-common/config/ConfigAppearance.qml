@@ -3,10 +3,6 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import org.kde.kirigami as Kirigami
 
-// Shared appearance/theme settings, symlinked into each widget so the
-// Style + Appearance + glass-tuning controls stay identical across the
-// suite. Each widget has its own kcfg values (Plasma is per-applet),
-// but the form UI lives here as a single source of truth.
 ColumnLayout {
     id: root
     spacing: Kirigami.Units.largeSpacing
@@ -24,8 +20,98 @@ ColumnLayout {
     property alias cfg_blurRadiusPx: blurRadiusSpin.value
     property alias cfg_realtimeRefraction: realtimeCheck.checked
 
+    function _serialize() {
+        return JSON.stringify({
+            s: styleCombo.currentIndex,
+            a: appearanceCombo.currentIndex,
+            cr: radiusSpin.value,
+            rn: roundnessSpin.value,
+            rt: thicknessSpin.value,
+            ri: iorSpin.value,
+            rs: scaleSpin.value,
+            ta: tintSpin.value,
+            ca: chromaSpin.value,
+            ss: specStrengthSpin.value,
+            br: blurRadiusSpin.value,
+            rr: realtimeCheck.checked
+        })
+    }
+
+    function _deserialize(text) {
+        try {
+            var o = JSON.parse(text)
+            if (o.s  !== undefined) styleCombo.currentIndex      = o.s
+            if (o.a  !== undefined) appearanceCombo.currentIndex  = o.a
+            if (o.cr !== undefined) radiusSpin.value              = o.cr
+            if (o.rn !== undefined) roundnessSpin.value           = o.rn
+            if (o.rt !== undefined) thicknessSpin.value           = o.rt
+            if (o.ri !== undefined) iorSpin.value                 = o.ri
+            if (o.rs !== undefined) scaleSpin.value               = o.rs
+            if (o.ta !== undefined) tintSpin.value                = o.ta
+            if (o.ca !== undefined) chromaSpin.value              = o.ca
+            if (o.ss !== undefined) specStrengthSpin.value        = o.ss
+            if (o.br !== undefined) blurRadiusSpin.value          = o.br
+            if (o.rr !== undefined) realtimeCheck.checked         = o.rr
+            pasteStatus.text = i18n("Applied!")
+        } catch(e) {
+            pasteStatus.text = i18n("Invalid config string")
+        }
+        pasteStatus.visible = true
+        statusTimer.restart()
+    }
+
+    Timer {
+        id: statusTimer
+        interval: 3000
+        onTriggered: pasteStatus.visible = false
+    }
+
     Kirigami.FormLayout {
         Layout.fillWidth: true
+
+        RowLayout {
+            Kirigami.FormData.label: i18n("Preset:")
+            spacing: Kirigami.Units.smallSpacing
+
+            Button {
+                icon.name: "edit-copy"
+                text: i18n("Copy style")
+                onClicked: {
+                    _hiddenField.text = root._serialize()
+                    _hiddenField.selectAll()
+                    _hiddenField.copy()
+                    pasteStatus.text = i18n("Copied!")
+                    pasteStatus.visible = true
+                    statusTimer.restart()
+                }
+            }
+
+            Button {
+                icon.name: "edit-paste"
+                text: i18n("Paste style")
+                onClicked: {
+                    _hiddenField.text = ""
+                    _hiddenField.paste()
+                    root._deserialize(_hiddenField.text)
+                }
+            }
+        }
+
+        TextField {
+            id: _hiddenField
+            visible: false
+        }
+
+        Label {
+            id: pasteStatus
+            visible: false
+            font.italic: true
+            opacity: 0.7
+        }
+
+        Kirigami.Separator {
+            Kirigami.FormData.isSection: true
+        }
 
         ComboBox {
             id: styleCombo
@@ -52,8 +138,6 @@ ColumnLayout {
         }
     }
 
-    // Glass-only tuning: hidden entirely when Style = Solid. takeHeight
-    // off so the form collapses cleanly instead of leaving empty space.
     Kirigami.FormLayout {
         id: glassSection
         Layout.fillWidth: true

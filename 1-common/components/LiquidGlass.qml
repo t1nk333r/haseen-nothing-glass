@@ -30,15 +30,15 @@ Item {
     // exaggerates). refractScale is a user-facing strength multiplier on
     // top of Snell — cranked up vs. the reference because our coordinates
     // are widget pixels, not normalized units.
-    property real refractThickness: 30
-    property real refractIOR: 1.6
+    property real refractThickness: 35
+    property real refractIOR: 1.7
     property real refractScale: 65
     property color tint: "#ffffff"
-    property real tintAlpha: 0.25
-    property real chromaStrength: 0.20
+    property real tintAlpha: 0.10
+    property real chromaStrength: 0.30
 
     // Blur spread in widget pixels; 0 = disabled.
-    property real blurRadius: 8
+    property real blurRadius: 6
 
     // Border specular (free-following primary + antipodal secondary).
     property bool specEnabled: true
