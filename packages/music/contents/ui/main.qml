@@ -39,6 +39,8 @@ PlasmoidItem {
     readonly property real length: mpris2Model.currentPlayer?.length ?? 0
 
     property real position: 0
+    property bool lyricsActive: false
+    property int _flipDirection: 1
 
     Connections {
         target: mpris2Model.currentPlayer
@@ -97,10 +99,12 @@ PlasmoidItem {
     }
     function next() {
         if (!mpris2Model.currentPlayer) return
+        root._flipDirection = 1
         mpris2Model.currentPlayer.Next()
     }
     function previous() {
         if (!mpris2Model.currentPlayer) return
+        root._flipDirection = -1
         mpris2Model.currentPlayer.Previous()
     }
     function seek(positionUs) {
@@ -312,6 +316,9 @@ PlasmoidItem {
             solidMode: colors.isSolid
             solidColor: colors.isSolid && root._hasSampledColor ? root._sampledGradientTop : colors.solidBackground
             solidColorBottom: colors.isSolid && root._hasSampledColor ? root._sampledGradientBottom : "transparent"
+            overlayDarken: root.lyricsActive && full._layout === "tallwide"
+                ? Qt.vector4d(0.45, 0.45, 0.45, 0.55)
+                : Qt.vector4d(0, 0, 0, 0)
         }
 
         SquareLayout {
@@ -368,6 +375,10 @@ PlasmoidItem {
             visible: full._layout === "tallwide"
             colors: colors
             accentColor: root._hasSampledColor ? root._sampledPrimaryColor : colors.foreground
+            lyricsAccentColor: root._hasSampledColor ? root._sampledTint : Qt.rgba(1, 1, 1, 0.35)
+            flipDirection: root._flipDirection
+            lyricsActive: root.lyricsActive
+            onToggleLyrics: root.lyricsActive = !root.lyricsActive
             fontFamily: sfRegular.name
             fontFamilyThin: sfThin.name
             track: root.track
@@ -392,6 +403,10 @@ PlasmoidItem {
             visible: full._layout === "wide"
             colors: colors
             accentColor: root._hasSampledColor ? root._sampledPrimaryColor : colors.foreground
+            lyricsAccentColor: root._hasSampledColor ? root._sampledTint : Qt.rgba(1, 1, 1, 0.35)
+            flipDirection: root._flipDirection
+            lyricsActive: root.lyricsActive
+            onToggleLyrics: root.lyricsActive = !root.lyricsActive
             fontFamily: sfRegular.name
             fontFamilyThin: sfThin.name
             track: root.track

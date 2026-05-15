@@ -71,6 +71,18 @@ Item {
                 label.x = 0
                 if (label.needsScrolling) scrollAnim.restart()
             }
+            function onVisibleChanged() {
+                if (marquee.visible) {
+                    scrollAnim.stop()
+                    label.x = 0
+                    if (label.needsScrolling) scrollAnim.restart()
+                }
+            }
+            function onWidthChanged() {
+                scrollAnim.stop()
+                label.x = 0
+                if (label.needsScrolling) scrollAnim.restart()
+            }
         }
     }
 }

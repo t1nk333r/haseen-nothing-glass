@@ -59,6 +59,8 @@ Item {
     property color solidColor: "#1A1B1E"
     property color solidColorBottom: "transparent"
 
+    property vector4d overlayDarken: Qt.vector4d(0, 0, 0, 0)
+
     readonly property var wallpaperItem: {
         const c = Plasmoid.containment
         if (!c) return null
@@ -319,6 +321,7 @@ Item {
         property vector2d mousePos: Qt.vector2d(glass._mouseU, glass._mouseV)
         property real mouseFade: glass._mouseFade
         property real specStrength: glass.specEnabled ? glass.specStrength : 0.0
+        property vector4d overlayDarken: glass.overlayDarken
 
         property vector2d uvOffset: glass._blurActive
             ? Qt.vector2d(0, 0) : glass._uvOff

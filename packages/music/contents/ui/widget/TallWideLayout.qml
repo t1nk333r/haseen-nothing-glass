@@ -18,45 +18,57 @@ Item {
     property real position: 0
     property real length: 0
     property color accentColor: "#ffffff"
+    property color lyricsAccentColor: Qt.rgba(1, 1, 1, 0.35)
+    property bool lyricsActive: false
+    property int flipDirection: 1
     property var formatTime: function(us) { return "" }
 
     signal togglePlaying()
     signal nextTrack()
     signal previousTrack()
     signal seek(real positionUs)
+    signal toggleLyrics()
 
     readonly property real _m: Math.round(width * 0.08)
     readonly property real _s: width
+    readonly property real _btnH: Math.round(_s * 0.075)
 
+    // ── Main content area with margins ─────────────────────────────────────
     Item {
-        id: content
+        id: rootContent
         anchors.fill: parent
         anchors.margins: layout._m
 
-        AlbumArt {
-            id: albumArtItem
-            anchors.top: parent.top
-            anchors.left: parent.left
-            anchors.right: parent.right
-            height: width
-            artUrl: layout.albumArt
-            radius: Math.round(width * 0.08)
-            fallbackIconColor: layout.colors.foreground
-        }
-
+        // ── Normal content: album art + info text ─────────────────────────
         Item {
-            id: bottomSection
-            anchors.top: albumArtItem.bottom
-            anchors.topMargin: Math.round(layout._s * 0.03)
+            id: normalContent
+            anchors.top: parent.top
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.bottom: parent.bottom
 
-            Column {
-                id: infoCol
+            opacity: layout.lyricsActive ? 0 : 1
+            visible: opacity > 0
+            Behavior on opacity { NumberAnimation { duration: layout.lyricsActive ? 250 : 450; easing.type: Easing.OutQuart } }
+
+            FlipAlbumArt {
+                id: albumArtItem
+                anchors.top: parent.top
                 anchors.left: parent.left
                 anchors.right: parent.right
-                anchors.top: parent.top
+                height: width
+                artUrl: layout.albumArt
+                radius: Math.round(width * 0.08)
+                fallbackIconColor: layout.colors.foreground
+                direction: layout.flipDirection
+            }
+
+            Column {
+                id: infoCol
+                anchors.top: albumArtItem.bottom
+                anchors.topMargin: Math.round(layout._s * 0.03)
+                anchors.left: parent.left
+                anchors.right: parent.right
                 spacing: 2
 
                 MarqueeText {
@@ -81,6 +93,7 @@ Item {
                 }
             }
 
+            // ── Slider ────────────────────────────────────────────────────
             MusicSlider {
                 id: slider
                 anchors.left: parent.left
@@ -97,12 +110,34 @@ Item {
                 onSeek: function(pos) { layout.seek(pos) }
             }
 
+            // ── Controls (normal position: above slider) ──────────────────
             Row {
-                id: controls
-                anchors.top: infoCol.bottom
-                anchors.topMargin: Math.round(layout._s * 0.06)
+                id: controlsNormal
+                anchors.bottom: slider.top
+                anchors.bottomMargin: Math.round(layout._s * 0.03)
                 anchors.horizontalCenter: parent.horizontalCenter
                 spacing: Math.round(layout._s * 0.08)
+
+                opacity: controlsDelayTimer.showControls ? 1 : 0
+                Behavior on opacity { NumberAnimation { duration: 300; easing.type: Easing.OutQuart } }
+
+                Timer {
+                    id: controlsDelayTimer
+                    property bool showControls: !layout.lyricsActive
+                    interval: 200
+                    onTriggered: showControls = true
+                }
+
+                Connections {
+                    target: layout
+                    function onLyricsActiveChanged() {
+                        if (layout.lyricsActive) {
+                            controlsDelayTimer.showControls = false
+                        } else {
+                            controlsDelayTimer.restart()
+                        }
+                    }
+                }
 
                 readonly property real _iconSize: Math.max(18, Math.round(layout._s * 0.12))
                 readonly property real _rowH: _iconSize * 1.6
@@ -110,8 +145,8 @@ Item {
                 ControlButton {
                     iconSource: Qt.resolvedUrl("../icons/previous.svg")
                     iconColor: layout.colors.foreground
-                    iconSize: controls._iconSize
-                    height: controls._rowH
+                    iconSize: controlsNormal._iconSize
+                    height: controlsNormal._rowH
                     opacity: layout.canGoPrevious ? 1.0 : 0.3
                     onClicked: layout.previousTrack()
                 }
@@ -119,8 +154,8 @@ Item {
                 ControlButton {
                     iconSource: layout.isPlaying ? Qt.resolvedUrl("../icons/pause.svg") : Qt.resolvedUrl("../icons/play.svg")
                     iconColor: layout.colors.foreground
-                    iconSize: controls._iconSize
-                    height: controls._rowH
+                    iconSize: controlsNormal._iconSize
+                    height: controlsNormal._rowH
                     opacity: (layout.canPlay || layout.canPause) ? 1.0 : 0.3
                     onClicked: layout.togglePlaying()
                 }
@@ -128,12 +163,139 @@ Item {
                 ControlButton {
                     iconSource: Qt.resolvedUrl("../icons/next.svg")
                     iconColor: layout.colors.foreground
-                    iconSize: controls._iconSize
-                    height: controls._rowH
+                    iconSize: controlsNormal._iconSize
+                    height: controlsNormal._rowH
                     opacity: layout.canGoNext ? 1.0 : 0.3
                     onClicked: layout.nextTrack()
                 }
             }
+        }
+
+        // ── Lyrics placeholder (fades in) ─────────────────────────────────
+        Item {
+            id: lyricsContent
+            anchors.top: parent.top
+            anchors.topMargin: layout._m
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.bottom: lyricsBtn.top
+            anchors.bottomMargin: Math.round(layout._s * 0.04)
+
+            opacity: layout.lyricsActive ? 1 : 0
+            scale: layout.lyricsActive ? 1 : 0.96
+            visible: opacity > 0
+            transformOrigin: Item.Center
+            Behavior on opacity { NumberAnimation { duration: 280; easing.type: Easing.OutQuart } }
+            Behavior on scale   { NumberAnimation { duration: 280; easing.type: Easing.OutQuart } }
+
+            Text {
+                anchors.centerIn: parent
+                text: "Lyrics here"
+                color: layout.colors.foreground
+                opacity: 0.45
+                font.pixelSize: Math.max(10, Math.round(layout._s * 0.06))
+                font.weight: Font.Medium
+                font.family: layout.fontFamily
+            }
+        }
+
+        // ── Lyrics button (floating, slides between below-artist and top) ─
+        Rectangle {
+            id: lyricsBtn
+            anchors.right: parent.right
+            y: layout.lyricsActive
+                ? (layout.height - layout._m - lyricsControls.height - Math.round(layout._s * 0.04) - layout._btnH - layout._m)
+                : _btnNormalY
+            Behavior on y { NumberAnimation { duration: 180; easing.type: Easing.InOutQuart } }
+
+            readonly property real _btnNormalY: albumArtItem.height
+                + Math.round(layout._s * 0.03)
+                + (Math.round(layout._s * 0.08) + 4) + 2
+                + (Math.max(10, Math.round(layout._s * 0.055)) + 4) + 2
+                + 4
+
+            width: lyricsBtnRow.width + Math.round(layout._s * 0.08)
+            height: layout._btnH
+            radius: height / 2
+            color: layout.lyricsActive ? layout.lyricsAccentColor : Qt.rgba(1, 1, 1, 0.30)
+            Behavior on color { ColorAnimation { duration: 280 } }
+
+            Row {
+                id: lyricsBtnRow
+                anchors.centerIn: parent
+                spacing: Math.round(layout._s * 0.02)
+
+                Image {
+                    source: Qt.resolvedUrl("../icons/mic.png")
+                    width: Math.round(layout._s * 0.04)
+                    height: width
+                    anchors.verticalCenter: parent.verticalCenter
+                    smooth: true
+                    mipmap: true
+                }
+
+                Text {
+                    text: "Lyrics"
+                    color: "#ffffff"
+                    font.pixelSize: Math.max(7, Math.round(layout._s * 0.038))
+                    font.weight: Font.Medium
+                    font.family: layout.fontFamily
+                    anchors.verticalCenter: parent.verticalCenter
+                }
+            }
+
+            MouseArea {
+                anchors.fill: parent
+                cursorShape: Qt.PointingHandCursor
+                onClicked: layout.toggleLyrics()
+            }
+        }
+    }
+
+    // ── Lyrics-mode controls (slides down from normal position to bottom) ───
+    Row {
+        id: lyricsControls
+        anchors.horizontalCenter: parent.horizontalCenter
+        // Normal: same y as controlsNormal (above slider, inside margins)
+        // Lyrics: slides down to bottom with margin
+        readonly property real _normalY: layout.height - layout._m
+            - slider.implicitHeight - Math.round(layout._s * 0.03)
+            - lyricsControls.height
+        y: layout.lyricsActive
+            ? (layout.height - layout._m - lyricsControls.height)
+            : _normalY
+        Behavior on y { NumberAnimation { duration: 180; easing.type: Easing.InOutQuart } }
+
+        spacing: Math.round(layout._s * 0.08)
+
+        readonly property real _iconSize: Math.max(18, Math.round(layout._s * 0.12))
+        readonly property real _rowH: _iconSize * 1.6
+
+        ControlButton {
+            iconSource: Qt.resolvedUrl("../icons/previous.svg")
+            iconColor: layout.colors.foreground
+            iconSize: lyricsControls._iconSize
+            height: lyricsControls._rowH
+            opacity: layout.canGoPrevious ? 1.0 : 0.3
+            onClicked: layout.previousTrack()
+        }
+
+        ControlButton {
+            iconSource: layout.isPlaying ? Qt.resolvedUrl("../icons/pause.svg") : Qt.resolvedUrl("../icons/play.svg")
+            iconColor: layout.colors.foreground
+            iconSize: lyricsControls._iconSize
+            height: lyricsControls._rowH
+            opacity: (layout.canPlay || layout.canPause) ? 1.0 : 0.3
+            onClicked: layout.togglePlaying()
+        }
+
+        ControlButton {
+            iconSource: Qt.resolvedUrl("../icons/next.svg")
+            iconColor: layout.colors.foreground
+            iconSize: lyricsControls._iconSize
+            height: lyricsControls._rowH
+            opacity: layout.canGoNext ? 1.0 : 0.3
+            onClicked: layout.nextTrack()
         }
     }
 }
