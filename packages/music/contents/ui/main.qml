@@ -2,7 +2,6 @@ import QtQuick
 import QtQuick.Layouts
 import org.kde.plasma.plasmoid
 import org.kde.plasma.core as PlasmaCore
-import org.kde.plasma.plasma5support as P5Support
 import org.kde.plasma.private.mpris as Mpris
 import "components"
 import "widget"
@@ -126,6 +125,7 @@ PlasmoidItem {
     property color _sampledTint: "#000000"
     property color _sampledGradientTop: "#1A1B1E"
     property color _sampledGradientBottom: "#0E0F11"
+    property color _sampledPrimaryColor: "#ffffff"
     property bool _hasSampledColor: false
     property bool _sampledIsDark: true
 
@@ -177,6 +177,7 @@ PlasmoidItem {
                 root._sampledTint = "#000000"
                 root._sampledGradientTop = "#1A1B1E"
                 root._sampledGradientBottom = "#0E0F11"
+                root._sampledPrimaryColor = "#ffffff"
                 root._sampledIsDark = true
             }
         }
@@ -254,134 +255,13 @@ PlasmoidItem {
                 Math.min(Math.max(secondary.s, 0.25), 0.65),
                 Math.max(0.10, Math.min(secondary.l, 0.30)))
 
+            root._sampledPrimaryColor = root._hslToRgb(accent.h, Math.max(accent.s, 0.5), Math.max(accent.l, 0.78))
+
             root._sampledIsDark = dominant.lum < 0.5
             root._hasSampledColor = true
         }
     }
 
-    // ── Cava spectrum ─────────────────────────────────────────────────────
-    //
-    // Architecture: cava → FIFO → background "while read" relay → plain file
-    // Our Timer polls the plain file with "cat". Reading a tiny file is
-    // nearly instant — no FIFO blocking, no heavy per-frame process spawn.
-
-    property bool  _cavaAvailable: false
-    property var   cavaBarValues: []
-    property string _cavaWidgetId: "music_" + Math.floor(Math.random() * 100000)
-    property string _cavaFifo: "/tmp/cava_plasma_" + _cavaWidgetId + ".fifo"
-    property string _cavaConf: "/tmp/cava_plasma_" + _cavaWidgetId + ".conf"
-    property string _cavaOut:  "/tmp/cava_plasma_" + _cavaWidgetId + ".out"
-    property string _cavaPidFile: "/tmp/cava_plasma_" + _cavaWidgetId + ".pid"
-    property bool   _cavaStarted: false
-
-    P5Support.DataSource {
-        id: executable
-        engine: "executable"
-        connectedSources: []
-        onNewData: function(source, data) {
-            var stdout = data["stdout"] ?? ""
-
-            if (source.indexOf("which cava") !== -1) {
-                root._cavaAvailable = stdout.trim().length > 0
-                if (root._cavaAvailable) root._startCava()
-            } else if (source.indexOf("cat " + root._cavaOut) !== -1) {
-                root._parseCavaFrame(stdout)
-            }
-
-            disconnectSource(source)
-        }
-        function exec(cmd) { connectSource(cmd) }
-    }
-
-    function _startCava() {
-        if (_cavaStarted) return
-        _cavaStarted = true
-
-        var bars = plasmoid.configuration.spectrumBars
-        var conf = "[general]\n"
-        conf += "bars = " + bars + "\n"
-        conf += "framerate = 30\n\n"
-        conf += "[input]\n"
-        conf += "method = pulse\n"
-        conf += "source = auto\n\n"
-        conf += "[output]\n"
-        conf += "method = raw\n"
-        conf += "raw_target = " + _cavaFifo + "\n"
-        conf += "data_format = ascii\n"
-        conf += "ascii_max_range = 100\n"
-        conf += "bar_delimiter = 59\n"
-        conf += "frame_delimiter = 10\n"
-        conf += "channels = mono\n"
-        conf += "mono_option = average\n"
-
-        // Write config, create FIFO, start cava, start relay loop.
-        // The relay drains the FIFO and always overwrites the .out file
-        // with the latest frame — so polling "cat .out" is instant.
-        var setup = "printf '%s' '" + conf.replace(/'/g, "'\\''") + "' > " + _cavaConf
-        setup += " && mkfifo " + _cavaFifo + " 2>/dev/null"
-        setup += " && : > " + _cavaOut
-        setup += " && nohup sh -c 'cava -p " + _cavaConf + " &"
-        setup += " while IFS= read -r line; do printf \"%s\" \"$line\" > " + _cavaOut + "; done < " + _cavaFifo
-        setup += "' >/dev/null 2>&1 & echo $! > " + _cavaPidFile
-
-        executable.exec(setup)
-    }
-
-    function _parseCavaFrame(stdout) {
-        var line = stdout.trim()
-        if (line.length === 0) return
-
-        var parts = line.split(";")
-        var vals = []
-        for (var i = 0; i < parts.length; i++) {
-            var v = parseFloat(parts[i])
-            if (!isNaN(v)) vals.push(v / 100.0)
-        }
-        if (vals.length > 0) cavaBarValues = vals
-    }
-
-    property int _pollSeq: 0
-
-    Timer {
-        id: cavaPoller
-        interval: 42
-        running: root._cavaAvailable && root.isPlaying
-        repeat: true
-        onTriggered: {
-            root._pollSeq++
-            executable.exec("cat " + root._cavaOut + " #" + root._pollSeq)
-        }
-    }
-
-    Component.onCompleted: executable.exec("which cava")
-
-    Component.onDestruction: {
-        var cleanup = "if [ -f " + _cavaPidFile + " ]; then"
-        cleanup += " kill $(cat " + _cavaPidFile + ") 2>/dev/null;"
-        cleanup += " fi;"
-        cleanup += " pkill -f 'cava -p " + _cavaConf + "' 2>/dev/null;"
-        cleanup += " rm -f " + _cavaFifo + " " + _cavaConf + " " + _cavaOut + " " + _cavaPidFile
-        executable.exec(cleanup)
-    }
-
-    // ── Volume (for bar mode mute toggle) ─────────────────────────────────
-
-    readonly property real playerVolume: mpris2Model.currentPlayer?.volume ?? -1
-    property bool _muted: false
-    property real _volumeBeforeMute: 1.0
-
-    function toggleMute() {
-        if (!mpris2Model.currentPlayer) return
-        if (playerVolume < 0) return
-        if (_muted) {
-            mpris2Model.currentPlayer.volume = _volumeBeforeMute
-            _muted = false
-        } else {
-            _volumeBeforeMute = playerVolume
-            mpris2Model.currentPlayer.volume = 0
-            _muted = true
-        }
-    }
 
     // ── UI ─────────────────────────────────────────────────────────────────
 
@@ -473,6 +353,7 @@ PlasmoidItem {
             anchors.fill: parent
             visible: full._layout === "wide"
             colors: colors
+            accentColor: colors.isGlass ? "#ffffff" : (root._hasSampledColor ? root._sampledPrimaryColor : colors.foreground)
             fontFamily: sfRegular.name
             fontFamilyThin: sfThin.name
             track: root.track
@@ -496,6 +377,8 @@ PlasmoidItem {
             anchors.fill: parent
             visible: full._layout === "bar"
             colors: colors
+            accentColor: colors.isGlass ? "#ffffff" : (root._hasSampledColor ? root._sampledPrimaryColor : colors.foreground)
+            cornerRadius: plasmoid.configuration.cornerRadius
             fontFamily: sfRegular.name
             fontFamilyThin: sfThin.name
             track: root.track
@@ -508,15 +391,10 @@ PlasmoidItem {
             canPause: root.canPause
             position: root.position
             length: root.length
-            cavaBarValues: root.cavaBarValues
-            cavaAvailable: root._cavaAvailable
-            playerVolume: root.playerVolume
-            isMuted: root._muted
             onTogglePlaying: root.togglePlaying()
             onNextTrack: root.next()
             onPreviousTrack: root.previous()
             onSeek: function(pos) { root.seek(pos) }
-            onToggleMute: root.toggleMute()
             formatTime: root.formatTime
         }
     }

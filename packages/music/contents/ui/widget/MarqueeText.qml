@@ -14,6 +14,7 @@ Item {
     property int initialPause: 5000
     property int endPause: 3000
     property int maxLoops: 2
+    property bool scrollEnabled: true
 
     clip: true
 
@@ -29,7 +30,7 @@ Item {
         elide: needsScrolling ? Text.ElideNone : Text.ElideRight
         width: needsScrolling ? implicitWidth : parent.width
 
-        property bool needsScrolling: implicitWidth > marquee.width
+        property bool needsScrolling: marquee.scrollEnabled && implicitWidth > marquee.width
 
         x: 0
 

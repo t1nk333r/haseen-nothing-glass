@@ -17,6 +17,7 @@ Item {
     property bool canPause: false
     property real position: 0
     property real length: 0
+    property color accentColor: "#ffffff"
     property var formatTime: function(us) { return "" }
 
     signal togglePlaying()
@@ -39,11 +40,11 @@ Item {
             anchors.bottom: parent.bottom
             position: layout.position
             length: layout.length
-            fillColor: layout.colors.foreground
+            fillColor: layout.accentColor
             trackColor: layout.colors.foreground
             timeLabelColor: layout.colors.foreground
             fontFamily: layout.fontFamily
-            fontSize: Math.max(8, Math.round(layout._s * 0.04))
+            fontSize: Math.max(9, Math.round(layout._s * 0.046))
             formatTime: layout.formatTime
             onSeek: function(pos) { layout.seek(pos) }
         }
@@ -85,9 +86,9 @@ Item {
 
                     MarqueeText {
                         width: parent.width
-                        height: Math.round(layout._s * 0.08) + 4
+                        height: Math.round(layout._s * 0.10) + 4
                         text: layout.track || "Not Playing"
-                        fontSize: Math.max(10, Math.round(layout._s * 0.075))
+                        fontSize: Math.max(12, Math.round(layout._s * 0.09))
                         fontWeight: Font.DemiBold
                         fontFamily: layout.fontFamily
                         textColor: layout.colors.foreground
@@ -95,12 +96,13 @@ Item {
 
                     MarqueeText {
                         width: parent.width
-                        height: Math.max(10, Math.round(layout._s * 0.055)) + 4
+                        height: Math.max(12, Math.round(layout._s * 0.066)) + 4
                         text: layout.artist || "—"
-                        fontSize: Math.max(8, Math.round(layout._s * 0.055))
+                        fontSize: Math.max(10, Math.round(layout._s * 0.066))
                         fontWeight: Font.Medium
                         fontFamily: layout.fontFamily
-                        textColor: layout.colors.musicSecondary
+                        textColor: layout.colors.foreground
+                        textOpacity: 0.55
                     }
                 }
 

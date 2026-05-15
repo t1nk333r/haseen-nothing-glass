@@ -29,14 +29,14 @@ Item {
 
     readonly property real _m: Math.round(Math.min(width, height) * 0.08)
     readonly property real _s: Math.min(width, height)
-    readonly property real _bgArtRadius: Math.min(layout.cornerRadius, layout._s * 0.18)
+    readonly property real _bgArtRadius: Math.min(layout.cornerRadius, Math.min(width, height) * 0.22)
 
     clip: true
 
-    onCornerRadiusChanged: squircleMaskCanvas.requestPaint()
-    onRoundnessChanged: squircleMaskCanvas.requestPaint()
-    onWidthChanged: squircleMaskCanvas.requestPaint()
-    onHeightChanged: squircleMaskCanvas.requestPaint()
+    onCornerRadiusChanged: squircleMask.requestPaint()
+    onRoundnessChanged: squircleMask.requestPaint()
+    onWidthChanged: squircleMask.requestPaint()
+    onHeightChanged: squircleMask.requestPaint()
 
     // Album art as full background with gradient fade-out toward bottom
     Item {
@@ -75,7 +75,7 @@ Item {
             layer.enabled: true
 
             Canvas {
-                id: squircleMaskCanvas
+                id: squircleMask
                 anchors.fill: parent
 
                 onPaint: {
@@ -83,48 +83,35 @@ Item {
                     ctx.reset()
 
                     var w = width, h = height
-                    var r = Math.min(layout._bgArtRadius, Math.min(w, h) / 2)
+                    var r = Math.min(layout._bgArtRadius, w / 2, h / 2)
                     var n = Math.max(layout.roundness, 2.0)
-                    var steps = 16
+                    var steps = 20
+
+                    function sx(a) { return Math.pow(Math.abs(Math.cos(a)), 2.0 / n) * (Math.cos(a) >= 0 ? 1 : -1) }
+                    function sy(a) { return Math.pow(Math.abs(Math.sin(a)), 2.0 / n) * (Math.sin(a) >= 0 ? 1 : -1) }
 
                     ctx.beginPath()
                     ctx.moveTo(r, 0)
                     ctx.lineTo(w - r, 0)
-
                     for (var i = 0; i <= steps; i++) {
                         var a = (i / steps) * Math.PI / 2
-                        var px = w - r + r * Math.pow(Math.abs(Math.cos(a)), 2.0 / n)
-                        var py = r - r * Math.pow(Math.abs(Math.sin(a)), 2.0 / n)
-                        ctx.lineTo(px, py)
+                        ctx.lineTo(w - r + r * sx(a), r - r * sy(a))
                     }
-
                     ctx.lineTo(w, h - r)
-
                     for (var i = 0; i <= steps; i++) {
                         var a = (i / steps) * Math.PI / 2
-                        var px = w - r + r * Math.pow(Math.abs(Math.sin(a)), 2.0 / n)
-                        var py = h - r + r * Math.pow(Math.abs(Math.cos(a)), 2.0 / n)
-                        ctx.lineTo(px, py)
+                        ctx.lineTo(w - r + r * sy(a), h - r + r * sx(a))
                     }
-
                     ctx.lineTo(r, h)
-
                     for (var i = 0; i <= steps; i++) {
                         var a = (i / steps) * Math.PI / 2
-                        var px = r - r * Math.pow(Math.abs(Math.cos(a)), 2.0 / n)
-                        var py = h - r + r * Math.pow(Math.abs(Math.sin(a)), 2.0 / n)
-                        ctx.lineTo(px, py)
+                        ctx.lineTo(r - r * sx(a), h - r + r * sy(a))
                     }
-
                     ctx.lineTo(0, r)
-
                     for (var i = 0; i <= steps; i++) {
                         var a = (i / steps) * Math.PI / 2
-                        var px = r - r * Math.pow(Math.abs(Math.sin(a)), 2.0 / n)
-                        var py = r - r * Math.pow(Math.abs(Math.cos(a)), 2.0 / n)
-                        ctx.lineTo(px, py)
+                        ctx.lineTo(r - r * sy(a), r - r * sx(a))
                     }
-
                     ctx.closePath()
                     ctx.fillStyle = "white"
                     ctx.fill()
@@ -166,8 +153,8 @@ Item {
             id: infoCol
             anchors.left: parent.left
             anchors.right: parent.right
-            anchors.bottom: slider.top
-            anchors.bottomMargin: Math.round(layout._s * 0.03)
+            anchors.bottom: controls.top
+            anchors.bottomMargin: Math.round(layout._s * 0.04)
             spacing: 2
 
             MarqueeText {
@@ -187,22 +174,9 @@ Item {
                 fontSize: Math.max(9, Math.round(layout._s * 0.047))
                 fontWeight: Font.Medium
                 fontFamily: layout.fontFamily
-                textColor: layout.colors.musicSecondary
+                textColor: layout.colors.foreground
+                textOpacity: 0.55
             }
-        }
-
-        MusicSlider {
-            id: slider
-            anchors.left: parent.left
-            anchors.right: parent.right
-            anchors.bottom: controls.top
-            anchors.bottomMargin: Math.round(layout._s * 0.01)
-            position: layout.position
-            length: layout.length
-            fillColor: layout.colors.foreground
-            trackColor: layout.colors.foreground
-            showTimeLabels: false
-            onSeek: function(pos) { layout.seek(pos) }
         }
 
         Row {
@@ -211,14 +185,13 @@ Item {
             anchors.horizontalCenter: parent.horizontalCenter
             spacing: Math.round(layout._s * 0.08)
 
-            readonly property real _playSize: Math.max(20, Math.round(layout._s * 0.11))
-            readonly property real _skipSize: Math.max(15, Math.round(layout._s * 0.077))
-            readonly property real _rowH: _playSize * 1.6
+            readonly property real _iconSize: Math.max(20, Math.round(layout._s * 0.11))
+            readonly property real _rowH: _iconSize * 1.6
 
             ControlButton {
                 iconSource: Qt.resolvedUrl("../icons/previous.svg")
                 iconColor: layout.colors.foreground
-                iconSize: controls._skipSize
+                iconSize: controls._iconSize
                 height: controls._rowH
                 opacity: layout.canGoPrevious ? 1.0 : 0.3
                 onClicked: layout.previousTrack()
@@ -227,7 +200,7 @@ Item {
             ControlButton {
                 iconSource: layout.isPlaying ? Qt.resolvedUrl("../icons/pause.svg") : Qt.resolvedUrl("../icons/play.svg")
                 iconColor: layout.colors.foreground
-                iconSize: controls._playSize
+                iconSize: controls._iconSize
                 height: controls._rowH
                 opacity: (layout.canPlay || layout.canPause) ? 1.0 : 0.3
                 onClicked: layout.togglePlaying()
@@ -236,7 +209,7 @@ Item {
             ControlButton {
                 iconSource: Qt.resolvedUrl("../icons/next.svg")
                 iconColor: layout.colors.foreground
-                iconSize: controls._skipSize
+                iconSize: controls._iconSize
                 height: controls._rowH
                 opacity: layout.canGoNext ? 1.0 : 0.3
                 onClicked: layout.nextTrack()

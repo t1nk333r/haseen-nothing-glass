@@ -26,7 +26,7 @@ Item {
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.top: parent.top
-        height: 24
+        height: 14
 
         Rectangle {
             id: track
