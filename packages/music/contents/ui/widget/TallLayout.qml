@@ -17,6 +17,7 @@ Item {
     property bool canPause: false
     property real position: 0
     property real length: 0
+    property color accentColor: "#ffffff"
     property var formatTime: function(us) { return "" }
 
     signal togglePlaying()
@@ -80,7 +81,7 @@ Item {
             anchors.right: parent.right
             position: layout.position
             length: layout.length
-            fillColor: layout.colors.foreground
+            fillColor: layout.accentColor
             trackColor: layout.colors.foreground
             timeLabelColor: layout.colors.foreground
             fontFamily: layout.fontFamily

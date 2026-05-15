@@ -60,6 +60,7 @@ PlasmoidItem {
 
     onTrackChanged: {
         root.position = mpris2Model.currentPlayer?.position ?? 0
+        root._lastSampledUrl = ""
         _scheduleArtRefresh()
     }
     onIsPlayingChanged: root.position = mpris2Model.currentPlayer?.position ?? 0
@@ -158,28 +159,19 @@ PlasmoidItem {
         return { h: h, s: s, l: l }
     }
 
-    Image {
-        id: artSampler
-        source: root.albumArt
-        visible: false
-        sourceSize.width: 64
-        sourceSize.height: 64
-        width: 64
-        height: 64
-        fillMode: Image.PreserveAspectCrop
-        asynchronous: true
+    property string _lastSampledUrl: ""
 
-        onStatusChanged: {
-            if (status === Image.Ready) {
-                sampleCanvas.requestPaint()
-            } else if (status === Image.Null || status === Image.Error) {
-                root._hasSampledColor = false
-                root._sampledTint = "#000000"
-                root._sampledGradientTop = "#1A1B1E"
-                root._sampledGradientBottom = "#0E0F11"
-                root._sampledPrimaryColor = "#ffffff"
-                root._sampledIsDark = true
-            }
+    onAlbumArtChanged: {
+        if (albumArt !== "") {
+            sampleCanvas.loadImage(albumArt)
+        } else {
+            _hasSampledColor = false
+            _sampledTint = "#000000"
+            _sampledGradientTop = "#1A1B1E"
+            _sampledGradientBottom = "#0E0F11"
+            _sampledPrimaryColor = "#ffffff"
+            _sampledIsDark = true
+            _lastSampledUrl = ""
         }
     }
 
@@ -187,18 +179,36 @@ PlasmoidItem {
         id: sampleCanvas
         width: 64
         height: 64
-        visible: false
+        visible: true
+        opacity: 0
+
+        Component.onCompleted: {
+            if (root.albumArt !== "") loadImage(root.albumArt)
+        }
+
+        onImageLoaded: {
+            if (root.albumArt !== "" && root.albumArt !== root._lastSampledUrl) {
+                root._lastSampledUrl = root.albumArt
+                requestPaint()
+            }
+        }
 
         onPaint: {
+            var url = root.albumArt
+            if (!url || !isImageLoaded(url)) return
+
             var ctx = getContext("2d")
             ctx.reset()
-            ctx.drawImage(artSampler, 0, 0, 64, 64)
+            ctx.drawImage(url, 0, 0, 64, 64)
 
             var imgData = ctx.getImageData(0, 0, 64, 64)
             var d = imgData.data
             var pixels = []
-            for (var i = 0; i < d.length; i += 4)
+            for (var i = 0; i < d.length; i += 4) {
+                if (d[i+3] < 128) continue
                 pixels.push([d[i], d[i+1], d[i+2]])
+            }
+            if (pixels.length === 0) return
 
             function medianCut(px, depth) {
                 if (depth === 0 || px.length === 0) {
@@ -227,35 +237,37 @@ PlasmoidItem {
                        .concat(medianCut(px.slice(mid), depth - 1))
             }
 
-            var buckets = medianCut(pixels, 2)
+            var buckets = medianCut(pixels, 3)
 
-            // Find accent: bucket with highest saturation
             var accentIdx = 0, maxSat = -1
             for (var i = 0; i < buckets.length; i++) {
                 var hsl = root._rgbToHsl(buckets[i].r, buckets[i].g, buckets[i].b)
                 buckets[i].h = hsl.h; buckets[i].s = hsl.s; buckets[i].l = hsl.l
                 buckets[i].lum = 0.299 * buckets[i].r + 0.587 * buckets[i].g + 0.114 * buckets[i].b
-                if (hsl.s > maxSat) { maxSat = hsl.s; accentIdx = i }
+                var score = hsl.s * (0.3 + 0.7 * (1 - Math.abs(2 * hsl.l - 1)))
+                if (score > maxSat) { maxSat = score; accentIdx = i }
             }
 
-            // Sort by count descending for dominant colors
             var sorted = buckets.slice().sort(function(a, b) { return b.count - a.count })
             var dominant = sorted[0]
             var secondary = sorted.length > 1 ? sorted[1] : sorted[0]
             var accent = buckets[accentIdx]
 
-            // Glass tint: accent color, muted and dark
-            root._sampledTint = root._hslToRgb(accent.h, Math.min(accent.s, 0.45), Math.min(accent.l, 0.25))
+            root._sampledTint = root._hslToRgb(accent.h,
+                Math.min(accent.s, 0.5),
+                Math.min(accent.l, 0.30))
 
-            // Solid gradient: dominant → secondary
             root._sampledGradientTop = root._hslToRgb(dominant.h,
-                Math.min(Math.max(dominant.s, 0.25), 0.65),
-                Math.max(0.18, Math.min(dominant.l, 0.45)))
-            root._sampledGradientBottom = root._hslToRgb(secondary.h,
-                Math.min(Math.max(secondary.s, 0.25), 0.65),
-                Math.max(0.10, Math.min(secondary.l, 0.30)))
+                Math.max(dominant.s, 0.30),
+                0.15 + dominant.l * 0.35)
+            root._sampledGradientBottom = root._hslToRgb(
+                secondary.h !== dominant.h ? secondary.h : dominant.h,
+                Math.max(secondary.s, 0.25),
+                0.06 + secondary.l * 0.20)
 
-            root._sampledPrimaryColor = root._hslToRgb(accent.h, Math.max(accent.s, 0.5), Math.max(accent.l, 0.78))
+            root._sampledPrimaryColor = root._hslToRgb(accent.h,
+                Math.max(accent.s, 0.55),
+                Math.max(accent.l, 0.75))
 
             root._sampledIsDark = dominant.lum < 0.5
             root._hasSampledColor = true
@@ -330,6 +342,7 @@ PlasmoidItem {
             anchors.fill: parent
             visible: full._layout === "tall"
             colors: colors
+            accentColor: root._hasSampledColor ? root._sampledPrimaryColor : colors.foreground
             fontFamily: sfRegular.name
             fontFamilyThin: sfThin.name
             track: root.track
@@ -353,7 +366,7 @@ PlasmoidItem {
             anchors.fill: parent
             visible: full._layout === "wide"
             colors: colors
-            accentColor: colors.isGlass ? "#ffffff" : (root._hasSampledColor ? root._sampledPrimaryColor : colors.foreground)
+            accentColor: root._hasSampledColor ? root._sampledPrimaryColor : colors.foreground
             fontFamily: sfRegular.name
             fontFamilyThin: sfThin.name
             track: root.track
@@ -377,7 +390,7 @@ PlasmoidItem {
             anchors.fill: parent
             visible: full._layout === "bar"
             colors: colors
-            accentColor: colors.isGlass ? "#ffffff" : (root._hasSampledColor ? root._sampledPrimaryColor : colors.foreground)
+            accentColor: root._hasSampledColor ? root._sampledPrimaryColor : colors.foreground
             cornerRadius: plasmoid.configuration.cornerRadius
             fontFamily: sfRegular.name
             fontFamilyThin: sfThin.name
