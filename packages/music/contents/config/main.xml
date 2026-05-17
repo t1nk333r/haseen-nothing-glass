@@ -45,5 +45,8 @@
         <entry name="spectrumBars" type="Int">
             <default>18</default>
         </entry>
+        <entry name="lyricsBlur" type="Bool">
+            <default>true</default>
+        </entry>
     </group>
 </kcfg>

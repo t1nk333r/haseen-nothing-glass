@@ -54,6 +54,91 @@ PlasmoidItem {
     property bool lyricsActive: false
     property int _flipDirection: 1
 
+    // ── Lyrics data ──────────────────────────────────────────────────────
+    property var _syncedLyrics: []
+    property string _plainLyrics: ""
+    property int _lyricsState: 0   // 0=idle 1=loading 2=loaded 3=error 4=not-found
+    property string _lyricsTrackKey: ""
+
+    onLyricsActiveChanged: {
+        if (lyricsActive && _lyricsState === 0 && track !== "")
+            _lyricsFetchTimer.restart()
+    }
+
+    Timer {
+        id: _lyricsFetchTimer
+        interval: 400
+        onTriggered: root._fetchLyrics()
+    }
+
+    Timer {
+        id: lyricsPositionTimer
+        interval: 80
+        running: root.isPlaying && root.lyricsActive && root.length > 0
+        repeat: true
+        onTriggered: {
+            if (root.position < root.length)
+                root.position += interval * 1000
+        }
+    }
+
+    function _fetchLyrics() {
+        if (track === "" || artist === "") return
+        var key = artist + "|" + track
+        if (key === _lyricsTrackKey && _lyricsState === 2) return
+        _lyricsTrackKey = key
+        _lyricsState = 1
+
+        var url = "https://lrclib.net/api/get"
+            + "?artist_name=" + encodeURIComponent(artist)
+            + "&track_name=" + encodeURIComponent(track)
+        if (album !== "")
+            url += "&album_name=" + encodeURIComponent(album)
+        if (length > 0)
+            url += "&duration=" + Math.round(length / 1000000)
+
+        var xhr = new XMLHttpRequest()
+        xhr.onreadystatechange = function() {
+            if (xhr.readyState !== XMLHttpRequest.DONE) return
+            if (root._lyricsTrackKey !== key) return  // stale
+
+            if (xhr.status === 200) {
+                try {
+                    var resp = JSON.parse(xhr.responseText)
+                    var synced = resp.syncedLyrics || ""
+                    root._plainLyrics = resp.plainLyrics || ""
+                    root._syncedLyrics = synced !== "" ? root._parseLrc(synced) : []
+                    root._lyricsState = 2
+                } catch(e) {
+                    root._lyricsState = 3
+                }
+            } else if (xhr.status === 404) {
+                root._lyricsState = 4
+            } else {
+                root._lyricsState = 3
+            }
+        }
+        xhr.open("GET", url)
+        xhr.send()
+    }
+
+    function _parseLrc(lrcContent) {
+        var lines = lrcContent.split("\n")
+        var result = []
+        var re = /\[(\d{2}):(\d{2})[.:](\d{2})\](.*)/
+        for (var i = 0; i < lines.length; i++) {
+            var m = re.exec(lines[i])
+            if (m) {
+                result.push({
+                    timestamp: parseInt(m[1]) * 60000 + parseInt(m[2]) * 1000 + parseInt(m[3]) * 10,
+                    text: m[4].trim()
+                })
+            }
+        }
+        result.sort(function(a, b) { return a.timestamp - b.timestamp })
+        return result
+    }
+
     Connections {
         target: mpris2Model.currentPlayer
         function onPositionChanged() {
@@ -64,7 +149,7 @@ PlasmoidItem {
     Timer {
         id: positionTimer
         interval: 250
-        running: root.isPlaying && root.length > 0
+        running: root.isPlaying && root.length > 0 && !lyricsPositionTimer.running
         repeat: true
         onTriggered: {
             if (root.position < root.length)
@@ -76,8 +161,17 @@ PlasmoidItem {
         root.position = mpris2Model.currentPlayer?.position ?? 0
         root._lastSampledUrl = ""
         _scheduleArtRefresh()
+        root._syncedLyrics = []
+        root._plainLyrics = ""
+        root._lyricsState = 0
+        root._lyricsTrackKey = ""
+        if (root.lyricsActive) _lyricsFetchTimer.restart()
     }
     onIsPlayingChanged: root.position = mpris2Model.currentPlayer?.position ?? 0
+    onLengthChanged: {
+        if (length > 0 && _lyricsState === 0 && track !== "" && lyricsActive)
+            _lyricsFetchTimer.restart()
+    }
 
     Timer {
         id: artRefreshTimer
@@ -374,6 +468,7 @@ PlasmoidItem {
             visible: full._layout === "tall"
             colors: colors
             accentColor: root._hasSampledColor ? root._sampledPrimaryColor : colors.foreground
+            flipDirection: root._flipDirection
             fontFamily: sfRegular.name
             fontFamilyThin: sfThin.name
             track: root.track
@@ -402,6 +497,11 @@ PlasmoidItem {
             flipDirection: root._flipDirection
             lyricsActive: root.lyricsActive
             onToggleLyrics: root.lyricsActive = !root.lyricsActive
+            syncedLyrics: root._syncedLyrics
+            plainLyrics: root._plainLyrics
+            lyricsState: root._lyricsState
+            lyricsPositionMs: root.position / 1000
+            lyricsBlur: plasmoid.configuration.lyricsBlur
             fontFamily: sfRegular.name
             fontFamilyThin: sfThin.name
             track: root.track
@@ -430,6 +530,11 @@ PlasmoidItem {
             flipDirection: root._flipDirection
             lyricsActive: root.lyricsActive
             onToggleLyrics: root.lyricsActive = !root.lyricsActive
+            syncedLyrics: root._syncedLyrics
+            plainLyrics: root._plainLyrics
+            lyricsState: root._lyricsState
+            lyricsPositionMs: root.position / 1000
+            lyricsBlur: plasmoid.configuration.lyricsBlur
             fontFamily: sfRegular.name
             fontFamilyThin: sfThin.name
             track: root.track
@@ -455,6 +560,7 @@ PlasmoidItem {
             colors: colors
             accentColor: root._hasSampledColor ? root._sampledPrimaryColor : colors.foreground
             cornerRadius: plasmoid.configuration.cornerRadius
+            flipDirection: root._flipDirection
             fontFamily: sfRegular.name
             fontFamilyThin: sfThin.name
             track: root.track

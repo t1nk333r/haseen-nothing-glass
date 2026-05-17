@@ -19,6 +19,7 @@ Item {
     property real length: 0
     property color accentColor: "#ffffff"
     property real cornerRadius: 24
+    property int flipDirection: 1
     property var formatTime: function(us) { return "" }
 
     signal togglePlaying()
@@ -29,8 +30,7 @@ Item {
     readonly property real _h: height
     readonly property real _pad: Math.round(_h * 0.12)
 
-    // Album art with equal margins
-    AlbumArt {
+    FlipAlbumArt {
         id: artItem
         anchors.left: parent.left
         anchors.top: parent.top
@@ -40,6 +40,7 @@ Item {
         artUrl: layout.albumArt
         radius: Math.round(height * 0.12)
         fallbackIconColor: layout.colors.foreground
+        direction: layout.flipDirection
     }
 
     // Info section: text + slider

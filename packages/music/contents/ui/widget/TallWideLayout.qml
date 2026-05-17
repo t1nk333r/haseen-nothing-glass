@@ -22,6 +22,11 @@ Item {
     property bool lyricsActive: false
     property int flipDirection: 1
     property var formatTime: function(us) { return "" }
+    property var syncedLyrics: []
+    property string plainLyrics: ""
+    property int lyricsState: 0
+    property real lyricsPositionMs: 0
+    property bool lyricsBlur: true
 
     signal togglePlaying()
     signal nextTrack()
@@ -129,14 +134,17 @@ Item {
             Behavior on opacity { NumberAnimation { duration: 280; easing.type: Easing.OutQuart } }
             Behavior on scale   { NumberAnimation { duration: 280; easing.type: Easing.OutQuart } }
 
-            Text {
-                anchors.centerIn: parent
-                text: "Lyrics here"
-                color: layout.colors.foreground
-                opacity: 0.45
-                font.pixelSize: Math.max(10, Math.round(layout._s * 0.06))
-                font.weight: Font.Medium
-                font.family: layout.fontFamily
+            SyncedLyricsView {
+                anchors.fill: parent
+                colors: layout.colors
+                syncedLyrics: layout.syncedLyrics
+                plainLyrics: layout.plainLyrics
+                lyricsState: layout.lyricsState
+                currentPositionMs: layout.lyricsPositionMs
+                fontFamily: layout.fontFamily
+                baseFontSize: Math.max(12, Math.round(layout._s * 0.055))
+                blurEnabled: layout.lyricsBlur
+                onSeekTo: function(posUs) { layout.seek(posUs) }
             }
         }
 
@@ -205,26 +213,6 @@ Item {
             : _normalY
         Behavior on y { NumberAnimation { duration: 180; easing.type: Easing.InOutQuart } }
 
-        opacity: _controlsDelayTimer.showControls ? 1 : 0
-        Behavior on opacity { NumberAnimation { duration: 300; easing.type: Easing.OutQuart } }
-
-        Timer {
-            id: _controlsDelayTimer
-            property bool showControls: !layout.lyricsActive
-            interval: 200
-            onTriggered: showControls = true
-        }
-
-        Connections {
-            target: layout
-            function onLyricsActiveChanged() {
-                if (layout.lyricsActive) {
-                    _controlsDelayTimer.showControls = false
-                } else {
-                    _controlsDelayTimer.restart()
-                }
-            }
-        }
 
         spacing: Math.round(layout._s * 0.08)
 

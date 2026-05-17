@@ -18,6 +18,7 @@ Item {
     property real position: 0
     property real length: 0
     property color accentColor: "#ffffff"
+    property int flipDirection: 1
     property var formatTime: function(us) { return "" }
 
     signal togglePlaying()
@@ -33,7 +34,7 @@ Item {
         anchors.fill: parent
         anchors.margins: layout._m
 
-        AlbumArt {
+        FlipAlbumArt {
             id: albumArtItem
             anchors.top: parent.top
             anchors.horizontalCenter: parent.horizontalCenter
@@ -42,6 +43,7 @@ Item {
             artUrl: layout.albumArt
             radius: Math.round(Math.min(width, height) * 0.06)
             fallbackIconColor: layout.colors.foreground
+            direction: layout.flipDirection
         }
 
         Column {
