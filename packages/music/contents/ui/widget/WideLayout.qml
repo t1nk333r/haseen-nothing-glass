@@ -27,6 +27,7 @@ Item {
     property int lyricsState: 0
     property real lyricsPositionMs: 0
     property bool lyricsBlur: true
+    property string lyricsFontFamily: ""
 
     signal togglePlaying()
     signal nextTrack()
@@ -192,6 +193,7 @@ Item {
             fontFamily: layout.fontFamily
             baseFontSize: Math.max(14, Math.round(layout._s * 0.07))
             blurEnabled: layout.lyricsBlur
+            lyricsFontFamily: layout.lyricsFontFamily
             onSeekTo: function(posUs) { layout.seek(posUs) }
         }
     }
