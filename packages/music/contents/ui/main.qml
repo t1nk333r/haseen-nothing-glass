@@ -29,7 +29,19 @@ PlasmoidItem {
     readonly property string track:   mpris2Model.currentPlayer?.track ?? ""
     readonly property string artist:  mpris2Model.currentPlayer?.artist ?? ""
     readonly property string album:   mpris2Model.currentPlayer?.album ?? ""
-    readonly property string albumArt: mpris2Model.currentPlayer?.artUrl ?? ""
+    readonly property string _rawAlbumArt: mpris2Model.currentPlayer?.artUrl ?? ""
+    property string albumArt: ""
+
+    on_RawAlbumArtChanged: {
+        if (_rawAlbumArt === "") return
+        _artDebounceTimer.restart()
+    }
+
+    Timer {
+        id: _artDebounceTimer
+        interval: 150
+        onTriggered: root.albumArt = root._rawAlbumArt
+    }
     readonly property int playbackStatus: mpris2Model.currentPlayer?.playbackStatus ?? 0
     readonly property bool isPlaying: playbackStatus === Mpris.PlaybackStatus.Playing
     readonly property bool canGoPrevious: mpris2Model.currentPlayer?.canGoPrevious ?? false
@@ -257,21 +269,32 @@ PlasmoidItem {
             var secondary = sorted.length > 1 ? sorted[1] : sorted[0]
             var accent = buckets[accentIdx]
 
-            root._sampledTint = root._hslToRgb(accent.h,
-                Math.min(accent.s, 0.5),
-                Math.min(accent.l, 0.30))
+            var avgSat = 0
+            for (var j = 0; j < buckets.length; j++)
+                avgSat += buckets[j].s
+            avgSat /= buckets.length
+            var isMono = avgSat < 0.12
 
-            root._sampledGradientTop = root._hslToRgb(dominant.h,
-                Math.max(dominant.s, 0.30),
-                0.15 + dominant.l * 0.35)
-            root._sampledGradientBottom = root._hslToRgb(
-                secondary.h !== dominant.h ? secondary.h : dominant.h,
-                Math.max(secondary.s, 0.25),
-                0.06 + secondary.l * 0.20)
-
-            root._sampledPrimaryColor = root._hslToRgb(accent.h,
-                Math.max(accent.s, 0.55),
-                Math.max(accent.l, 0.75))
+            if (isMono) {
+                root._sampledTint = root._hslToRgb(0, 0, Math.min(dominant.l, 0.30))
+                root._sampledGradientTop = root._hslToRgb(0, 0, 0.15 + dominant.l * 0.35)
+                root._sampledGradientBottom = root._hslToRgb(0, 0, 0.06 + dominant.l * 0.20)
+                root._sampledPrimaryColor = Qt.rgba(1, 1, 1, 1)
+            } else {
+                root._sampledTint = root._hslToRgb(accent.h,
+                    Math.min(accent.s, 0.5),
+                    Math.min(accent.l, 0.30))
+                root._sampledGradientTop = root._hslToRgb(dominant.h,
+                    Math.max(dominant.s, 0.30),
+                    0.15 + dominant.l * 0.35)
+                root._sampledGradientBottom = root._hslToRgb(
+                    secondary.h !== dominant.h ? secondary.h : dominant.h,
+                    Math.max(secondary.s, 0.25),
+                    0.06 + secondary.l * 0.20)
+                root._sampledPrimaryColor = root._hslToRgb(accent.h,
+                    Math.max(accent.s, 0.55),
+                    Math.max(accent.l, 0.75))
+            }
 
             root._sampledIsDark = dominant.lum < 0.5
             root._hasSampledColor = true

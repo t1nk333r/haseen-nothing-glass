@@ -18,6 +18,7 @@ Item {
         smooth: true
         visible: false
         layer.enabled: true
+        cache: false
     }
 
     Item {

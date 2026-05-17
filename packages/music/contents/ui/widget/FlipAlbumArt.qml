@@ -1,6 +1,6 @@
 import QtQuick
 
-Item {
+Flipable {
     id: flip
 
     property string artUrl: ""
@@ -10,63 +10,40 @@ Item {
 
     property bool _showingA: true
     property real _angle: 0
-    property bool _flipping: false
+    property int _state: 0 // 0=idle, 1=loading, 2=flipping
+    property string _pending: ""
+    property int _pendingDir: 1
+    property int _stampCounter: 0
+
+    property string _faceACanonical: ""
+    property string _faceBCanonical: ""
+
+    function _stamp(url) {
+        _stampCounter++
+        if (url.indexOf("?") >= 0)
+            return url + "&_t=" + _stampCounter
+        return url + "?_t=" + _stampCounter
+    }
 
     Component.onCompleted: {
-        faceA.artUrl = artUrl
-    }
-
-    onArtUrlChanged: {
-        if (_flipping) return
-
-        var currentUrl = _showingA ? faceA.artUrl : faceB.artUrl
-        if (artUrl === currentUrl || artUrl === "") return
-
-        if (_showingA) {
-            faceB.artUrl = artUrl
-        } else {
-            faceA.artUrl = artUrl
-        }
-
-        _flipping = true
-        preloader.source = artUrl
-
-        if (preloader.status === Image.Ready) {
-            flipAnim.start()
+        if (artUrl !== "") {
+            _faceACanonical = artUrl
+            faceA.artUrl = _stamp(artUrl)
         }
     }
 
-    Image {
-        id: preloader
-        visible: false
-        source: ""
-        asynchronous: true
-        sourceSize.width: flip.width > 0 ? flip.width : 200
-        sourceSize.height: flip.height > 0 ? flip.height : 200
-        onStatusChanged: {
-            if (status === Image.Ready && flip._flipping && !flipAnim.running) {
-                flipAnim.start()
-            }
-        }
+    front: AlbumArt {
+        id: faceA
+        anchors.fill: parent
+        radius: flip.radius
+        fallbackIconColor: flip.fallbackIconColor
     }
 
-    SequentialAnimation {
-        id: flipAnim
-
-        NumberAnimation {
-            target: flip; property: "_angle"
-            from: 0; to: 180 * flip.direction
-            duration: 400; easing.type: Easing.InOutQuad
-        }
-
-        ScriptAction {
-            script: {
-                flip._showingA = !flip._showingA
-                flip._angle = 0
-                flip._flipping = false
-                preloader.source = ""
-            }
-        }
+    back: AlbumArt {
+        id: faceB
+        anchors.fill: parent
+        radius: flip.radius
+        fallbackIconColor: flip.fallbackIconColor
     }
 
     transform: Rotation {
@@ -76,29 +53,114 @@ Item {
         angle: flip._angle
     }
 
-    AlbumArt {
-        id: faceA
-        anchors.fill: parent
-        radius: flip.radius
-        fallbackIconColor: flip.fallbackIconColor
-        visible: {
-            var a = Math.abs(flip._angle) % 360
-            return a < 90 || a > 270
+    onArtUrlChanged: _processChange(artUrl, direction)
+
+    function _processChange(url, dir) {
+        var frontCanon = _showingA ? _faceACanonical : _faceBCanonical
+        var backCanon  = _showingA ? _faceBCanonical : _faceACanonical
+
+        if (url === "" || url === frontCanon)
+            return
+
+        if (_state !== 0) {
+            _pending = url
+            _pendingDir = dir
+            return
+        }
+
+        if (url === backCanon && backCanon !== "") {
+            _startFlip(dir)
+            return
+        }
+
+        var stamped = _stamp(url)
+        if (_showingA) {
+            _faceBCanonical = url
+            faceB.artUrl = stamped
+        } else {
+            _faceACanonical = url
+            faceA.artUrl = stamped
+        }
+
+        flipAnim.flipDir = dir
+        _state = 1
+        preloader.source = stamped
+
+        if (preloader.status === Image.Ready)
+            _startFlip(dir)
+    }
+
+    function _startFlip(dir) {
+        _state = 2
+        flipAnim.flipDir = dir
+        flipAnim.fromAngle = _angle
+        flipAnim.toAngle = _angle + 180 * dir
+        flipAnim.start()
+    }
+
+    function _onFlipComplete() {
+        _showingA = !_showingA
+        _state = 0
+        preloader.source = ""
+
+        if (_pending !== "") {
+            var url = _pending
+            var dir = _pendingDir
+            _pending = ""
+            _pendingDir = 1
+            _processChange(url, dir)
         }
     }
 
-    AlbumArt {
-        id: faceB
-        anchors.fill: parent
-        radius: flip.radius
-        fallbackIconColor: flip.fallbackIconColor
-        visible: !faceA.visible
+    Image {
+        id: preloader
+        visible: false
+        source: ""
+        asynchronous: true
+        cache: false
+        sourceSize.width: flip.width > 0 ? flip.width : 200
+        sourceSize.height: flip.height > 0 ? flip.height : 200
+        onStatusChanged: {
+            if (flip._state !== 1) return
 
-        transform: Rotation {
-            origin.x: faceB.width / 2
-            origin.y: faceB.height / 2
-            axis { x: 0; y: 1; z: 0 }
-            angle: 180
+            if (status === Image.Ready) {
+                if (flip._pending !== "") {
+                    flip._state = 0
+                    var url = flip._pending
+                    var dir = flip._pendingDir
+                    flip._pending = ""
+                    flip._pendingDir = 1
+                    flip._processChange(url, dir)
+                } else {
+                    flip._startFlip(flipAnim.flipDir)
+                }
+            } else if (status === Image.Error) {
+                flip._state = 0
+                if (flip._pending !== "") {
+                    var url = flip._pending
+                    var dir = flip._pendingDir
+                    flip._pending = ""
+                    flip._pendingDir = 1
+                    flip._processChange(url, dir)
+                }
+            }
+        }
+    }
+
+    SequentialAnimation {
+        id: flipAnim
+        property int flipDir: 1
+        property real fromAngle: 0
+        property real toAngle: 180
+
+        NumberAnimation {
+            target: flip; property: "_angle"
+            from: flipAnim.fromAngle; to: flipAnim.toAngle
+            duration: 400; easing.type: Easing.InOutQuad
+        }
+
+        ScriptAction {
+            script: flip._onFlipComplete()
         }
     }
 }

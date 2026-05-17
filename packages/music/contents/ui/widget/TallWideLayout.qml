@@ -110,66 +110,7 @@ Item {
                 onSeek: function(pos) { layout.seek(pos) }
             }
 
-            // ── Controls (normal position: above slider) ──────────────────
-            Row {
-                id: controlsNormal
-                anchors.bottom: slider.top
-                anchors.bottomMargin: Math.round(layout._s * 0.03)
-                anchors.horizontalCenter: parent.horizontalCenter
-                spacing: Math.round(layout._s * 0.08)
-
-                opacity: controlsDelayTimer.showControls ? 1 : 0
-                Behavior on opacity { NumberAnimation { duration: 300; easing.type: Easing.OutQuart } }
-
-                Timer {
-                    id: controlsDelayTimer
-                    property bool showControls: !layout.lyricsActive
-                    interval: 200
-                    onTriggered: showControls = true
-                }
-
-                Connections {
-                    target: layout
-                    function onLyricsActiveChanged() {
-                        if (layout.lyricsActive) {
-                            controlsDelayTimer.showControls = false
-                        } else {
-                            controlsDelayTimer.restart()
-                        }
-                    }
-                }
-
-                readonly property real _iconSize: Math.max(18, Math.round(layout._s * 0.12))
-                readonly property real _rowH: _iconSize * 1.6
-
-                ControlButton {
-                    iconSource: Qt.resolvedUrl("../icons/previous.svg")
-                    iconColor: layout.colors.foreground
-                    iconSize: controlsNormal._iconSize
-                    height: controlsNormal._rowH
-                    opacity: layout.canGoPrevious ? 1.0 : 0.3
-                    onClicked: layout.previousTrack()
-                }
-
-                ControlButton {
-                    iconSource: layout.isPlaying ? Qt.resolvedUrl("../icons/pause.svg") : Qt.resolvedUrl("../icons/play.svg")
-                    iconColor: layout.colors.foreground
-                    iconSize: controlsNormal._iconSize
-                    height: controlsNormal._rowH
-                    opacity: (layout.canPlay || layout.canPause) ? 1.0 : 0.3
-                    onClicked: layout.togglePlaying()
-                }
-
-                ControlButton {
-                    iconSource: Qt.resolvedUrl("../icons/next.svg")
-                    iconColor: layout.colors.foreground
-                    iconSize: controlsNormal._iconSize
-                    height: controlsNormal._rowH
-                    opacity: layout.canGoNext ? 1.0 : 0.3
-                    onClicked: layout.nextTrack()
-                }
-            }
-        }
+}
 
         // ── Lyrics placeholder (fades in) ─────────────────────────────────
         Item {
@@ -252,12 +193,10 @@ Item {
         }
     }
 
-    // ── Lyrics-mode controls (slides down from normal position to bottom) ───
     Row {
         id: lyricsControls
         anchors.horizontalCenter: parent.horizontalCenter
-        // Normal: same y as controlsNormal (above slider, inside margins)
-        // Lyrics: slides down to bottom with margin
+
         readonly property real _normalY: layout.height - layout._m
             - slider.implicitHeight - Math.round(layout._s * 0.03)
             - lyricsControls.height
@@ -265,6 +204,27 @@ Item {
             ? (layout.height - layout._m - lyricsControls.height)
             : _normalY
         Behavior on y { NumberAnimation { duration: 180; easing.type: Easing.InOutQuart } }
+
+        opacity: _controlsDelayTimer.showControls ? 1 : 0
+        Behavior on opacity { NumberAnimation { duration: 300; easing.type: Easing.OutQuart } }
+
+        Timer {
+            id: _controlsDelayTimer
+            property bool showControls: !layout.lyricsActive
+            interval: 200
+            onTriggered: showControls = true
+        }
+
+        Connections {
+            target: layout
+            function onLyricsActiveChanged() {
+                if (layout.lyricsActive) {
+                    _controlsDelayTimer.showControls = false
+                } else {
+                    _controlsDelayTimer.restart()
+                }
+            }
+        }
 
         spacing: Math.round(layout._s * 0.08)
 
