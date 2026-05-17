@@ -36,9 +36,6 @@
         <entry name="specStrengthPct" type="Int">
             <default>70</default>
         </entry>
-        <entry name="blurRadiusPx" type="Int">
-            <default>6</default>
-        </entry>
         <entry name="realtimeRefraction" type="Bool">
             <default>false</default>
         </entry>
@@ -62,9 +59,6 @@
         </entry>
         <entry name="lyricsFontSizeTall" type="Int">
             <default>55</default>
-        </entry>
-        <entry name="lyricsActiveScale" type="Int">
-            <default>105</default>
         </entry>
     </group>
 </kcfg>

@@ -17,7 +17,6 @@ ColumnLayout {
     property alias cfg_tintAlphaPct: tintSpin.value
     property alias cfg_chromaStrengthPct: chromaSpin.value
     property alias cfg_specStrengthPct: specStrengthSpin.value
-    property alias cfg_blurRadiusPx: blurRadiusSpin.value
     property alias cfg_realtimeRefraction: realtimeCheck.checked
     property alias cfg_lyricsBlur: lyricsBlurCheck.checked
 
@@ -33,7 +32,6 @@ ColumnLayout {
             ta: tintSpin.value,
             ca: chromaSpin.value,
             ss: specStrengthSpin.value,
-            br: blurRadiusSpin.value,
             rr: realtimeCheck.checked
         })
     }
@@ -51,7 +49,6 @@ ColumnLayout {
             if (o.ta !== undefined) tintSpin.value                = o.ta
             if (o.ca !== undefined) chromaSpin.value              = o.ca
             if (o.ss !== undefined) specStrengthSpin.value        = o.ss
-            if (o.br !== undefined) blurRadiusSpin.value          = o.br
             if (o.rr !== undefined) realtimeCheck.checked         = o.rr
             pasteStatus.text = i18n("Applied!")
         } catch(e) {
@@ -183,12 +180,6 @@ ColumnLayout {
             id: specStrengthSpin
             Kirigami.FormData.label: i18n("Specular strength (%):")
             from: 0; to: 100; stepSize: 5
-        }
-
-        SpinBox {
-            id: blurRadiusSpin
-            Kirigami.FormData.label: i18n("Blur radius (px):")
-            from: 0; to: 30; stepSize: 1
         }
 
         CheckBox {

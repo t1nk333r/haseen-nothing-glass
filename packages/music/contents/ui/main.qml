@@ -426,14 +426,13 @@ PlasmoidItem {
                 : plasmoid.configuration.tintAlphaPct / 100
             chromaStrength: plasmoid.configuration.chromaStrengthPct / 100
             specStrength: plasmoid.configuration.specStrengthPct / 100
-            blurRadius: plasmoid.configuration.blurRadiusPx
             realtimeRefraction: plasmoid.configuration.realtimeRefraction
             fallbackOpacity: colors.glassFallbackOpacity
             solidMode: colors.isSolid
             solidColor: colors.isSolid && root._hasSampledColor ? root._sampledGradientTop : colors.solidBackground
             solidColorBottom: colors.isSolid && root._hasSampledColor ? root._sampledGradientBottom : "transparent"
             overlayDarken: root.lyricsActive && full._layout === "tallwide"
-                ? Qt.vector4d(0.45, 0.45, 0.45, 0.55)
+                ? Qt.vector4d(root._sampledGradientBottom.r, root._sampledGradientBottom.g, root._sampledGradientBottom.b, 0.55)
                 : Qt.vector4d(0, 0, 0, 0)
         }
 
@@ -503,7 +502,6 @@ PlasmoidItem {
             lyricsBlur: plasmoid.configuration.lyricsBlur
             lyricsActiveOpacity: plasmoid.configuration.lyricsActiveOpacity / 100
             lyricsInactiveOpacity: plasmoid.configuration.lyricsInactiveOpacity / 100
-            lyricsActiveScale: plasmoid.configuration.lyricsActiveScale / 100
             lyricsFontSizeFactor: plasmoid.configuration.lyricsFontSizeTall / 1000
             fontFamily: sfRegular.name
             fontFamilyThin: sfThin.name
@@ -540,7 +538,6 @@ PlasmoidItem {
             lyricsBlur: plasmoid.configuration.lyricsBlur
             lyricsActiveOpacity: plasmoid.configuration.lyricsActiveOpacity / 100
             lyricsInactiveOpacity: plasmoid.configuration.lyricsInactiveOpacity / 100
-            lyricsActiveScale: plasmoid.configuration.lyricsActiveScale / 100
             lyricsFontSizeFactor: plasmoid.configuration.lyricsFontSizeWide / 1000
             fontFamily: sfRegular.name
             fontFamilyThin: sfThin.name

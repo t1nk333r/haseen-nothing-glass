@@ -13,7 +13,7 @@ Item {
     property bool blurEnabled: true
     property real activeOpacity: 1.0
     property real inactiveOpacity: 0.40
-    property real activeScale: 1.05
+    readonly property real activeScale: 1.05
 
     signal seekTo(real positionUs)
 
@@ -198,7 +198,7 @@ Item {
             color: "#ffffff"
             opacity: 0.85
             font.pixelSize: Math.round(lv.baseFontSize * 0.75)
-            font.family: lv.lyricsFontFamily !== "" ? lv.lyricsFontFamily : lv.fontFamily
+            font.family: lv.fontFamily
             wrapMode: Text.WordWrap
             lineHeight: 1.6
         }

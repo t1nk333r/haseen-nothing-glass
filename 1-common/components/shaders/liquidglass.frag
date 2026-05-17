@@ -39,7 +39,7 @@ layout(std140, binding = 0) uniform buf {
     vec2  mousePos;          // widget-local UV (0..1); (-1,-1) = no mouse
     float mouseFade;         // 0..1 hover fade
     float specStrength;      // 0..1 intensity
-    vec4  overlayDarken;     // rgb = darken color, a = band height (0 = off)
+    vec4  overlayDarken;     // rgb = target blend color, a = band height (0 = off)
 };
 
 layout(binding = 1) uniform sampler2D backdrop;
@@ -212,10 +212,10 @@ void main() {
 
     }
 
-    // Overlay darken: additive bottom gradient (lyrics mode controls backdrop)
+    // Overlay darken: bottom gradient blending toward a target color (lyrics mode)
     if (overlayDarken.a > 0.0) {
         float darkenT = smoothstep(1.0 - overlayDarken.a, 1.0, uv.y);
-        col = mix(col, col * overlayDarken.rgb, darkenT);
+        col = mix(col, overlayDarken.rgb, darkenT);
     }
 
     col += edgeSpec(ndir, depthPx);

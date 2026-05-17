@@ -11,7 +11,6 @@ ColumnLayout {
     property alias cfg_lyricsInactiveOpacity: inactiveOpacitySpin.value
     property alias cfg_lyricsFontSizeWide: wideFontSpin.value
     property alias cfg_lyricsFontSizeTall: tallFontSpin.value
-    property alias cfg_lyricsActiveScale: activeScaleSpin.value
 
     Kirigami.FormLayout {
         Layout.fillWidth: true
@@ -50,10 +49,5 @@ ColumnLayout {
             from: 30; to: 120; stepSize: 5
         }
 
-        SpinBox {
-            id: activeScaleSpin
-            Kirigami.FormData.label: i18n("Active line scale (%):")
-            from: 100; to: 130; stepSize: 5
-        }
     }
 }

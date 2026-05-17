@@ -29,7 +29,6 @@ Item {
     property bool lyricsBlur: true
     property real lyricsActiveOpacity: 1.0
     property real lyricsInactiveOpacity: 0.40
-    property real lyricsActiveScale: 1.05
     property real lyricsFontSizeFactor: 0.077
 
     signal togglePlaying()
@@ -198,7 +197,6 @@ Item {
             blurEnabled: layout.lyricsBlur
             activeOpacity: layout.lyricsActiveOpacity
             inactiveOpacity: layout.lyricsInactiveOpacity
-            activeScale: layout.lyricsActiveScale
             onSeekTo: function(posUs) { layout.seek(posUs) }
         }
     }
