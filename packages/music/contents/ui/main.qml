@@ -58,6 +58,8 @@ PlasmoidItem {
     property string _plainLyrics: ""
     property int _lyricsState: 0   // 0=idle 1=loading 2=loaded 3=error 4=not-found
     property string _lyricsTrackKey: ""
+    property int _lyricsFailCount: 0
+    readonly property var _lyricsBackoff: [5000, 10000, 20000, 40000, 80000, 160000, 300000]
 
     onLyricsActiveChanged: {
         if (lyricsActive && _lyricsState === 0 && track !== "")
@@ -67,6 +69,12 @@ PlasmoidItem {
     Timer {
         id: _lyricsFetchTimer
         interval: 400
+        onTriggered: root._fetchLyrics()
+    }
+
+    Timer {
+        id: _lyricsRetryTimer
+        repeat: false
         onTriggered: root._fetchLyrics()
     }
 
@@ -108,13 +116,23 @@ PlasmoidItem {
                     root._plainLyrics = resp.plainLyrics || ""
                     root._syncedLyrics = synced !== "" ? root._parseLrc(synced) : []
                     root._lyricsState = 2
+                    root._lyricsFailCount = 0
+                    _lyricsRetryTimer.stop()
                 } catch(e) {
                     root._lyricsState = 3
+                    root._lyricsFailCount = Math.min(root._lyricsFailCount + 1, root._lyricsBackoff.length - 1)
+                    _lyricsRetryTimer.interval = root._lyricsBackoff[root._lyricsFailCount]
+                    _lyricsRetryTimer.restart()
                 }
             } else if (xhr.status === 404) {
                 root._lyricsState = 4
+                root._lyricsFailCount = 0
+                _lyricsRetryTimer.stop()
             } else {
                 root._lyricsState = 3
+                root._lyricsFailCount = Math.min(root._lyricsFailCount + 1, root._lyricsBackoff.length - 1)
+                _lyricsRetryTimer.interval = root._lyricsBackoff[root._lyricsFailCount]
+                _lyricsRetryTimer.restart()
             }
         }
         xhr.open("GET", url)
@@ -164,6 +182,8 @@ PlasmoidItem {
         root._plainLyrics = ""
         root._lyricsState = 0
         root._lyricsTrackKey = ""
+        root._lyricsFailCount = 0
+        _lyricsRetryTimer.stop()
         _lyricsFetchTimer.restart()
     }
     onIsPlayingChanged: root.position = mpris2Model.currentPlayer?.position ?? 0
@@ -519,6 +539,7 @@ PlasmoidItem {
             onNextTrack: root.next()
             onPreviousTrack: root.previous()
             onSeek: function(pos) { root.seek(pos) }
+            onRetryLyrics: root._fetchLyrics()
             formatTime: root.formatTime
         }
 
@@ -555,6 +576,7 @@ PlasmoidItem {
             onNextTrack: root.next()
             onPreviousTrack: root.previous()
             onSeek: function(pos) { root.seek(pos) }
+            onRetryLyrics: root._fetchLyrics()
             formatTime: root.formatTime
         }
 

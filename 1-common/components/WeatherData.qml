@@ -43,6 +43,40 @@ QtObject {
         onTriggered: wd._fetchWeather()
     }
 
+    property int _failCount: 0
+    readonly property var _backoffSchedule: [5000, 10000, 20000, 40000, 80000, 160000, 300000]
+
+    property var _retryTimer: Timer {
+        interval: 5000
+        repeat: false
+        onTriggered: {
+            if (wd._latitude === 0 && wd._longitude === 0)
+                wd._geocodeAndFetch()
+            else
+                wd._fetchWeather()
+        }
+    }
+
+    function _scheduleRetry() {
+        _failCount = Math.min(_failCount + 1, _backoffSchedule.length - 1)
+        _retryTimer.interval = _backoffSchedule[_failCount]
+        _retryTimer.restart()
+    }
+
+    function _clearRetry() {
+        _failCount = 0
+        _retryTimer.stop()
+    }
+
+    function forceRefresh() {
+        _retryTimer.stop()
+        _failCount = 0
+        if (_latitude === 0 && _longitude === 0)
+            _geocodeAndFetch()
+        else
+            _fetchWeather()
+    }
+
     onLocationChanged: _geocodeAndFetch()
     onTemperatureUnitChanged: {
         if (_latitude !== 0 || _longitude !== 0) _fetchWeather()
@@ -158,14 +192,17 @@ QtObject {
                         errorMessage = "Location not found"
                         isLoading = false
                         condition = "Location not found"
+                        _clearRetry()
                     }
                 } catch (e) {
                     errorMessage = "Error parsing location"
                     isLoading = false
+                    _scheduleRetry()
                 }
             } else {
                 errorMessage = "Network error"
                 isLoading = false
+                _scheduleRetry()
             }
         }
         xhr.open("GET", url)
@@ -198,13 +235,16 @@ QtObject {
                     _processResponse(resp)
                     isLoading = false
                     errorMessage = ""
+                    _clearRetry()
                 } catch (e) {
                     errorMessage = "Error parsing weather"
                     isLoading = false
+                    _scheduleRetry()
                 }
             } else {
                 errorMessage = "Failed to fetch weather"
                 isLoading = false
+                _scheduleRetry()
             }
         }
         xhr.open("GET", url)

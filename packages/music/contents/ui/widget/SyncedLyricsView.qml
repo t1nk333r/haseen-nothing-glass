@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Effects
+import "../components"
 
 Item {
     id: lv
@@ -17,6 +18,7 @@ Item {
     readonly property real activeScale: 1.05
 
     signal seekTo(real positionUs)
+    signal retryLyrics()
 
     readonly property int _currentIndex: {
         var adj = currentPositionMs + 200
@@ -218,32 +220,45 @@ Item {
     }
 
     // ── Loading ───────────────────────────────────────────────────────────
-    Text {
+    MacSpinner {
         anchors.centerIn: parent
+        width: Math.round(Math.min(lv.width, lv.height) * 0.12)
+        height: width
+        running: lv.lyricsState === 1
         visible: lv.lyricsState === 1
-        text: "Loading lyrics…"
         color: "#ffffff"
-        font.pixelSize: Math.max(12, Math.round(lv.baseFontSize * 0.8))
-        font.weight: Font.Medium
-        font.family: lv.fontFamily
-
-        SequentialAnimation on opacity {
-            running: lv.lyricsState === 1
-            loops: Animation.Infinite
-            NumberAnimation { from: 0.45; to: 0.15; duration: 800; easing.type: Easing.InOutQuad }
-            NumberAnimation { from: 0.15; to: 0.45; duration: 800; easing.type: Easing.InOutQuad }
-        }
     }
 
-    // ── Not found / error ─────────────────────────────────────────────────
+    // ── Not found ─────────────────────────────────────────────────────────
     Text {
         anchors.centerIn: parent
-        visible: lv.lyricsState >= 3 || (lv.lyricsState === 2 && lv.syncedLyrics.length === 0 && lv.plainLyrics === "")
+        visible: lv.lyricsState === 4 || (lv.lyricsState === 2 && lv.syncedLyrics.length === 0 && lv.plainLyrics === "")
         text: "No lyrics available"
         color: "#ffffff"
         opacity: 0.45
         font.pixelSize: Math.max(12, Math.round(lv.baseFontSize * 0.8))
         font.weight: Font.Medium
         font.family: lv.fontFamily
+    }
+
+    // ── Error (tap to retry) ──────────────────────────────────────────────
+    Text {
+        id: errorLabel
+        anchors.centerIn: parent
+        visible: lv.lyricsState === 3
+        text: "Couldn't load lyrics\nTap to retry"
+        color: "#ffffff"
+        opacity: 0.45
+        horizontalAlignment: Text.AlignHCenter
+        font.pixelSize: Math.max(12, Math.round(lv.baseFontSize * 0.8))
+        font.weight: Font.Medium
+        font.family: lv.fontFamily
+    }
+
+    MouseArea {
+        anchors.fill: parent
+        enabled: lv.lyricsState === 3
+        onClicked: lv.retryLyrics()
+        z: 5
     }
 }

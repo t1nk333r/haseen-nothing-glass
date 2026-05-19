@@ -35,6 +35,7 @@ Item {
     signal nextTrack()
     signal previousTrack()
     signal seek(real positionUs)
+    signal retryLyrics()
     signal toggleLyrics()
 
     readonly property real _m: Math.round(height * 0.08)
@@ -198,6 +199,7 @@ Item {
             activeOpacity: layout.lyricsActiveOpacity
             inactiveOpacity: layout.lyricsInactiveOpacity
             onSeekTo: function(posUs) { layout.seek(posUs) }
+            onRetryLyrics: layout.retryLyrics()
         }
     }
 

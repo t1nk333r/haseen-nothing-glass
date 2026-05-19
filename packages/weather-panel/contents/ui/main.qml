@@ -101,7 +101,13 @@ PlasmoidItem {
 
         MouseArea {
             anchors.fill: parent
-            onClicked: root.expanded = !root.expanded
+            acceptedButtons: Qt.LeftButton | Qt.RightButton
+            onClicked: {
+                if (mouse.button === Qt.RightButton)
+                    weatherData.forceRefresh()
+                else
+                    root.expanded = !root.expanded
+            }
         }
     }
 
@@ -235,6 +241,27 @@ PlasmoidItem {
                 fontFamily: sfRegular.name
                 fontSize: full._smallLabel
                 iconNameForCode: function(code, night) { return weatherData.iconNameForCode(code, night) }
+            }
+        }
+
+        MacSpinner {
+            anchors.centerIn: parent
+            width: 32
+            height: 32
+            color: full._fg
+            running: weatherData.isLoading && weatherData.currentTemp === "--"
+            visible: running
+            z: 5
+        }
+
+        MouseArea {
+            anchors.fill: parent
+            z: 10
+            acceptedButtons: Qt.LeftButton
+            propagateComposedEvents: true
+            onClicked: {
+                weatherData.forceRefresh()
+                mouse.accepted = false
             }
         }
     }

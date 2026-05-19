@@ -413,5 +413,25 @@ PlasmoidItem {
                 baseFontSize: full.labelSize
             }
         }
+
+        MacSpinner {
+            anchors.centerIn: parent
+            width: Math.round(full._minSide * 0.14)
+            height: width
+            running: weatherData.isLoading && weatherData.currentTemp === "--"
+            visible: running
+            z: 5
+        }
+
+        MouseArea {
+            anchors.fill: parent
+            z: 10
+            acceptedButtons: Qt.LeftButton
+            propagateComposedEvents: true
+            onClicked: {
+                weatherData.forceRefresh()
+                mouse.accepted = false
+            }
+        }
     }
 }
