@@ -65,16 +65,84 @@ package_widget() {
 	return 0
 }
 
-if [[ "$1" == "--all" || "$1" == "-a" ]]; then
-	echo "[*] Packaging all widgets..."
+print_usage() {
+	echo "Usage:"
+	echo "  ./package.sh <package_folder>    Package a single widget (works for test-* too)"
+	echo "  ./package.sh -a | --all          Package all non-test widgets"
+	echo "  ./package.sh -t | --test         Package only test-* widgets"
+	echo "  ./package.sh -a -t               Package everything (or: -at)"
+}
 
-	WIDGETS=($(ls -d ${PACKAGES_SRC}/*/ 2>/dev/null | xargs -n 1 basename))
+WANT_ALL=false
+WANT_TEST=false
+WIDGET_NAME=""
 
-	if [[ ${#WIDGETS[@]} -eq 0 ]]; then
+while [[ $# -gt 0 ]]; do
+	case "$1" in
+		-a|--all)
+			WANT_ALL=true
+			shift
+			;;
+		-t|--test)
+			WANT_TEST=true
+			shift
+			;;
+		-at|-ta)
+			WANT_ALL=true
+			WANT_TEST=true
+			shift
+			;;
+		-h|--help)
+			print_usage
+			exit 0
+			;;
+		-*)
+			echo "[!] Unknown flag: $1"
+			print_usage
+			exit 1
+			;;
+		*)
+			if [[ -n "$WIDGET_NAME" ]]; then
+				echo "[!] Multiple widget names not supported: $WIDGET_NAME and $1"
+				exit 1
+			fi
+			WIDGET_NAME="$1"
+			shift
+			;;
+	esac
+done
+
+if [[ "$WANT_ALL" == "true" || "$WANT_TEST" == "true" ]]; then
+	if [[ -n "$WIDGET_NAME" ]]; then
+		echo "[!] Cannot combine a widget name with -a / -t"
+		exit 1
+	fi
+
+	ALL_WIDGETS=($(ls -d ${PACKAGES_SRC}/*/ 2>/dev/null | xargs -n 1 basename))
+	if [[ ${#ALL_WIDGETS[@]} -eq 0 ]]; then
 		echo "[!] No widgets found in ${PACKAGES_SRC} directory"
 		exit 1
 	fi
 
+	WIDGETS=()
+	for widget in "${ALL_WIDGETS[@]}"; do
+		if [[ "$widget" == test-* ]]; then
+			if [[ "$WANT_TEST" == "true" ]]; then
+				WIDGETS+=("$widget")
+			fi
+		else
+			if [[ "$WANT_ALL" == "true" ]]; then
+				WIDGETS+=("$widget")
+			fi
+		fi
+	done
+
+	if [[ ${#WIDGETS[@]} -eq 0 ]]; then
+		echo "[!] No matching widgets to package"
+		exit 1
+	fi
+
+	echo "[*] Packaging ${#WIDGETS[@]} widget(s)..."
 	for widget in "${WIDGETS[@]}"; do
 		package_widget "$widget" || echo "[!] Failed: $widget"
 	done
@@ -82,18 +150,16 @@ if [[ "$1" == "--all" || "$1" == "-a" ]]; then
 	echo ""
 	echo "[+] All packages saved to: $(realpath $PACKAGE_DIR)"
 
-elif [[ -n "$1" && -d "${PACKAGES_SRC}/$1" ]]; then
-	package_widget "$1"
+elif [[ -n "$WIDGET_NAME" && -d "${PACKAGES_SRC}/$WIDGET_NAME" ]]; then
+	package_widget "$WIDGET_NAME"
 	echo "[+] Packaging complete!"
 else
-	if [[ -n "$1" ]]; then
-		echo "[!] Widget package not found: $1"
+	if [[ -n "$WIDGET_NAME" ]]; then
+		echo "[!] Widget package not found: $WIDGET_NAME"
 	fi
 	echo "[+] Available widgets:"
 	ls "$PACKAGES_SRC"
 	echo ""
-	echo "Usage:"
-	echo "  ./package.sh <package_folder>    Package a single widget"
-	echo "  ./package.sh --all | -a          Package all widgets"
+	print_usage
 	exit 1
 fi

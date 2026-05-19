@@ -4,7 +4,7 @@ macOS Tahoe / iOS 18 style widgets for KDE Plasma 6.
 
 ## Status
 
-Phase 1: scaffolding + liquid-glass background component. One test widget (`glass-test`).
+Phase 1: scaffolding + liquid-glass background component. One test widget (`test-glass`).
 
 ## Requirements
 
@@ -15,8 +15,10 @@ Phase 1: scaffolding + liquid-glass background component. One test widget (`glas
 ## Install
 
 ```
-./install.sh glass-test          # single widget
-./install.sh --all               # every widget in packages/
+./install.sh test-glass          # single widget (test-* names work too)
+./install.sh -a                  # all non-test widgets in packages/
+./install.sh -t                  # only test-* widgets
+./install.sh -a -t               # everything
 ```
 
 Then add the "macOS Glass Test" widget to the desktop.
@@ -25,7 +27,10 @@ Then add the "macOS Glass Test" widget to the desktop.
 
 ```
 ./build-shaders.sh               # rebuild .qsb files (commit the outputs)
-./package.sh glass-test          # -> 2-packaged/glass-test-0.1.plasmoid
+./package.sh test-glass          # -> 2-packaged/test-glass-0.1.plasmoid
+./package.sh -a                  # all non-test widgets
+./package.sh -t                  # only test-* widgets
+./package.sh -a -t               # everything
 ```
 
 ## Layout

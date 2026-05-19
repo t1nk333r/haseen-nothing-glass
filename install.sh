@@ -79,17 +79,88 @@ install_widget() {
 	return 0
 }
 
-if [[ "$1" == "--all" || "$1" == "-a" ]]; then
-	echo "[*] Installing all widgets..."
+print_usage() {
+	echo "Usage:"
+	echo "  ./install.sh <package_folder>    Install a single widget (works for test-* too)"
+	echo "  ./install.sh -a | --all          Install all non-test widgets"
+	echo "  ./install.sh -t | --test         Install only test-* widgets"
+	echo "  ./install.sh -a -t               Install everything (or: -at)"
+}
 
-	WIDGETS=($(ls -d packages/*/ 2>/dev/null | xargs -n 1 basename))
+# Parse flags and positional name
+WANT_ALL=false
+WANT_TEST=false
+WIDGET_NAME=""
 
-	if [[ ${#WIDGETS[@]} -eq 0 ]]; then
+while [[ $# -gt 0 ]]; do
+	case "$1" in
+		-a|--all)
+			WANT_ALL=true
+			shift
+			;;
+		-t|--test)
+			WANT_TEST=true
+			shift
+			;;
+		-at|-ta)
+			WANT_ALL=true
+			WANT_TEST=true
+			shift
+			;;
+		-h|--help)
+			print_usage
+			exit 0
+			;;
+		-*)
+			echo "[!] Unknown flag: $1"
+			print_usage
+			exit 1
+			;;
+		*)
+			if [[ -n "$WIDGET_NAME" ]]; then
+				echo "[!] Multiple widget names not supported: $WIDGET_NAME and $1"
+				exit 1
+			fi
+			WIDGET_NAME="$1"
+			shift
+			;;
+	esac
+done
+
+if [[ "$WANT_ALL" == "true" || "$WANT_TEST" == "true" ]]; then
+	if [[ -n "$WIDGET_NAME" ]]; then
+		echo "[!] Cannot combine a widget name with -a / -t"
+		exit 1
+	fi
+
+	ALL_WIDGETS=($(ls -d packages/*/ 2>/dev/null | xargs -n 1 basename))
+	if [[ ${#ALL_WIDGETS[@]} -eq 0 ]]; then
 		echo "[!] No widgets found in packages directory"
 		exit 1
 	fi
 
-	echo "[+] Found ${#WIDGETS[@]} widgets to install"
+	WIDGETS=()
+	for widget in "${ALL_WIDGETS[@]}"; do
+		if [[ "$widget" == test-* ]]; then
+			if [[ "$WANT_TEST" == "true" ]]; then
+				WIDGETS+=("$widget")
+			fi
+		else
+			if [[ "$WANT_ALL" == "true" ]]; then
+				WIDGETS+=("$widget")
+			fi
+		fi
+	done
+
+	if [[ ${#WIDGETS[@]} -eq 0 ]]; then
+		echo "[!] No matching widgets to install"
+		exit 1
+	fi
+
+	echo "[+] Installing ${#WIDGETS[@]} widget(s):"
+	for widget in "${WIDGETS[@]}"; do
+		echo "    - $widget"
+	done
 
 	FAILED_WIDGETS=()
 	SUCCESSFUL_WIDGETS=()
@@ -123,20 +194,18 @@ if [[ "$1" == "--all" || "$1" == "-a" ]]; then
 	restart_plasmashell
 	echo "[+] All done!"
 
-elif [[ -n "$1" && -d "packages/$1" ]]; then
-	install_widget "$1" "false"
+elif [[ -n "$WIDGET_NAME" && -d "packages/$WIDGET_NAME" ]]; then
+	install_widget "$WIDGET_NAME" "false"
 	echo "[+] Installation complete!"
 else
-	if [[ -n "$1" ]]; then
-		echo "[!] Widget package not found: $1"
+	if [[ -n "$WIDGET_NAME" ]]; then
+		echo "[!] Widget package not found: $WIDGET_NAME"
 	else
 		echo "[!] No widget specified"
 	fi
 	echo "[+] Available packages:"
 	ls packages
 	echo ""
-	echo "Usage:"
-	echo "  ./install.sh <package_folder>    Install a single widget"
-	echo "  ./install.sh --all | -a          Install all widgets"
+	print_usage
 	exit 1
 fi
