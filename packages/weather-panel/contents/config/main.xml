@@ -9,6 +9,12 @@
         <entry name="location" type="String">
             <default>New York</default>
         </entry>
+        <entry name="latitude" type="Double">
+            <default>40.7128</default>
+        </entry>
+        <entry name="longitude" type="Double">
+            <default>-74.0060</default>
+        </entry>
         <entry name="temperatureUnit" type="Int">
             <default>0</default>
         </entry>

@@ -4,6 +4,8 @@ QtObject {
     id: wd
 
     property string location: "New York"
+    property double configLatitude: 0
+    property double configLongitude: 0
     property int temperatureUnit: 0
 
     property bool isLoading: true
@@ -77,12 +79,27 @@ QtObject {
             _fetchWeather()
     }
 
-    onLocationChanged: _geocodeAndFetch()
+    function _refreshFromConfig() {
+        _retryTimer.stop()
+        _failCount = 0
+        if (configLatitude !== 0 || configLongitude !== 0) {
+            _latitude = configLatitude
+            _longitude = configLongitude
+            cityName = location
+            _fetchWeather()
+        } else {
+            _geocodeAndFetch()
+        }
+    }
+
+    onLocationChanged: _refreshFromConfig()
+    onConfigLatitudeChanged: _refreshFromConfig()
+    onConfigLongitudeChanged: _refreshFromConfig()
     onTemperatureUnitChanged: {
         if (_latitude !== 0 || _longitude !== 0) _fetchWeather()
     }
 
-    Component.onCompleted: _geocodeAndFetch()
+    Component.onCompleted: _refreshFromConfig()
 
     function iconNameForCode(code, night) {
         if (code === 0) return night ? "clearnight" : "sunny"

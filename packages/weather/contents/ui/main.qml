@@ -24,6 +24,8 @@ PlasmoidItem {
     WeatherData {
         id: weatherData
         location: plasmoid.configuration.location
+        configLatitude: plasmoid.configuration.latitude
+        configLongitude: plasmoid.configuration.longitude
         temperatureUnit: plasmoid.configuration.temperatureUnit
     }
 
