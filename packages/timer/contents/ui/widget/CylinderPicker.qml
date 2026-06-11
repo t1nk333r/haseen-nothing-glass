@@ -25,6 +25,19 @@ Item {
     implicitWidth: 80
     implicitHeight: 180
 
+    // Imperatively move the drum to an index without breaking the parent's
+    // `currentIndex` binding. Used by callers that set the value externally
+    // (e.g. preset selection) so the wheel snaps into place.
+    function setIndex(idx) {
+        idx = Math.max(0, Math.min(idx, count - 1))
+        snapAnim.stop()
+        momentumAnim.stop()
+        _scrollY = idx * _itemHeight
+        _externalSet = true
+        currentIndex = idx
+        _externalSet = false
+    }
+
     onCurrentIndexChanged: {
         if (_externalSet) return
         var target = currentIndex * _itemHeight

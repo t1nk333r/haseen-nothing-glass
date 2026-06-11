@@ -343,6 +343,8 @@ PlasmoidItem {
                     cardPressOpacity: colors.cardPressOpacity
                     active: root.timerState === 0
                     onClicked: {
+                        minPicker.setIndex(model.mins)
+                        secPicker.setIndex(model.secs)
                         root.selectedMinutes = model.mins
                         root.selectedSeconds = model.secs
                         root.startTimer()
@@ -385,7 +387,6 @@ PlasmoidItem {
                 CylinderPicker {
                     id: minPicker
                     count: 100
-                    currentIndex: root.selectedMinutes
                     label: "min"
                     fontFamily: sfRegular.name
                     labelFontFamily: sfRegular.name
@@ -401,7 +402,6 @@ PlasmoidItem {
                 CylinderPicker {
                     id: secPicker
                     count: 60
-                    currentIndex: root.selectedSeconds
                     label: "sec"
                     fontFamily: sfRegular.name
                     labelFontFamily: sfRegular.name
