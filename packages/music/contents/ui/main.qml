@@ -224,12 +224,12 @@ PlasmoidItem {
     }
     function next() {
         if (!mpris2Model.currentPlayer) return
-        root._flipDirection = 1
+        root._flipDirection = -1
         mpris2Model.currentPlayer.Next()
     }
     function previous() {
         if (!mpris2Model.currentPlayer) return
-        root._flipDirection = -1
+        root._flipDirection = 1
         mpris2Model.currentPlayer.Previous()
     }
     function seek(positionUs) {
