@@ -16,6 +16,13 @@ PlasmoidItem {
         appearance: plasmoid.configuration.appearance
     }
 
+    // Light only ever applies in Solid mode — Glass is always dark (white
+    // content) so the appearance setting never recolors glass text/ticks.
+    readonly property bool _realLight: !colors.isGlass
+        && (plasmoid.configuration.appearance === 1
+            || (plasmoid.configuration.appearance === 2 && !colors.systemIsDark))
+    readonly property color _dialColor: _realLight ? "#000000" : "#ffffff"
+
     FontLoader {
         id: sfProRounded
         source: Qt.resolvedUrl("../fonts/sf_pro_rounded.otf")
@@ -65,8 +72,11 @@ PlasmoidItem {
             blurRadius: plasmoid.configuration.blurRadiusPx
             realtimeRefraction: plasmoid.configuration.realtimeRefraction
             fallbackOpacity: colors.glassFallbackOpacity
-            solidMode: colors.isSolid
-            solidColor: colors.solidBackground
+            // Solid style keeps the glass material as the background squircle
+            // by default; only "Fully opaque background" reverts to a flat fill.
+            solidMode: colors.isSolid && plasmoid.configuration.opaqueBackground
+            // Opaque card is always the dark fill, even in light mode.
+            solidColor: "#1A1B1E"
         }
 
         // Clock face area inset from the glass squircle edge
@@ -85,8 +95,13 @@ PlasmoidItem {
                 height: width
                 anchors.centerIn: parent
                 radius: width / 2
-                visible: !(colors.isSolid && colors.isLight)
-                color: colors.isGlass ? Qt.rgba(1, 1, 1, 0.20) : "#343436"
+                // Solid style: the clock plate is always a solid opaque circle
+                // (white in light, #343436 in dark) — it does NOT go translucent
+                // when the background squircle is set to the glass material.
+                // Glass style keeps the original translucent disc.
+                color: colors.isGlass
+                    ? Qt.rgba(1, 1, 1, 0.20)
+                    : (root._realLight ? "#ffffff" : "#343436")
             }
 
             // --- Tick marks (pill-shaped, uniform width) ---
@@ -114,10 +129,12 @@ PlasmoidItem {
                     for (let i = 0; i < 60; i++) {
                         const isMajor = (i % 5 === 0)
                         const alpha   = isMajor ? 0.75 : 0.30
+                        // Dial ticks track real light/dark (black on light,
+                        // white on dark) in every style, glass included.
                         ctx.fillStyle = Qt.rgba(
-                            colors.foreground.r,
-                            colors.foreground.g,
-                            colors.foreground.b,
+                            root._dialColor.r,
+                            root._dialColor.g,
+                            root._dialColor.b,
                             alpha
                         )
 
@@ -147,8 +164,8 @@ PlasmoidItem {
                 }
 
                 Connections {
-                    target: colors
-                    function onForegroundChanged() { tickCanvas.requestPaint() }
+                    target: root
+                    function on_dialColorChanged() { tickCanvas.requestPaint() }
                 }
 
                 onWidthChanged:  requestPaint()
@@ -293,7 +310,7 @@ PlasmoidItem {
                     const tickW   = r * 0.020
                     const len     = r - tickW * 2  // reaches outward point of perimeter
                     const counterWeight = r * 0.15  // tail past pivot
-                    const hw           = r * 0.007
+                    const hw           = r * 0.007 * 1.3  // 1.3x thicker second hand
 
                     ctx.save()
                     ctx.translate(cx, cy)

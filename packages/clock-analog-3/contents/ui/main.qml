@@ -81,11 +81,12 @@ PlasmoidItem {
             tickLength: 0.026
             cornerOuterExtension: 0.012
             tickWidthPx: 2.2
+            // Hour markers match the numeral text exactly — same color
+            // (colors.foreground) AND same opacity (0.85 glass / 1.0 solid).
             tickColor: colors.foreground
-            // Glass ticks are bumped up for visibility against the wallpaper.
+            // Minor (non-hour) ticks stay faint; hour markers match the numerals.
             baseOpacity: colors.isGlass ? 0.24 : 0.30
-            // Hour ticks ~57% lighter than the rest — not a hard white/black.
-            hourOpacity: (colors.isGlass ? 0.24 : 0.30) * 1.575
+            hourOpacity: colors.isGlass ? 0.85 : 1.0
             // Hour-tick inner tips form a circle ~15% larger than clock-analog's hour hand
             // (~0.608r), so circleR ≈ 0.699r of the full widget's min-side / 2.
             hourCircleRadiusFrac: 0.699
@@ -157,6 +158,8 @@ PlasmoidItem {
             }
 
             // --- Hour + minute hands ---
+            // Rendered on the face canvas (8% inset) to match clock-analog 1 & 2
+            // exactly — same canvas scale gives the same soft edge feel.
             Canvas {
                 id: handsCanvas
                 anchors.fill: parent
@@ -183,7 +186,8 @@ PlasmoidItem {
                     const outerR  = r - tickW * 2
                     const innerR  = outerR - tickLen
 
-                    const minuteLen = (outerR + innerR) / 2
+                    // Hands lengthened 15% over the base midpoint/0.65 ratio.
+                    const minuteLen = ((outerR + innerR) / 2) * 1.15
                     const hourLen   = minuteLen * 0.65
 
                     face._drawHand(ctx, root._hourAngle,
@@ -229,7 +233,7 @@ PlasmoidItem {
                     const tickW = r * 0.020
                     const len   = r - tickW * 2
                     const counterWeight = r * 0.15
-                    const hw = r * 0.007
+                    const hw = r * 0.007 * 1.3  // 1.3x thicker second hand
 
                     ctx.save()
                     ctx.translate(cx, cy)
@@ -251,7 +255,7 @@ PlasmoidItem {
                 onHeightChanged: requestPaint()
             }
 
-            // --- Center hinge dot ---
+            // --- Center hinge dot (topmost) ---
             Canvas {
                 id: hingeCanvas
                 anchors.fill: parent

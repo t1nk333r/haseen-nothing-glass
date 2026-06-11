@@ -16,6 +16,12 @@ PlasmoidItem {
         appearance: plasmoid.configuration.appearance
     }
 
+    // Light only ever applies in Solid mode — Glass is always dark (white
+    // content) so the appearance setting never recolors glass text/ticks.
+    readonly property bool _realLight: !colors.isGlass
+        && (plasmoid.configuration.appearance === 1
+            || (plasmoid.configuration.appearance === 2 && !colors.systemIsDark))
+
     FontLoader {
         id: sfProRounded
         source: Qt.resolvedUrl("../fonts/sf_pro_rounded.otf")
@@ -65,8 +71,11 @@ PlasmoidItem {
             blurRadius: plasmoid.configuration.blurRadiusPx
             realtimeRefraction: plasmoid.configuration.realtimeRefraction
             fallbackOpacity: colors.glassFallbackOpacity
-            solidMode: colors.isSolid
-            solidColor: colors.solidBackground
+            // Solid style keeps the glass material as the background squircle
+            // by default; only "Fully opaque background" reverts to a flat fill.
+            solidMode: colors.isSolid && plasmoid.configuration.opaqueBackground
+            // Opaque card is always the dark fill, even in light mode.
+            solidColor: "#1A1B1E"
         }
 
         // Clock face area inset from the glass squircle edge
@@ -85,8 +94,13 @@ PlasmoidItem {
                 height: width
                 anchors.centerIn: parent
                 radius: width / 2
-                visible: !(colors.isSolid && colors.isLight)
-                color: colors.isGlass ? Qt.rgba(1, 1, 1, 0.20) : "#343436"
+                // Solid style: the clock plate is always a solid opaque circle
+                // (white in light, #343436 in dark) — it does NOT go translucent
+                // when the background squircle is set to the glass material.
+                // Glass style keeps the original translucent disc.
+                color: colors.isGlass
+                    ? Qt.rgba(1, 1, 1, 0.20)
+                    : (root._realLight ? "#ffffff" : "#343436")
             }
 
             // --- 12 hour lines (pill-shaped, one per hour position) ---
@@ -109,10 +123,10 @@ PlasmoidItem {
                     const innerR  = outerR - tickLen
 
                     // Hour line dimensions
-                    const lineW   = (r * 0.0336) * 0.9 * 1.15  // 90% of minute hand thickness, +15%
+                    const lineW   = (r * 0.0336) * 0.9 * 1.15 * 1.35  // 90% of minute hand thickness, +15%, then +35% thicker
                     const minuteLen = (outerR + innerR) / 2
                     const hourLen   = minuteLen * 0.65
-                    const lineLen   = hourLen * 0.40     // 40% of hour hand length
+                    const lineLen   = hourLen * 0.40 * 0.90 * 1.10  // 40% of hour hand length, 10% shorter, then 10% longer
                     const hw        = lineW / 2
 
                     ctx.fillStyle = Qt.rgba(
@@ -277,7 +291,7 @@ PlasmoidItem {
                     const tickW   = r * 0.020
                     const len     = r - tickW * 2  // reaches outward point of perimeter
                     const counterWeight = r * 0.15  // tail past pivot
-                    const hw           = r * 0.007
+                    const hw           = r * 0.007 * 1.3  // 1.3x thicker second hand
 
                     ctx.save()
                     ctx.translate(cx, cy)

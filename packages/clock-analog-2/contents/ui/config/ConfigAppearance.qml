@@ -1,1 +1,1 @@
-../../../../../1-common/config/ConfigAppearance.qml
+../../../../../1-common/config/ConfigAppearanceAnalog.qml
