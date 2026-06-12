@@ -22,27 +22,18 @@ PlasmoidItem {
         source: Qt.resolvedUrl("../fonts/sf_pro_rounded.otf")
     }
 
-    property real _secondAngle: 0
-    property real _minuteAngle: 0
-    property real _hourAngle: 0
-
-    Timer {
-        id: frameTimer
-        interval: 16
-        repeat: true
-        running: true
-        onTriggered: {
-            const now = Date.now()
-            const d = new Date(now)
-            const sec = d.getSeconds() + d.getMilliseconds() / 1000
-            const min = d.getMinutes() + sec / 60
-            const hr  = (d.getHours() % 12) + min / 60
-            root._secondAngle = sec / 60 * 360
-            root._minuteAngle = min / 60 * 360
-            root._hourAngle   = hr / 12 * 360
-        }
-        Component.onCompleted: triggered()
+    // World-clock model: City III shows a single city (1x1 only). Angles come
+    // from the configured timezone; the second hand sweeps from the shared
+    // local-second sweep (whole-minute zone offsets keep it accurate).
+    WorldClock {
+        id: world
+        clocks: plasmoid.configuration.clocks
+        needsSeconds: true
     }
+    readonly property var _e: world.entries.length ? world.entries[0] : null
+    readonly property real _secondAngle: world.sweepAngle
+    readonly property real _minuteAngle: _e ? _e.minuteAngle : 0
+    readonly property real _hourAngle:   _e ? _e.hourAngle : 0
 
     fullRepresentation: Item {
         id: full
@@ -184,12 +175,12 @@ PlasmoidItem {
                         colors.isGlass ? 0.92 : 1.0
                     )
 
+                    // Minute/hour hand lengths match clock-analog-3 exactly
+                    // (same 8%-inset face, same tick geometry, same 1.15x bump).
                     const tickW   = r * 0.020
                     const tickLen = r * 0.09
                     const outerR  = r - tickW * 2
                     const innerR  = outerR - tickLen
-
-                    // Hands lengthened 15% over the base midpoint/0.65 ratio.
                     const minuteLen = ((outerR + innerR) / 2) * 1.15
                     const hourLen   = minuteLen * 0.65
 
@@ -243,7 +234,7 @@ PlasmoidItem {
                     // the tick's outer end is at r*(1 - 2*0.05) = r*0.90.
                     const len   = r * (1 - 2 * 0.05)
                     const counterWeight = r * 0.15 * 0.84   // keep tail ~ as before
-                    const hw = r * 0.007 * 1.3 * 0.84       // 1.3x thicker, scaled
+                    const hw = r * 0.007 * 1.3 * 0.84       // 1.3x thicker, matching clock-analog-3
 
                     ctx.save()
                     ctx.translate(cx, cy)
@@ -265,7 +256,7 @@ PlasmoidItem {
                 onHeightChanged: requestPaint()
             }
 
-            // --- Center hinge dot (topmost) ---
+            // --- Center hinge dot ---
             Canvas {
                 id: hingeCanvas
                 anchors.fill: parent
@@ -291,6 +282,37 @@ PlasmoidItem {
                 onWidthChanged:  requestPaint()
                 onHeightChanged: requestPaint()
             }
+        }
+
+        // City code sits inboard of the "12" numeral, hour-diff inboard of the
+        // "6" numeral — i.e. at the numeral band but pulled further toward the
+        // center by an extra margin (so they clear the numerals). The dial's
+        // quarter numerals sit at 0.64*r; we park these at 0.40*r from center.
+        // Font reduced 10% from the prior size; lowered opacity in both modes.
+        readonly property real _faceR:   (Math.min(full.width, full.height) / 2) * 0.84
+        readonly property real _annoFont: Math.max(7, _faceR * 0.165)
+        readonly property real _annoInset: _faceR * 0.40
+        readonly property real _annoOpacity: (colors.isGlass ? 0.55 : 1.0) * 0.55
+
+        Text {
+            anchors.horizontalCenter: parent.horizontalCenter
+            y: parent.height / 2 - full._annoInset - height / 2
+            text: root._e ? root._e.code : ""
+            font.family: sfProRounded.name
+            font.pixelSize: full._annoFont
+            font.weight: Font.Medium
+            color: colors.foreground
+            opacity: full._annoOpacity
+        }
+        Text {
+            anchors.horizontalCenter: parent.horizontalCenter
+            y: parent.height / 2 + full._annoInset - height / 2
+            text: root._e ? root._e.offsetLabel : ""
+            font.family: sfProRounded.name
+            font.pixelSize: full._annoFont
+            font.weight: Font.Medium
+            color: colors.foreground
+            opacity: full._annoOpacity
         }
     }
 }
