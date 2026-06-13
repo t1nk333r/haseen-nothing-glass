@@ -79,16 +79,6 @@ Item {
 
     // --- Offset parsing ------------------------------------------------------
 
-    // Convert a Clock `timeZoneOffset` string ("UTC+09:00", "UTC-07:00",
-    // "UTC") into whole hours, truncated toward zero so a +09:30 zone reads +9.
-    function _offsetHoursFromString(s) {
-        if (!s) return 0;
-        var m = String(s).match(/UTC([+-])(\d{1,2}):?(\d{2})?/);
-        if (!m) return 0;
-        var sign = m[1] === "-" ? -1 : 1;
-        return sign * parseInt(m[2], 10);
-    }
-
     // Difference of a zone's offset vs. local offset, in (possibly fractional)
     // hours. Kept fractional so half-hour zones (India +5:30, Nepal +5:45,
     // etc.) read correctly against each other — e.g. Tokyo vs India is +3.5.

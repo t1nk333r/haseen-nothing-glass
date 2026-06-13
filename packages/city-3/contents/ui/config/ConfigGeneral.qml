@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import org.kde.kirigami as Kirigami
+import org.kde.plasma.clock as PlasmaClock
 import "../components/cities.js" as Cities
 
 // "Clocks" config page for City III — a single-city picker (maxClocks 1).
@@ -35,6 +36,34 @@ ColumnLayout {
                 return Intl.supportedValuesOf("timeZone");
         } catch (e) {}
         return Object.keys(Cities.TABLE).sort();
+    }
+
+    // tz -> "UTC+09:00" offset string, probed once from a hidden Clock (the V4
+    // JS engine can't compute zone offsets from a string — Intl/toLocaleString
+    // ignore the timeZone — so we read each zone's offset in C++ via QTimeZone).
+    property var _offsets: ({})
+
+    // Hidden probe used to resolve every zone's current GMT offset at load.
+    PlasmaClock.Clock { id: _probe; trackSeconds: false }
+
+    // Walk `_zones`, set the probe to each, and cache its `timeZoneOffset`.
+    // Synchronous: timeZoneOffset updates immediately after timeZone is set.
+    function _buildOffsets() {
+        var map = {};
+        for (var i = 0; i < _zones.length; i++) {
+            var tz = _zones[i];
+            _probe.timeZone = tz;
+            map[tz] = _probe.valid ? _probe.timeZoneOffset : "";
+        }
+        _offsets = map;
+    }
+
+    // "Asia/Tokyo" -> "Asia/Tokyo  (UTC+09:00)" for the dropdown popup. The
+    // model itself stays the raw IANA id; only the delegate text is decorated,
+    // so all commit/edit logic continues to store/read plain zone ids.
+    function _zoneDisplay(tz) {
+        var off = _offsets[tz];
+        return off ? tz + "  (" + off + ")" : tz;
     }
 
     // Editing buffer: array of { tz, label }. The Repeater binds to this.
@@ -114,7 +143,7 @@ ColumnLayout {
     // Only (re)load when our array is empty — i.e. first open. Subsequent
     // cfg_clocks changes are our own _save() writes; don't clobber the buffer.
     onCfg_clocksChanged: if (!_rows || _rows.length === 0) _load()
-    Component.onCompleted: _load()
+    Component.onCompleted: { _buildOffsets(); _load(); }
 
     Kirigami.InlineMessage {
         Layout.fillWidth: true
@@ -142,6 +171,22 @@ ColumnLayout {
                 model: page._zones
                 currentIndex: page._zones.indexOf(row.tz)
                 Component.onCompleted: editText = row.tz
+
+                // Popup rows show the raw zone id plus its GMT offset. The
+                // model stays plain IANA strings, so editText/currentText (and
+                // every commit path) still carry only the zone id.
+                delegate: ItemDelegate {
+                    width: zoneCombo.width
+                    text: page._zoneDisplay(modelData)
+                    font: zoneCombo.font
+                    highlighted: zoneCombo.highlightedIndex === index
+                    onClicked: {
+                        zoneCombo.currentIndex = index;
+                        zoneCombo.editText = modelData;
+                        page._setRow(row.index, "tz", String(modelData).trim());
+                        zoneCombo.popup.close();
+                    }
+                }
                 // Selecting from the dropdown.
                 onActivated: page._setRow(row.index, "tz", currentText.trim())
                 // Pressing Enter in the editable field.

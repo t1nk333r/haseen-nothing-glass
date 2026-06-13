@@ -210,7 +210,9 @@ PlasmoidItem {
                             mode: "full"
                             fontFamily: sfProRounded.name
                             code: cell.modelData.code
-                            name: cell.modelData.name
+                            // Prefer the user's typed label; it already falls
+                            // back to the resolved city name when left blank.
+                            name: cell.modelData.label
                             dayWord: cell.modelData.dayWord
                             offsetLabel: cell.modelData.offsetLabel
                             textColor: colors.foreground
