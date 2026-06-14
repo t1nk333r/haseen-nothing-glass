@@ -8,13 +8,13 @@
             }
         ],
         "Category": "Date and Time",
-        "Description": "Weather widget for KDE panels with native theming",
+        "Description": "A compact weather readout for your panel that follows your system theme, with the full forecast a click away.",
         "EnabledByDefault": true,
         "Icon": "/icon.png",
         "Id": "com.jaxparrow07.macoswidgets.weatherpanel",
         "License": "GPL-3.0",
         "Name": "Weather (Panel)",
-        "Version": "0.1",
+        "Version": "1.0",
         "Website": "https://github.com/jaxparrow07/macos-widgets"
     },
     "X-Plasma-API-Minimum-Version": "6.0"

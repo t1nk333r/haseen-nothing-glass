@@ -8,13 +8,13 @@
             }
         ],
         "Category": "Examples",
-        "Description": "macOS / iOS style liquid-glass music player widget with MPRIS integration.",
+        "Description": "Now-playing controls for whatever's playing on your system. Album art, track details, and transport buttons on a frosted-glass card.",
         "EnabledByDefault": true,
         "Icon": "/icon.png",
         "Id": "com.jaxparrow07.macoswidgets.music",
         "License": "GPL-3.0",
         "Name": "macOS Music",
-        "Version": "0.1",
+        "Version": "1.0",
         "Website": "https://github.com/jaxparrow07/macos-widgets"
     },
     "X-Plasma-API-Minimum-Version": "6.0"

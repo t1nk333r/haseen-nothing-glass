@@ -8,13 +8,13 @@
       }
     ],
     "Category": "Date and Time",
-    "Description": "macOS Tahoe style liquid-glass world clock — analog with full numerals; shows 1–4 cities.",
+    "Description": "A world clock on a classic numbered dial. Track one city or up to four at once, each face lightening or darkening with the hour where it is.",
     "EnabledByDefault": true,
     "Icon": "/icon.png",
     "Id": "com.jaxparrow07.macoswidgets.city-1",
     "License": "GPL-3.0",
     "Name": "macOS City I",
-    "Version": "0.1",
+    "Version": "1.0",
     "Website": "https://github.com/jaxparrow07/macos-widgets"
   },
   "X-Plasma-API-Minimum-Version": "6.0"

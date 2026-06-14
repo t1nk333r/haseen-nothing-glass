@@ -8,13 +8,13 @@
             }
         ],
         "Category": "Examples",
-        "Description": "macOS / iOS style liquid-glass countdown timer widget.",
+        "Description": "A countdown timer with quick presets and a notification when time's up. Works on the desktop or tucked into a panel.",
         "EnabledByDefault": true,
         "Icon": "/icon.png",
         "Id": "com.jaxparrow07.macoswidgets.timer",
         "License": "GPL-3.0",
         "Name": "macOS Timer",
-        "Version": "0.1",
+        "Version": "1.0",
         "Website": "https://github.com/jaxparrow07/macos-widgets"
     },
     "X-Plasma-API-Minimum-Version": "6.0"

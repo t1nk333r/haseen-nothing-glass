@@ -202,7 +202,7 @@ Item {
                 }
 
                 Text {
-                    text: "Lyrics"
+                    text: i18n("Lyrics")
                     color: "#ffffff"
                     font.pixelSize: Math.max(7, Math.round(layout._s * 0.038))
                     font.weight: Font.Medium

@@ -227,7 +227,7 @@ PlasmoidItem {
     }
 
     function _formatTime(ev) {
-        if (ev.isAllDay) return "All day";
+        if (ev.isAllDay) return i18n("All day");
         return Qt.formatDateTime(ev.startDateTime, "h:mm AP");
     }
 
@@ -313,15 +313,15 @@ PlasmoidItem {
         }
 
         if (todayEvents.length > 0) {
-            eventsModel.append({ isHeader: true, title: "Events today", pillColor: "", timeLabel: "", isAllDay: false });
+            eventsModel.append({ isHeader: true, title: i18n("Events today"), pillColor: "", timeLabel: "", isAllDay: false });
             for (var ti = 0; ti < todayEvents.length; ti++) eventsModel.append(todayEvents[ti]);
         }
         if (weekEvents.length > 0) {
-            eventsModel.append({ isHeader: true, title: "This week", pillColor: "", timeLabel: "", isAllDay: false });
+            eventsModel.append({ isHeader: true, title: i18n("This week"), pillColor: "", timeLabel: "", isAllDay: false });
             for (var wi = 0; wi < weekEvents.length; wi++) eventsModel.append(weekEvents[wi]);
         }
         if (upcomingEvents.length > 0) {
-            eventsModel.append({ isHeader: true, title: "Upcoming", pillColor: "", timeLabel: "", isAllDay: false });
+            eventsModel.append({ isHeader: true, title: i18n("Upcoming"), pillColor: "", timeLabel: "", isAllDay: false });
             for (var ui = 0; ui < upcomingEvents.length; ui++) eventsModel.append(upcomingEvents[ui]);
         }
 
@@ -378,7 +378,7 @@ PlasmoidItem {
             Text {
                 anchors.centerIn: parent
                 visible: eventsModel.count === 0
-                text: "No upcoming events"
+                text: i18n("No upcoming events")
                 color: colors.foreground
                 font.family: sfRegular.name
                 font.pixelSize: full.labelSize

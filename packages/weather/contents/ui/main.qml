@@ -168,7 +168,7 @@ PlasmoidItem {
                 spacing: 0
 
                 Text {
-                    text: "Precipitation"
+                    text: i18n("Precipitation")
                     color: colors.weatherForeground
                     font.family: sfRegular.name
                     font.pixelSize: parent._infoSize
@@ -187,7 +187,7 @@ PlasmoidItem {
                 Item { width: 1; height: Math.round(full.labelSize * 0.35) }
 
                 Text {
-                    text: "Wind"
+                    text: i18n("Wind")
                     color: colors.weatherForeground
                     font.family: sfRegular.name
                     font.pixelSize: parent._infoSize

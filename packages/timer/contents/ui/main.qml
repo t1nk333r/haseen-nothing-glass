@@ -64,8 +64,8 @@ PlasmoidItem {
         id: timerFinishedNotification
         componentName: "plasma_workspace"
         eventId: "notification"
-        title: "Timer"
-        text: "Time's up!"
+        title: i18n("Timer")
+        text: i18n("Time's up!")
         urgency: Notification.NormalUrgency
     }
 
@@ -305,7 +305,7 @@ PlasmoidItem {
                     topMargin: leftPanel._margin
                     leftMargin: leftPanel._margin
                 }
-                text: "Presets"
+                text: i18n("Presets")
                 color: colors.foreground
                 font.family: sfRegular.name
                 font.pixelSize: Math.max(10, Math.round(full.height * 0.058))

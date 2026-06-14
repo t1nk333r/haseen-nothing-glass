@@ -145,9 +145,14 @@ Item {
             ComboBox {
                 id: unitCombo
                 Layout.fillWidth: true
-                currentIndex: root.cfg_temperatureUnit
-                onActivated: root.cfg_temperatureUnit = currentIndex
                 model: [i18n("Celsius (°C)"), i18n("Fahrenheit (°F)")]
+                // Restore the saved index explicitly (a JS-array model resets
+                // currentIndex to 0 on load). Write back using the activated
+                // signal's `index` argument, not `currentIndex`, which is not
+                // yet updated when onActivated fires (caused a one-step lag).
+                Component.onCompleted: currentIndex = root.cfg_temperatureUnit
+                onModelChanged: currentIndex = root.cfg_temperatureUnit
+                onActivated: (index) => root.cfg_temperatureUnit = index
             }
         }
 

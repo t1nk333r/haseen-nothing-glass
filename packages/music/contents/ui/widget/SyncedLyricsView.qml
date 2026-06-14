@@ -233,7 +233,7 @@ Item {
     Text {
         anchors.centerIn: parent
         visible: lv.lyricsState === 4 || (lv.lyricsState === 2 && lv.syncedLyrics.length === 0 && lv.plainLyrics === "")
-        text: "No lyrics available"
+        text: i18n("No lyrics available")
         color: "#ffffff"
         opacity: 0.45
         font.pixelSize: Math.max(12, Math.round(lv.baseFontSize * 0.8))
@@ -246,7 +246,7 @@ Item {
         id: errorLabel
         anchors.centerIn: parent
         visible: lv.lyricsState === 3
-        text: "Couldn't load lyrics\nTap to retry"
+        text: i18n("Couldn't load lyrics\nTap to retry")
         color: "#ffffff"
         opacity: 0.45
         horizontalAlignment: Text.AlignHCenter

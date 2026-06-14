@@ -8,13 +8,13 @@
             }
         ],
         "Category": "Examples",
-        "Description": "macOS Tahoe style liquid-glass calendar widget.",
+        "Description": "A month calendar with a frosted-glass backdrop. Stretch it wide and a side panel lists your upcoming events, grouped by today, this week, and later.",
         "EnabledByDefault": true,
         "Icon": "/icon.png",
         "Id": "com.jaxparrow07.macoswidgets.calendar",
         "License": "GPL-3.0",
         "Name": "macOS Calendar",
-        "Version": "0.1",
+        "Version": "1.0",
         "Website": "https://github.com/jaxparrow07/macos-widgets"
     },
     "X-Plasma-API-Minimum-Version": "6.0"

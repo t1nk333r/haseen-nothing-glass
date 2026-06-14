@@ -8,13 +8,13 @@
       }
     ],
     "Category": "Date and Time",
-    "Description": "macOS Tahoe style liquid-glass world clock — quarter-numeral dial for a single city.",
+    "Description": "A single-city world clock on a quarter-marked dial, with a sweeping second hand and a face that tracks day and night where you're watching.",
     "EnabledByDefault": true,
     "Icon": "/icon.png",
     "Id": "com.jaxparrow07.macoswidgets.city-3",
     "License": "GPL-3.0",
     "Name": "macOS City III",
-    "Version": "0.1",
+    "Version": "1.0",
     "Website": "https://github.com/jaxparrow07/macos-widgets"
   },
   "X-Plasma-API-Minimum-Version": "6.0"
