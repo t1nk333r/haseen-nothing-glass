@@ -16,7 +16,7 @@ QtObject {
     property string highTemp: "--"
     property string lowTemp: "--"
     property int weatherCode: 0
-    property string condition: "Loading..."
+    property string condition: i18n("Loading...")
     property string windSpeed: "--"
     property string windDirection: ""
     property string windUnit: "km/h"
@@ -35,7 +35,6 @@ QtObject {
     property double _latitude: 0
     property double _longitude: 0
 
-    readonly property string _apiTempUnit: temperatureUnit === 0 ? "celsius" : "fahrenheit"
     readonly property string tempSymbol: temperatureUnit === 0 ? "°" : "°"
 
     property var _refreshTimer: Timer {
@@ -121,35 +120,35 @@ QtObject {
     }
 
     function conditionForCode(code) {
-        if (code === 0) return "Clear"
-        if (code === 1) return "Mainly Clear"
-        if (code === 2) return "Partly Cloudy"
-        if (code === 3) return "Overcast"
-        if (code === 45) return "Fog"
-        if (code === 48) return "Rime Fog"
-        if (code === 51) return "Light Drizzle"
-        if (code === 53) return "Drizzle"
-        if (code === 55) return "Dense Drizzle"
-        if (code === 56) return "Freezing Drizzle"
-        if (code === 57) return "Heavy Freezing Drizzle"
-        if (code === 61) return "Slight Rain"
-        if (code === 63) return "Rain"
-        if (code === 65) return "Heavy Rain"
-        if (code === 66) return "Freezing Rain"
-        if (code === 67) return "Heavy Freezing Rain"
-        if (code === 71) return "Slight Snow"
-        if (code === 73) return "Snow"
-        if (code === 75) return "Heavy Snow"
-        if (code === 77) return "Snow Grains"
-        if (code === 80) return "Light Showers"
-        if (code === 81) return "Showers"
-        if (code === 82) return "Heavy Showers"
-        if (code === 85) return "Light Snow Showers"
-        if (code === 86) return "Heavy Snow Showers"
-        if (code === 95) return "Thunderstorm"
-        if (code === 96) return "Thunderstorm with Hail"
-        if (code === 99) return "Heavy Thunderstorm"
-        return "Unknown"
+        if (code === 0) return i18n("Clear")
+        if (code === 1) return i18n("Mainly Clear")
+        if (code === 2) return i18n("Partly Cloudy")
+        if (code === 3) return i18n("Overcast")
+        if (code === 45) return i18n("Fog")
+        if (code === 48) return i18n("Rime Fog")
+        if (code === 51) return i18n("Light Drizzle")
+        if (code === 53) return i18n("Drizzle")
+        if (code === 55) return i18n("Dense Drizzle")
+        if (code === 56) return i18n("Freezing Drizzle")
+        if (code === 57) return i18n("Heavy Freezing Drizzle")
+        if (code === 61) return i18n("Slight Rain")
+        if (code === 63) return i18n("Rain")
+        if (code === 65) return i18n("Heavy Rain")
+        if (code === 66) return i18n("Freezing Rain")
+        if (code === 67) return i18n("Heavy Freezing Rain")
+        if (code === 71) return i18n("Slight Snow")
+        if (code === 73) return i18n("Snow")
+        if (code === 75) return i18n("Heavy Snow")
+        if (code === 77) return i18n("Snow Grains")
+        if (code === 80) return i18n("Light Showers")
+        if (code === 81) return i18n("Showers")
+        if (code === 82) return i18n("Heavy Showers")
+        if (code === 85) return i18n("Light Snow Showers")
+        if (code === 86) return i18n("Heavy Snow Showers")
+        if (code === 95) return i18n("Thunderstorm")
+        if (code === 96) return i18n("Thunderstorm with Hail")
+        if (code === 99) return i18n("Heavy Thunderstorm")
+        return i18n("Unknown")
     }
 
     function _gradientCategoryForCode(code, night) {
@@ -208,7 +207,7 @@ QtObject {
                     } else {
                         errorMessage = "Location not found"
                         isLoading = false
-                        condition = "Location not found"
+                        condition = i18n("Location not found")
                         _clearRetry()
                     }
                 } catch (e) {
@@ -232,6 +231,11 @@ QtObject {
             return
         }
 
+        // Compute the unit inline rather than reading the _apiTempUnit binding:
+        // when called from onTemperatureUnitChanged, that binding has not been
+        // re-evaluated yet and still holds the previous unit (one-step lag).
+        var apiUnit = temperatureUnit === 0 ? "celsius" : "fahrenheit"
+
         var xhr = new XMLHttpRequest()
         var url = "https://api.open-meteo.com/v1/forecast?" +
                   "latitude=" + _latitude +
@@ -239,7 +243,7 @@ QtObject {
                   "&current=temperature_2m,weather_code,wind_speed_10m,wind_direction_10m" +
                   "&hourly=temperature_2m,weather_code" +
                   "&daily=temperature_2m_max,temperature_2m_min,weather_code,sunrise,sunset" +
-                  "&temperature_unit=" + _apiTempUnit +
+                  "&temperature_unit=" + apiUnit +
                   "&wind_speed_unit=kmh" +
                   "&timezone=auto" +
                   "&forecast_days=7"
@@ -349,11 +353,11 @@ QtObject {
             dryDays++
         }
         if (dryDays === 0)
-            precipitationSummary = "Precipitation expected today"
+            precipitationSummary = i18n("Precipitation expected today")
         else if (dryDays === 1)
-            precipitationSummary = "Precipitation expected tomorrow"
+            precipitationSummary = i18n("Precipitation expected tomorrow")
         else
-            precipitationSummary = "No precipitation for " + dryDays + " days"
+            precipitationSummary = i18np("No precipitation for %1 day", "No precipitation for %1 days", dryDays)
     }
 
     function _processHourlyForecast(hourly, daily) {

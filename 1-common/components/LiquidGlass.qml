@@ -155,7 +155,14 @@ Item {
         hideSource: false
         recursive: false
         smooth: true
-        mipmap: false
+        // Mipmap the full-res capture so the crop pass (which minifies a
+        // large wallpaper — e.g. a 4K video frame — into the small
+        // widget-sized texture) samples from a pre-filtered mip level
+        // instead of undersampling with a single bilinear tap. Without
+        // this, high-res / detailed wallpapers alias and shimmer, reading
+        // as a "cheap", low-quality blur, especially at low blur radius
+        // where the shallow Kawase pyramid can't mask the aliasing.
+        mipmap: true
         textureMirroring: ShaderEffectSource.MirrorVertically
 
         onSourceItemChanged: scheduleUpdate()
@@ -185,15 +192,26 @@ Item {
 
     // Dual Kawase: number of downsample iterations (each doubles blur reach).
     // radius ~2→1, ~4→2, ~8→3, ~16→4, ~32→5, ~64→6, ~100→6.
+    //
+    // The two deepest levels (widget/32, widget/64) are only a handful of
+    // texels wide. On a STATIC wallpaper the up-pass smooths them so they're
+    // invisible. But on a moving (video) wallpaper those tiny levels pump
+    // frame-to-frame and read as a blocky "mosaic" in motion. So in realtime
+    // mode we cap the pyramid at 4 levels (smallest texture = widget/16),
+    // trading a little max blur reach for motion smoothness. Static
+    // wallpapers keep the full 6-level table for maximum reach.
+    readonly property int _maxBlurIters: glass.realtimeRefraction ? 4 : 6
     readonly property int _blurIters: {
         if (!_blurActive) return 0;
         var r = glass.blurRadius;
-        if (r <= 2) return 1;
-        if (r <= 4) return 2;
-        if (r <= 8) return 3;
-        if (r <= 16) return 4;
-        if (r <= 32) return 5;
-        return 6;
+        var iters;
+        if (r <= 2) iters = 1;
+        else if (r <= 4) iters = 2;
+        else if (r <= 8) iters = 3;
+        else if (r <= 16) iters = 4;
+        else if (r <= 32) iters = 5;
+        else iters = 6;
+        return Math.min(iters, _maxBlurIters);
     }
 
     readonly property vector2d _uvOff: glass.active

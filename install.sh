@@ -4,6 +4,14 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# Compile translations (.po -> .mo) so they ship with the widget. No-op without gettext.
+build_translations() {
+	if command -v msgfmt &>/dev/null; then
+		echo "[*] Compiling translations..."
+		"${SCRIPT_DIR}/translate/build.sh" >/dev/null 2>&1 || true
+	fi
+}
+
 # Colors
 RESET='\033[0m'
 BOLD='\033[1m'
@@ -164,6 +172,8 @@ if [[ "$WANT_ALL" == "true" || "$WANT_TEST" == "true" ]]; then
 		exit 1
 	fi
 
+	build_translations
+
 	ALL_WIDGETS=($(ls -d packages/*/ 2>/dev/null | xargs -n 1 basename))
 	if [[ ${#ALL_WIDGETS[@]} -eq 0 ]]; then
 		_error "No widgets found in packages/"
@@ -221,6 +231,7 @@ if [[ "$WANT_ALL" == "true" || "$WANT_TEST" == "true" ]]; then
 	_success "All done!"
 
 elif [[ -n "$WIDGET_NAME" && -d "packages/$WIDGET_NAME" ]]; then
+	build_translations
 	install_widget "$WIDGET_NAME" "false"
 	echo ""
 	_success "Installation complete!"

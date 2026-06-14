@@ -6,6 +6,15 @@ set -e
 
 PACKAGE_DIR="2-packaged"
 PACKAGES_SRC="packages"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Compile translations (.po -> .mo) so they get bundled into the .plasmoid. No-op without gettext.
+build_translations() {
+	if command -v msgfmt &>/dev/null; then
+		echo "[*] Compiling translations..."
+		"${SCRIPT_DIR}/translate/build.sh" >/dev/null 2>&1 || true
+	fi
+}
 
 package_widget() {
 	local WIDGET_NAME="$1"
@@ -118,6 +127,8 @@ if [[ "$WANT_ALL" == "true" || "$WANT_TEST" == "true" ]]; then
 		exit 1
 	fi
 
+	build_translations
+
 	ALL_WIDGETS=($(ls -d ${PACKAGES_SRC}/*/ 2>/dev/null | xargs -n 1 basename))
 	if [[ ${#ALL_WIDGETS[@]} -eq 0 ]]; then
 		echo "[!] No widgets found in ${PACKAGES_SRC} directory"
@@ -151,6 +162,7 @@ if [[ "$WANT_ALL" == "true" || "$WANT_TEST" == "true" ]]; then
 	echo "[+] All packages saved to: $(realpath $PACKAGE_DIR)"
 
 elif [[ -n "$WIDGET_NAME" && -d "${PACKAGES_SRC}/$WIDGET_NAME" ]]; then
+	build_translations
 	package_widget "$WIDGET_NAME"
 	echo "[+] Packaging complete!"
 else
