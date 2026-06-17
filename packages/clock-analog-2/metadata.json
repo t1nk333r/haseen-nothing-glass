@@ -1,21 +1,21 @@
 {
-    "KPackageStructure": "Plasma/Applet",
-    "KPlugin": {
-        "Authors": [
-            {
-                "Email": "rjackfaith@gmail.com",
-                "Name": "Jack Faith"
-            }
-        ],
-        "Category": "Date and Time",
-        "Description": "An analog clock pared back to twelve hour marks, no numerals — just the hands and a frosted-glass face.",
-        "EnabledByDefault": true,
-        "Icon": "/icon.png",
-        "Id": "com.jaxparrow07.macoswidgets.clock-analog-2",
-        "License": "GPL-3.0",
-        "Name": "macOS Clock II",
-        "Version": "1.0",
-        "Website": "https://github.com/jaxparrow07/macos-widgets"
-    },
-    "X-Plasma-API-Minimum-Version": "6.0"
+  "KPackageStructure": "Plasma/Applet",
+  "KPlugin": {
+    "Authors": [
+      {
+        "Email": "rjackfaith@gmail.com",
+        "Name": "Jack Faith"
+      }
+    ],
+    "Category": "Date and Time",
+    "Description": "An analog clock pared back to twelve hour marks, no numerals — just the hands and a frosted-glass face.",
+    "EnabledByDefault": true,
+    "Icon": "/icon.png",
+    "Id": "com.jaxparrow07.macoswidgets.clock-analog-2",
+    "License": "GPL-3.0",
+    "Name": "macOS Clock II",
+    "Version": "1.1",
+    "Website": "https://github.com/jaxparrow07/macos-widgets"
+  },
+  "X-Plasma-API-Minimum-Version": "6.0"
 }

@@ -1,21 +1,21 @@
 {
-    "KPackageStructure": "Plasma/Applet",
-    "KPlugin": {
-        "Authors": [
-            {
-                "Email": "zinczorphin@email.com",
-                "Name": "Jack Faith"
-            }
-        ],
-        "Category": "Examples",
-        "Description": "Current conditions with hourly and daily forecasts on a frosted-glass card. The layout grows from a compact tile to a full panel as you resize it.",
-        "EnabledByDefault": true,
-        "Icon": "/icon.png",
-        "Id": "com.jaxparrow07.macoswidgets.weather",
-        "License": "GPL-3.0",
-        "Name": "macOS Weather",
-        "Version": "1.0",
-        "Website": "https://github.com/jaxparrow07/macos-widgets"
-    },
-    "X-Plasma-API-Minimum-Version": "6.0"
+  "KPackageStructure": "Plasma/Applet",
+  "KPlugin": {
+    "Authors": [
+      {
+        "Email": "zinczorphin@email.com",
+        "Name": "Jack Faith"
+      }
+    ],
+    "Category": "Examples",
+    "Description": "Current conditions with hourly and daily forecasts on a frosted-glass card. The layout grows from a compact tile to a full panel as you resize it.",
+    "EnabledByDefault": true,
+    "Icon": "/icon.png",
+    "Id": "com.jaxparrow07.macoswidgets.weather",
+    "License": "GPL-3.0",
+    "Name": "macOS Weather",
+    "Version": "1.1",
+    "Website": "https://github.com/jaxparrow07/macos-widgets"
+  },
+  "X-Plasma-API-Minimum-Version": "6.0"
 }

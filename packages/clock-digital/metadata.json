@@ -1,21 +1,21 @@
 {
-    "KPackageStructure": "Plasma/Applet",
-    "KPlugin": {
-        "Authors": [
-            {
-                "Email": "zinczorphin@email.com",
-                "Name": "Jack Faith"
-            }
-        ],
-        "Category": "Examples",
-        "Description": "A digital clock that fills a rounded glass tile. Stretch it wide for a roomier layout.",
-        "EnabledByDefault": true,
-        "Icon": "/icon.png",
-        "Id": "com.jaxparrow07.macoswidgets.clock-square",
-        "License": "GPL-3.0",
-        "Name": "macOS Clock Digital",
-        "Version": "1.0",
-        "Website": "https://github.com/jaxparrow07/macos-widgets"
-    },
-    "X-Plasma-API-Minimum-Version": "6.0"
+  "KPackageStructure": "Plasma/Applet",
+  "KPlugin": {
+    "Authors": [
+      {
+        "Email": "zinczorphin@email.com",
+        "Name": "Jack Faith"
+      }
+    ],
+    "Category": "Examples",
+    "Description": "A digital clock that fills a rounded glass tile. Stretch it wide for a roomier layout.",
+    "EnabledByDefault": true,
+    "Icon": "/icon.png",
+    "Id": "com.jaxparrow07.macoswidgets.clock-square",
+    "License": "GPL-3.0",
+    "Name": "macOS Clock Digital",
+    "Version": "1.1",
+    "Website": "https://github.com/jaxparrow07/macos-widgets"
+  },
+  "X-Plasma-API-Minimum-Version": "6.0"
 }

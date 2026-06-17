@@ -12,6 +12,9 @@ macOS&nbsp;Tahoe / iOS-style liquid-glass widgets for KDE Plasma 6.<br><br>
 <a href="https://github.com/jaxparrow07/liquidglass-kde-widgets/releases/latest">
   <img src="https://img.shields.io/github/downloads/jaxparrow07/liquidglass-kde-widgets/latest/total?style=for-the-badge" alt="Download Latest Release">
 </a>
+<a href="https://www.opendesktop.org/c/2362936/">
+  <img src="https://img.shields.io/badge/KDE_Store-Download-blue?style=for-the-badge&logo=kde" alt="KDE Store Collection">
+</a>
 <a href="https://ko-fi.com/devrinth">
   <img src="https://img.shields.io/badge/Buy_me_a_Kofi-donate-blue?style=for-the-badge&logo=kofi&color=%23FF6433" alt="Support on Ko-fi">
 </a>
@@ -46,6 +49,8 @@ DST-correct per-zone time, half-hour offsets handled.
 
 Now-playing controls for whatever's playing on your system (MPRIS). **Supports synced lyrics via LRCLIB**, and adapts between wide and tall-wide layouts.
 as you resize it. **You gotta check the next/previous song album flip, it took me several hours to get it right :)**
+
+> Playing songs from a browser? Album art needs a one-time setup — see [Additional Setup → Media (Browser Album Art)](#media-browser-album-art).
 
 ### Weather
 
@@ -189,6 +194,25 @@ The Calendar widget's events side panel reads from KDE's calendar system.
    tick the collections you want to display.
 
 Without this setup the side panel simply shows **"No upcoming events"**.
+
+### Media (Browser Album Art)
+
+The Music widget reads now-playing info over MPRIS. Native apps (Spotify, VLC, Elisa, …)
+expose their album art automatically, but songs played **in a browser** (YouTube Music,
+SoundCloud, Spotify Web, …) won't show album art unless the browser is bridged to MPRIS.
+
+Install the **Plasma Integration** browser extension to fix this:
+
+- [Plasma Integration for Chrome / Chromium / Edge](https://chromewebstore.google.com/detail/plasma-integration/cimiefiiaegbelhefglklhhakcgmhkai)
+- [Plasma Integration for Firefox](https://addons.mozilla.org/firefox/addon/plasma-integration/)
+
+You may also need the host package on the system side:
+
+```bash
+sudo apt install plasma-browser-integration
+```
+
+Without this, browser playback may still show controls but with no album art.
 
 ---
 

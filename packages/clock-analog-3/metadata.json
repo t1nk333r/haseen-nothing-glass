@@ -1,21 +1,21 @@
 {
-    "KPackageStructure": "Plasma/Applet",
-    "KPlugin": {
-        "Authors": [
-            {
-                "Email": "rjackfaith@gmail.com",
-                "Name": "Jack Faith"
-            }
-        ],
-        "Category": "Date and Time",
-        "Description": "An analog clock marked only at twelve, three, six, and nine, with ticks that trace the rounded glass edge.",
-        "EnabledByDefault": true,
-        "Icon": "/icon.png",
-        "Id": "com.jaxparrow07.macoswidgets.clock-analog-3",
-        "License": "GPL-3.0",
-        "Name": "macOS Clock III",
-        "Version": "1.0",
-        "Website": "https://github.com/jaxparrow07/macos-widgets"
-    },
-    "X-Plasma-API-Minimum-Version": "6.0"
+  "KPackageStructure": "Plasma/Applet",
+  "KPlugin": {
+    "Authors": [
+      {
+        "Email": "rjackfaith@gmail.com",
+        "Name": "Jack Faith"
+      }
+    ],
+    "Category": "Date and Time",
+    "Description": "An analog clock marked only at twelve, three, six, and nine, with ticks that trace the rounded glass edge.",
+    "EnabledByDefault": true,
+    "Icon": "/icon.png",
+    "Id": "com.jaxparrow07.macoswidgets.clock-analog-3",
+    "License": "GPL-3.0",
+    "Name": "macOS Clock III",
+    "Version": "1.1",
+    "Website": "https://github.com/jaxparrow07/macos-widgets"
+  },
+  "X-Plasma-API-Minimum-Version": "6.0"
 }
