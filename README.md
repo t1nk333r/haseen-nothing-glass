@@ -6,7 +6,7 @@
 
 # Liquid Glass — macOS Widgets for KDE
 
-<i>v1.0</i><br>
+<i>v1.1</i><br>
 macOS&nbsp;Tahoe / iOS-style liquid-glass widgets for KDE Plasma 6.<br><br>
 
 <a href="https://github.com/jaxparrow07/liquidglass-kde-widgets/releases/latest">
