@@ -29,7 +29,8 @@ PlasmoidItem {
     readonly property string artist:  mpris2Model.currentPlayer?.artist ?? ""
     readonly property string album:   mpris2Model.currentPlayer?.album ?? ""
     readonly property string _rawAlbumArt: mpris2Model.currentPlayer?.artUrl ?? ""
-    property string albumArt: ""
+    readonly property string _noAlbumUrl: Qt.resolvedUrl("icons/no_album.png")
+    property string albumArt: _noAlbumUrl
 
     on_RawAlbumArtChanged: {
         if (_rawAlbumArt === "") return
@@ -175,6 +176,10 @@ PlasmoidItem {
     }
 
     onTrackChanged: {
+        if (track === "" || track === "Not Playing") {
+            _artDebounceTimer.stop()
+            albumArt = _noAlbumUrl
+        }
         root.position = mpris2Model.currentPlayer?.position ?? 0
         root._lastSampledUrl = ""
         _scheduleArtRefresh()
@@ -428,7 +433,6 @@ PlasmoidItem {
         readonly property string _layout:
             _ar >= 3.0  ? "bar"
           : _ar >= 1.6  ? "wide"
-          : _ar <= 0.35 ? "tall"
           : _ar <= 0.85 && full.height >= full.width * 1.55 ? "tallwide"
           :               "square"
 
@@ -463,31 +467,6 @@ PlasmoidItem {
             colors: colors
             cornerRadius: plasmoid.configuration.cornerRadius
             roundness: plasmoid.configuration.roundnessX10 / 10
-            fontFamily: sfRegular.name
-            fontFamilyThin: sfThin.name
-            track: root.track
-            artist: root.artist
-            albumArt: root.albumArt
-            isPlaying: root.isPlaying
-            canGoPrevious: root.canGoPrevious
-            canGoNext: root.canGoNext
-            canPlay: root.canPlay
-            canPause: root.canPause
-            position: root.position
-            length: root.length
-            onTogglePlaying: root.togglePlaying()
-            onNextTrack: root.next()
-            onPreviousTrack: root.previous()
-            onSeek: function(pos) { root.seek(pos) }
-            formatTime: root.formatTime
-        }
-
-        TallLayout {
-            anchors.fill: parent
-            visible: full._layout === "tall"
-            colors: colors
-            accentColor: root._hasSampledColor ? root._sampledPrimaryColor : colors.foreground
-            flipDirection: root._flipDirection
             fontFamily: sfRegular.name
             fontFamilyThin: sfThin.name
             track: root.track

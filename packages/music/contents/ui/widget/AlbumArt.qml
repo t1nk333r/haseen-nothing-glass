@@ -16,6 +16,7 @@ Item {
         source: art.artUrl
         fillMode: Image.PreserveAspectCrop
         smooth: true
+        mipmap: true
         visible: false
         layer.enabled: true
         cache: false
