@@ -231,7 +231,7 @@ Item {
 
             Image {
                 source: Qt.resolvedUrl("../icons/lyrics.svg")
-                width: Math.round(layout._s * 0.055)
+                width: Math.round(layout._s * 0.066)
                 height: width
                 anchors.verticalCenter: parent.verticalCenter
                 smooth: true
