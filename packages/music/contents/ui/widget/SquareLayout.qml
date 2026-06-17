@@ -55,6 +55,7 @@ Item {
                 source: layout.albumArt
                 fillMode: Image.PreserveAspectCrop
                 smooth: true
+                mipmap: true
             }
 
             Rectangle {
@@ -181,23 +182,25 @@ Item {
 
             MarqueeText {
                 width: parent.width
-                height: Math.round(layout._s * 0.07) + 4
+                height: Math.round(layout._s * 0.0735) + 4
                 text: layout.track || "Not Playing"
-                fontSize: Math.max(12, Math.round(layout._s * 0.065))
+                fontSize: Math.max(13, Math.round(layout._s * 0.0683))
                 fontWeight: Font.DemiBold
                 fontFamily: layout.fontFamily
                 textColor: layout.colors.foreground
+                horizontalAlignment: Text.AlignHCenter
             }
 
             MarqueeText {
                 width: parent.width
-                height: Math.max(12, Math.round(layout._s * 0.048)) + 4
+                height: Math.max(13, Math.round(layout._s * 0.0504)) + 4
                 text: layout.artist || "—"
-                fontSize: Math.max(9, Math.round(layout._s * 0.047))
+                fontSize: Math.max(9, Math.round(layout._s * 0.0494))
                 fontWeight: Font.Medium
                 fontFamily: layout.fontFamily
                 textColor: layout.colors.foreground
                 textOpacity: 0.55
+                horizontalAlignment: Text.AlignHCenter
             }
         }
 

@@ -193,12 +193,11 @@ Item {
                 spacing: Math.round(layout._s * 0.02)
 
                 Image {
-                    source: Qt.resolvedUrl("../icons/mic.png")
+                    source: Qt.resolvedUrl("../icons/lyrics.svg")
                     width: Math.round(layout._s * 0.04)
                     height: width
                     anchors.verticalCenter: parent.verticalCenter
                     smooth: true
-                    mipmap: true
                 }
 
                 Text {
@@ -234,7 +233,7 @@ Item {
 
         spacing: Math.round(layout._s * 0.08)
 
-        readonly property real _iconSize: Math.max(18, Math.round(layout._s * 0.12))
+        readonly property real _iconSize: Math.max(15, Math.round(layout._s * 0.102))
         readonly property real _rowH: _iconSize * 1.6
 
         ControlButton {

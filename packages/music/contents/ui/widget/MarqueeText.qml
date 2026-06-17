@@ -15,6 +15,7 @@ Item {
     property int endPause: 3000
     property int maxLoops: 2
     property bool scrollEnabled: true
+    property int horizontalAlignment: Text.AlignLeft
 
     clip: true
 
@@ -29,6 +30,8 @@ Item {
         opacity: marquee.textOpacity
         elide: needsScrolling ? Text.ElideNone : Text.ElideRight
         width: needsScrolling ? implicitWidth : parent.width
+        // Alignment only applies when the text fits; while scrolling, x is animated.
+        horizontalAlignment: needsScrolling ? Text.AlignLeft : marquee.horizontalAlignment
 
         property bool needsScrolling: marquee.scrollEnabled && implicitWidth > marquee.width
 

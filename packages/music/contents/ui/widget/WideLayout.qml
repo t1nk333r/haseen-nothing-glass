@@ -100,69 +100,77 @@ Item {
                     anchors.bottom: parent.bottom
 
                     Column {
-                        id: infoCol
-                        anchors.left: parent.left
-                        anchors.right: parent.right
-                        anchors.top: parent.top
-                        anchors.topMargin: Math.round(layout._s * 0.02)
-                        spacing: 2
+                        id: centerGroup
+                        anchors.centerIn: parent
+                        width: parent.width
+                        spacing: Math.round(layout._s * 0.03)
 
-                        MarqueeText {
-                            width: parent.width - lyricsBtn.width - Math.round(layout._s * 0.04)
-                            height: Math.round(layout._s * 0.09) + 4
-                            text: layout.track || "Not Playing"
-                            fontSize: Math.max(11, Math.round(layout._s * 0.081))
-                            fontWeight: Font.DemiBold
-                            fontFamily: layout.fontFamily
-                            textColor: layout.colors.foreground
-                        }
-
-                        MarqueeText {
+                        Column {
+                            id: infoCol
+                            anchors.horizontalCenter: parent.horizontalCenter
                             width: parent.width
-                            height: Math.max(11, Math.round(layout._s * 0.059)) + 4
-                            text: layout.artist || "—"
-                            fontSize: Math.max(9, Math.round(layout._s * 0.059))
-                            fontWeight: Font.Medium
-                            fontFamily: layout.fontFamily
-                            textColor: layout.colors.foreground
-                            textOpacity: 0.55
-                        }
-                    }
+                            spacing: 2
 
-                    Row {
-                        id: controls
-                        anchors.bottom: parent.bottom
-                        anchors.horizontalCenter: parent.horizontalCenter
-                        spacing: Math.round(layout._s * 0.06)
+                            MarqueeText {
+                                anchors.horizontalCenter: parent.horizontalCenter
+                                width: parent.width
+                                height: Math.round(layout._s * 0.09) + 4
+                                text: layout.track || "Not Playing"
+                                fontSize: Math.max(11, Math.round(layout._s * 0.081))
+                                fontWeight: Font.DemiBold
+                                fontFamily: layout.fontFamily
+                                textColor: layout.colors.foreground
+                                horizontalAlignment: Text.AlignHCenter
+                            }
 
-                        readonly property real _iconSize: Math.max(24, Math.round(layout._s * 0.16))
-                        readonly property real _rowH: _iconSize * 1.6
-
-                        ControlButton {
-                            iconSource: Qt.resolvedUrl("../icons/previous.svg")
-                            iconColor: layout.colors.foreground
-                            iconSize: controls._iconSize
-                            height: controls._rowH
-                            opacity: layout.canGoPrevious ? 1.0 : 0.3
-                            onClicked: layout.previousTrack()
-                        }
-
-                        ControlButton {
-                            iconSource: layout.isPlaying ? Qt.resolvedUrl("../icons/pause.svg") : Qt.resolvedUrl("../icons/play.svg")
-                            iconColor: layout.colors.foreground
-                            iconSize: controls._iconSize
-                            height: controls._rowH
-                            opacity: (layout.canPlay || layout.canPause) ? 1.0 : 0.3
-                            onClicked: layout.togglePlaying()
+                            MarqueeText {
+                                anchors.horizontalCenter: parent.horizontalCenter
+                                width: parent.width
+                                height: Math.max(11, Math.round(layout._s * 0.059)) + 4
+                                text: layout.artist || "—"
+                                fontSize: Math.max(9, Math.round(layout._s * 0.059))
+                                fontWeight: Font.Medium
+                                fontFamily: layout.fontFamily
+                                textColor: layout.colors.foreground
+                                textOpacity: 0.55
+                                horizontalAlignment: Text.AlignHCenter
+                            }
                         }
 
-                        ControlButton {
-                            iconSource: Qt.resolvedUrl("../icons/next.svg")
-                            iconColor: layout.colors.foreground
-                            iconSize: controls._iconSize
-                            height: controls._rowH
-                            opacity: layout.canGoNext ? 1.0 : 0.3
-                            onClicked: layout.nextTrack()
+                        Row {
+                            id: controls
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            spacing: Math.round(layout._s * 0.06)
+
+                            readonly property real _iconSize: Math.max(20, Math.round(layout._s * 0.136))
+                            readonly property real _rowH: _iconSize * 1.6
+
+                            ControlButton {
+                                iconSource: Qt.resolvedUrl("../icons/previous.svg")
+                                iconColor: layout.colors.foreground
+                                iconSize: controls._iconSize
+                                height: controls._rowH
+                                opacity: layout.canGoPrevious ? 1.0 : 0.3
+                                onClicked: layout.previousTrack()
+                            }
+
+                            ControlButton {
+                                iconSource: layout.isPlaying ? Qt.resolvedUrl("../icons/pause.svg") : Qt.resolvedUrl("../icons/play.svg")
+                                iconColor: layout.colors.foreground
+                                iconSize: controls._iconSize
+                                height: controls._rowH
+                                opacity: (layout.canPlay || layout.canPause) ? 1.0 : 0.3
+                                onClicked: layout.togglePlaying()
+                            }
+
+                            ControlButton {
+                                iconSource: Qt.resolvedUrl("../icons/next.svg")
+                                iconColor: layout.colors.foreground
+                                iconSize: controls._iconSize
+                                height: controls._rowH
+                                opacity: layout.canGoNext ? 1.0 : 0.3
+                                onClicked: layout.nextTrack()
+                            }
                         }
                     }
                 }
@@ -222,12 +230,11 @@ Item {
             spacing: Math.round(layout._s * 0.025)
 
             Image {
-                source: Qt.resolvedUrl("../icons/mic.png")
+                source: Qt.resolvedUrl("../icons/lyrics.svg")
                 width: Math.round(layout._s * 0.055)
                 height: width
                 anchors.verticalCenter: parent.verticalCenter
                 smooth: true
-                mipmap: true
             }
 
             Text {
