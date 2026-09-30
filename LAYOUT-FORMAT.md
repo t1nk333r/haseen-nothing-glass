@@ -104,9 +104,9 @@ In order. Each rule says what it must do and what happens if it is relaxed.
 
 2. **Never carry the sender's screen name.** No row gets
    `source.screen.name`; the target screen is named by the caller, defaulting
-   to the monitor the user is on. The store's own IPC already refuses an
-   empty screen (`Service.qml:101-104`, `"error: screen is required"`), which
-   is why "unset" cannot mean "the sender's" here.
+   to the monitor the user is on. The store's own IPC resolves an empty
+   screen the same way (`Service.qml` `add()`: the focused monitor), which is
+   why "unset" means "the user's" here and never "the sender's".
    *Evidence:* the phase-1 document mentions `DP-2` exactly once, in
    `source.screen.name`; every imported row carries `DP-2` because that was
    the **target** it was imported onto, not because the document said so.
