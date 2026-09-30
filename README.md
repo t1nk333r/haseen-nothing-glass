@@ -1,5 +1,11 @@
 # Nothing Glass
 
+<p align="center">
+  <a href="https://ko-fi.com/t1nk33r">
+    <img src="https://img.shields.io/badge/Buy_me_a_Kofi-donate-blue?style=for-the-badge&logo=kofi&color=%23FF6433" alt="Support on Ko-fi">
+  </a>
+</p>
+
 Desktop widgets for [Omarchy](https://omarchy.org), in two styles.
 
 **Liquid Glass** tiles refract your real wallpaper through a shader.
@@ -230,9 +236,3 @@ it keeps the upstream licence.
 - Prayer-time engine: a vendored MIT port ([components/prayers/](components/prayers/))
 
 Not affiliated with Apple Inc., Nothing Technology Ltd., or Omarchy.
-
-<p align="center">
-  <a href="https://ko-fi.com/t1nk33r">
-    <img src="https://img.shields.io/badge/Buy_me_a_Kofi-donate-blue?style=for-the-badge&logo=kofi&color=%23FF6433" alt="Support on Ko-fi">
-  </a>
-</p>
