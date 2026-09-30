@@ -1,1 +1,0 @@
-../../../../../1-common/components/ConfigAbout.qml

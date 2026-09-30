@@ -1,11 +1,18 @@
-# Packaged widget builds
-/2-packaged/*.plasmoid
-
 # Editor / OS cruft
 *.swp
 *.swo
 *~
 .DS_Store
+
+# Local scratch/state a plugin's own scripts might write under its own dir
+/.state/
+/*.bak.*
+
+# Claude Code session state. /.claude/worktrees/ holds throwaway git worktrees
+# for agent runs; committing them would nest checkouts inside the repo. Ignore
+# the whole directory — if project-level Claude config is ever worth sharing,
+# add it deliberately with `git add -f .claude/<file>`.
+/.claude/
 
 # Translation sources (.pot/.po) and compiled catalogs (.mo) are committed on
 # purpose — translators need the templates and end users get the .mo files.

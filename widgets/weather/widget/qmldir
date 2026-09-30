@@ -1,0 +1,12 @@
+# Explicit type registrations for this directory.
+#
+# `import "widget"` on an implicit directory is registered lazily by
+# Quickshell's QML scanner, and the first type looked up in a
+# not-yet-registered copy fails with "<T> is not a type" - a different
+# type each run, and the widget renders as nothing. Observed as
+# `TickRing is not a type` in the dev harness. See PORTING.md item 21.
+# Adding a file here means adding its line below; tests/run.sh enforces it.
+DailyForecast 1.0 DailyForecast.qml
+HourlyForecast 1.0 HourlyForecast.qml
+WeatherHeader 1.0 WeatherHeader.qml
+WeatherIcon 1.0 WeatherIcon.qml

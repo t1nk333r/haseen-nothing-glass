@@ -1,0 +1,362 @@
+# CI for t1nk33r.nothing-glass.
+#
+# The checkout IS the artifact: the repository root is what `omarchy plugin
+# add` clones and what the shell loads, so every job here judges the same tree
+# a user would install. That is what makes the `static` job possible at all —
+# before the flat layout there was no single folder the plugin was.
+#
+# Every job runs in an Arch container, because Omarchy/Hyprland on Arch is the
+# only supported platform: the tests then meet the same Qt, Quickshell and
+# Hyprland packages the plugin actually runs against. Installs use
+# `pacman -Syu`, never `-Sy` — the image can be weeks old and Arch forbids
+# partial upgrades, so the databases and the installed system move together.
+# `git` is in every install list because actions/checkout shells out to it and
+# archlinux:latest does not ship it.
+
+name: CI
+
+# Least privilege, at workflow scope so a job added later inherits it rather
+# than having to remember. Nothing here writes to the repository, and two of
+# these jobs run code the checkout controls (tests/run.sh, tests/*.qml) plus a
+# script downloaded at build time, so the token carries `contents: read` and
+# nothing else. The checkout steps also pass `persist-credentials: false`:
+# without it actions/checkout leaves the job's token in .git/config, where the
+# code under test could read it.
+permissions:
+  contents: read
+
+on:
+  push:
+    branches: [master]
+    tags: ['v*']
+  pull_request:
+
+jobs:
+  # Proves: the manifest contract, symlink-freedom and the entry points (via
+  # the pinned upstream validator run against this checkout), plus the static
+  # suite's cross-checks — manifest vs GlassSurface defaults, every widget
+  # settings key having a default, registry/file/qmldir coherence, knob
+  # ranges, shader consumers, the weather-header single-source rule.
+  # Cannot prove: that a single QML import resolves, or that anything renders.
+  static:
+    name: static (pinned validator + tests/run.sh)
+    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    container: archlinux:latest
+    steps:
+      - name: Install packages
+        run: pacman -Syu --noconfirm --needed git curl jq diffutils gawk
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      # The upstream validator is standalone bash+jq+find, and the omarchy
+      # package that would install it drags in a 127 MB desktop. Pinning the
+      # commit keeps the check reproducible; bump it deliberately, not by drift.
+      - name: Pinned upstream validator against the checkout
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/omacom/omarchy/c668141e9c42b13c80c9ca4ea108e11708c5e8a5/bin/omarchy-plugin-validate -o /tmp/ompv
+          bash /tmp/ompv .
+
+      # With no `qs` on PATH the suite's behavioural half prints SKIP lines and
+      # exits 0; that is section 5-6's contract, not a hole here.
+      - name: Static suite
+        run: bash tests/run.sh
+
+  # Proves: every .qml the shell can load parses (qmllint's non-zero exit),
+  # that nothing in the tree fails to resolve an import or a type, that no
+  # binding is of the wrong type, and that qs.Commons/qs.Ui resolve for real
+  # through the qsroot mapping rather than being silently ignored.
+  #
+  # The middle two are what the exit status alone cannot see — qmllint reports
+  # an unresolvable import, an unknown type and a wrong-typed binding as
+  # WARNINGS and exits 0 for all of them — so the step also greps the log for
+  # the categories that mean a resolution failure. It is precise about which
+  # ones: `[import]` and `[incompatible-type]` are gated (the latter with one
+  # documented exemption for a QML coercion qmllint cannot model), while
+  # `[unqualified]` — 3335 of the 3361 warning headers today — is only
+  # recorded, because it is the injected ids this job does not resolve rather
+  # than a defect in the plugin. The step names both lists in its own comment.
+  #
+  # Cannot prove: runtime binding failures.
+  qmllint:
+    name: qmllint (every QML file the shell loads)
+    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    container: archlinux:latest
+    steps:
+      - name: Install packages
+        run: pacman -Syu --noconfirm --needed git qt6-declarative quickshell hyprland-qt-support
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      # The shell tree at the pinned tag: v4.0.4 is commit c668141e9c42b1,
+      # the same revision the validator above is pinned to.
+      - name: Clone the shell tree at the pinned tag
+        run: git clone --depth 1 --branch v4.0.4 https://github.com/omacom/omarchy /opt/omarchy
+
+      # A module URI must match its install path, so `-I /opt/omarchy/shell`
+      # alone cannot resolve `qs.Commons`: the qs/ directory whose children
+      # are named after the URI segments is what makes it resolve.
+      - name: Build the qsroot module mapping
+        run: |
+          mkdir -p /opt/qsroot/qs
+          ln -s /opt/omarchy/shell/Commons /opt/qsroot/qs/Commons
+          ln -s /opt/omarchy/shell/Ui /opt/qsroot/qs/Ui
+
+      # tests/*.qml are driven by tests/run.sh, which resolves their imports
+      # through a scratch tree, so they are excluded here.
+      - name: Lint
+        run: |
+          mapfile -t files < <(find . -name '*.qml' -not -path './.git/*' -not -path './tests/*' | sort)
+          echo "qmllint: ${#files[@]} files"
+          # Arch installs qmllint under /usr/lib/qt6/bin, which is not on the
+          # PATH of this image.
+          set +e
+          /usr/lib/qt6/bin/qmllint -I /opt/qsroot -I /opt/omarchy/shell "${files[@]}" > /tmp/qmllint.log 2>&1
+          status=$?
+          set -e
+          headers="$(grep -c '^Warning:' /tmp/qmllint.log || true)"
+          unqualified="$(grep -c '\[unqualified\]' /tmp/qmllint.log || true)"
+          echo "qmllint warning headers recorded (not gated): $headers, of which [unqualified] (the unresolved injected ids): $unqualified"
+
+          # Three gates, and the ones after the first are what the exit status
+          # cannot see.
+          #
+          # None of them look for the word "error": the tree has properties
+          # named `error`, so a keyword match would be a false positive. They
+          # match qmllint's own category tags, which is what the log is
+          # structured by.
+          #
+          # 1. the exit status — non-zero for a parse error;
+          # 2. `[import]` — a relative import that does not exist, or a QML type
+          #    that was not found. qmllint keeps its exit status at ZERO for
+          #    both, which is why the status alone claimed more than it proved:
+          #    the negative control for this gate, a file carrying
+          #    `import "../../nonexistent-dir"`, exits 0 and is reported as a
+          #    Warning;
+          # 3. `[incompatible-type]` — a literal or binding of the wrong type —
+          #    minus the one pattern this tree carries on purpose:
+          #    components/TzClock.qml's `environment: ({ TZ: ... })`, five
+          #    warnings reading "Cannot assign binding of type QVariantMap to
+          #    QVariantHash". Quickshell's Process.environment is a hash and QML
+          #    builds one from that object literal at runtime; qmllint cannot
+          #    model the coercion. They are exempt BY MESSAGE (not by file or by
+          #    count), so every other wrong-typed binding still fails.
+          #
+          # Everything else the log carries is recorded and NOT gated, because
+          # it is this job's own shape rather than a defect: `[unqualified]`
+          # (3335 of today's 3361 warning headers) is the injected ids
+          # (`plugin`, `theme`, `backdrop`, `nothing`) this job deliberately
+          # does not resolve, and `[missing-property]`, `[index]` and
+          # `[unused-imports]` are the same class of inference noise. The counts
+          # are printed above so drift in them stays visible without failing a
+          # build.
+          if [[ $status -ne 0 ]]; then
+            echo "qmllint failed (exit $status); last 60 log lines:"
+            tail -n 60 /tmp/qmllint.log
+            exit "$status"
+          fi
+
+          env_literal='Cannot assign binding of type QVariantMap to QVariantHash \[incompatible-type\]'
+          exempt="$(grep -cE "$env_literal" /tmp/qmllint.log || true)"
+          echo "qmllint [incompatible-type] warnings exempted (TzClock's Process.environment object literals): $exempt"
+
+          unresolved="$(grep -nE '\[(import|incompatible-type)\]' /tmp/qmllint.log |
+            grep -vE "$env_literal" || true)"
+          if [[ -n $unresolved ]]; then
+            echo "::error::qmllint could not resolve an import or a type, or a binding is of the wrong type (its exit status was 0):"
+            printf '%s\n' "$unresolved" | head -n 60
+            exit 1
+          fi
+          echo "qmllint: no errors, no unresolved imports, no unexpected type warnings"
+
+  # Proves: the four behavioural contracts under a real Qt — prayer-time
+  # rollover, the Nothing primitives (including the p0/p0b/p1 pixel compare),
+  # the store's round-trip and migration, and the settings merge plus style
+  # chain — AND that they ran. run.sh prints a SKIP line and returns 0 when a
+  # tool is missing (no `qs`, or a headless compositor that does not come up),
+  # which is the same exit status a passing run gives, so the step requires
+  # each test's own "OK:" marker and fails when one is absent. A SKIP-only
+  # green is a green that proves nothing, and that is the whole point of the
+  # job.
+  # Cannot prove: that any widget draws — that is the sweep's job.
+  # Green in a bare archlinux:latest: every test that needs configuration gets
+  # it from a fixture written into a scratch HOME (the prayer test's location
+  # is Karachi with the Karachi method, and its six instants are derived from
+  # that fixture's own schedule), so nothing here reads the runner's
+  # ~/.config/omarchy, its timezone, or its season.
+  runtime:
+    name: runtime (behavioural QML tests)
+    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    container: archlinux:latest
+    steps:
+      - name: Install packages
+        run: pacman -Syu --noconfirm --needed git jq diffutils quickshell gamescope imagemagick mesa vulkan-swrast
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Behavioural suite (every test must run, not skip)
+        run: |
+          # The settings-merge test drives a real Wayland compositor, and this
+          # runner has no GPU: without the software rasterizer gamescope does
+          # not come up, that test SKIPs, and the markers below fail the job
+          # for the runner's reason rather than the tree's. Resolve the ICD
+          # exactly as the sweep job does — mesa renamed lavapipe's manifest,
+          # and a VK_ICD_FILENAMES pointing at a missing file makes the loader
+          # find no drivers at all.
+          shopt -s nullglob
+          icds=(/usr/share/vulkan/icd.d/lvp_icd*.json)
+          if [[ ${#icds[@]} -eq 0 ]]; then
+            echo "::error::no lavapipe ICD manifest under /usr/share/vulkan/icd.d"
+            exit 1
+          fi
+          echo "Vulkan ICD: ${icds[0]}"
+          # pipefail so a failing run.sh cannot hide behind tee.
+          set -o pipefail
+          LIBGL_ALWAYS_SOFTWARE=1 VK_ICD_FILENAMES="${icds[0]}" bash tests/run.sh | tee /tmp/run.log
+          missing=""
+          # These run offscreen and must run everywhere.
+          for marker in \
+            "OK: PrayerTimes rollover" \
+            "OK: nothing primitives" \
+            "OK: store round-trip and migration" \
+            "OK: the calendar never draws an account path" \
+            "OK: GeoClue stays off by default and an opt-out holds"; do
+            grep -qF "$marker" /tmp/run.log || missing+="  - $marker"$'\n'
+          done
+          # The settings-merge test drives a real Wayland compositor, and a GitHub runner
+          # cannot host one: gamescope aborts here even with the lavapipe ICD
+          # ("Aborted (core dumped)", measured). That test is therefore allowed
+          # to skip — for that reason only, announced rather than passed over.
+          # Any other skip still fails the job, and a silent second skip cannot
+          # hide behind this one.
+          if grep -qF 'OK: settings merge and style resolution' /tmp/run.log; then
+            echo "settings merge + style chain ran"
+          elif grep -qF 'SKIP: runtime-settings-merge.qml (headless compositor did not come up)' /tmp/run.log; then
+            echo "::warning::the settings-merge test skipped - this runner cannot host a compositor, so it runs only where one exists"
+          else
+            missing+="  - OK: settings merge and style resolution (absent, and not for the known compositor reason)"$'\n'
+          fi
+          other_skips="$(grep -n '^SKIP' /tmp/run.log |
+            grep -vF 'SKIP: runtime-settings-merge.qml (headless compositor did not come up)' || true)"
+          if [[ -n $other_skips ]]; then
+            missing+="unexpected SKIP lines:"$'\n'"$other_skips"$'\n'
+          fi
+          if [[ -n $missing ]]; then
+            echo "::error::tests/run.sh exited 0 without running these (it prints SKIP and returns 0 when a tool is missing):"
+            printf '%s' "$missing"
+            grep -n '^SKIP' /tmp/run.log || true
+            exit 1
+          fi
+
+  # Proves: every (type, style) pair loads and puts ink on 192x192 pixels on a
+  # real GL stack, and that no diagnostic names a tile's own files. The script
+  # also fails when the registry's own table implies more pairs than the run
+  # rendered, so a style that stops being offered cannot arrive as a smaller
+  # green run.
+  # Cannot prove: placement, interaction or performance, and not that the
+  # shell accepts the plugin — nor whether hosted-runner GL/wayland/gamescope
+  # behaves like a desktop.
+  # `hyprland-qt-support` is not optional here: without it the
+  # org.hyprland.style.impl import fails inside components/MotionWatch.qml,
+  # and the sweep attributes a diagnostic naming a shared component to the run
+  # as a whole — a failure for the wrong reason, not a finding.
+  # continue-on-error: remove it after one green run — a run whose log reads
+  # `PASS n / FAIL 0`, not a SKIP. When its headless compositor does not come
+  # up the script prints a SKIP line and exits 0 (observed in a local
+  # archlinux container), and a SKIP-only green is not the evidence this
+  # exception is waiting for.
+  sweep:
+    name: sweep (every type x style on a headless compositor)
+    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    container: archlinux:latest
+    continue-on-error: true
+    steps:
+      - name: Install packages
+        run: pacman -Syu --noconfirm --needed git jq diffutils quickshell gamescope imagemagick mesa vulkan-swrast hyprland-qt-support
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Sweep every type and style
+        run: |
+          # Force the software rasterizer: the runner has no GPU, and a tile
+          # drawn through a pipeline that never ran is not a tested tile.
+          # mesa renamed lavapipe's manifest (lvp_icd.x86_64.json -> lvp_icd.json),
+          # and a VK_ICD_FILENAMES pointing at a missing file makes the loader
+          # find no drivers at all — so resolve what this image ships.
+          shopt -s nullglob
+          icds=(/usr/share/vulkan/icd.d/lvp_icd*.json)
+          if [[ ${#icds[@]} -eq 0 ]]; then
+            echo "::error::no lavapipe ICD manifest under /usr/share/vulkan/icd.d"
+            exit 1
+          fi
+          icd="${icds[0]}"
+          echo "Vulkan ICD: $icd"
+          set -o pipefail
+          LIBGL_ALWAYS_SOFTWARE=1 VK_ICD_FILENAMES="$icd" bash tests/sweep-widgets.sh | tee /tmp/sweep.log
+          # A skipped sweep exits with the same status as a clean one, so the
+          # outcome is read from the log: green here has to mean every type and
+          # style actually drew. A runner that cannot host a compositor says so
+          # out loud instead of passing quietly — gamescope aborts in this
+          # container even with the software rasterizer (measured), so this job
+          # stays non-blocking until a run reads PASS 51 / FAIL 0.
+          if grep -qE '^PASS [0-9]+ / FAIL 0' /tmp/sweep.log; then
+            echo "sweep: every type and style drew"
+          elif grep -qF 'SKIP: widget sweep (headless compositor did not come up)' /tmp/sweep.log; then
+            echo "::warning::this runner cannot host a compositor, so the sweep proved nothing this run; it runs where a compositor exists"
+          else
+            echo "::error::the sweep neither passed nor skipped cleanly:"
+            tail -n 40 /tmp/sweep.log
+            exit 1
+          fi
+
+  # Proves: the tag, manifest.json's version and CHANGELOG.md agree — the file
+  # the marketplace reads, the tag users install, and the notes they read are
+  # one story, enforced rather than promised.
+  release-guard:
+    name: release-guard (tag / manifest / CHANGELOG)
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    container: archlinux:latest
+    steps:
+      - name: Install packages
+        run: pacman -Syu --noconfirm --needed git jq
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Tag, manifest and CHANGELOG must agree
+        run: |
+          version="$(jq -r .version manifest.json)"
+          tag="${GITHUB_REF_NAME#v}"
+          echo "tag=$GITHUB_REF_NAME manifest version=$version"
+          if [[ "$version" != "$tag" ]]; then
+            echo "::error::manifest.json version ($version) does not match tag $GITHUB_REF_NAME"
+            exit 1
+          fi
+          if ! grep -qE "^##[[:space:]]+${version}([[:space:]]|$)" CHANGELOG.md; then
+            echo "::error::CHANGELOG.md has no '## ${version}' section"
+            exit 1
+          fi
+          echo "OK: $GITHUB_REF_NAME agrees with manifest.json and CHANGELOG.md"

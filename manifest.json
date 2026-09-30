@@ -1,0 +1,438 @@
+{
+  "schemaVersion": 1,
+  "id": "t1nk33r.nothing-glass",
+  "name": "Nothing Glass",
+  "version": "0.1.0",
+  "author": "t1nk33r",
+  "license": "GPL-3.0-only",
+  "description": "Desktop widgets in two styles: liquid glass refracting the live wallpaper, or Nothing OS dot-matrix.",
+  "kinds": [
+    "service",
+    "bar-widget",
+    "panel"
+  ],
+  "entryPoints": {
+    "service": "Service.qml",
+    "barWidget": "BarWidget.qml",
+    "panel": "Panel.qml"
+  },
+  "barWidget": {
+    "displayName": "Nothing Glass",
+    "description": "Control panel for the Nothing Glass desktop widgets: add, remove and reset instances, and switch the style — Liquid Glass or Nothing OS.",
+    "category": "Desktop",
+    "allowMultiple": false,
+    "defaultSection": "right",
+    "defaults": {},
+    "schema": []
+  },
+  "settings": {
+    "defaults": {
+      "styleMode": 0,
+      "appearance": 0,
+      "cornerRadius": 100,
+      "refractThickness": 35,
+      "refractScale": 65,
+      "blurRadiusPx": 6,
+      "realtimeRefraction": false,
+      "opaqueBackground": true,
+      "clocks": "America/Los_Angeles|,Europe/London|,Asia/Tokyo|,Australia/Sydney|",
+      "widgetStyle": "liquid-glass",
+      "categoryStyles": {},
+      "accentColor": "#D71921",
+      "uiScale": 100,
+      "followTheme": false,
+      "systemFont": false,
+      "surfaceAlpha": 1.0,
+      "frost": 0.0,
+      "networkInterface": "",
+      "storageMounts": "",
+      "photoFolder": "",
+      "photoIntervalSec": 30,
+      "photoShuffle": true,
+      "useGeoclue": false,
+      "firstDayOfWeek": 0,
+      "eventLookaheadDays": 2,
+      "location": "",
+      "unit": "",
+      "refreshMinutes": 15,
+      "latitude": 40.7128,
+      "longitude": -74.006,
+      "playerFilter": "",
+      "filterMode": 0,
+      "artRefreshEnabled": false,
+      "autoHideEnabled": false,
+      "autoHideTimeout": 30,
+      "analogSecondSweep": false,
+      "roundness": 7.5,
+      "refractIOR": 1.7,
+      "tintAlpha": 0.1,
+      "chromaStrength": 0.3,
+      "specStrength": 0.7
+    },
+    "schema": [
+      {
+        "key": "styleMode",
+        "type": "enum",
+        "label": "Style",
+        "options": [
+          {
+            "label": "Glass",
+            "value": 0
+          },
+          {
+            "label": "Solid",
+            "value": 1
+          },
+          {
+            "label": "Solid (theme)",
+            "value": 2
+          },
+          {
+            "label": "Glass (theme)",
+            "value": 3
+          }
+        ],
+        "description": "Glass refracts the wallpaper; Solid fills opaquely. The two (theme) modes take their colours from the active Omarchy theme instead of the macOS palette, and follow it live - including whether the theme is light or dark, which overrides Appearance."
+      },
+      {
+        "key": "appearance",
+        "type": "enum",
+        "label": "Appearance",
+        "options": [
+          {
+            "label": "Dark",
+            "value": 0
+          },
+          {
+            "label": "Light",
+            "value": 1
+          },
+          {
+            "label": "Follow system",
+            "value": 2
+          }
+        ]
+      },
+      {
+        "key": "cornerRadius",
+        "type": "integer",
+        "label": "Corner radius",
+        "min": 0,
+        "max": 200
+      },
+      {
+        "key": "roundness",
+        "type": "number",
+        "label": "Squircle roundness (\u00d710)",
+        "min": 2.0,
+        "max": 10.0,
+        "description": "20 = plain rounded rect, 55 \u2248 iOS squircle.",
+        "step": 0.1
+      },
+      {
+        "key": "refractThickness",
+        "type": "integer",
+        "label": "Refraction band (px)",
+        "min": 1,
+        "max": 80
+      },
+      {
+        "key": "refractIOR",
+        "type": "number",
+        "label": "Index of refraction (\u00d7100)",
+        "min": 1.0,
+        "max": 4.0,
+        "step": 0.01
+      },
+      {
+        "key": "refractScale",
+        "type": "integer",
+        "label": "Refraction strength",
+        "min": 0,
+        "max": 300
+      },
+      {
+        "key": "tintAlpha",
+        "type": "number",
+        "label": "Tint opacity (%)",
+        "min": 0.0,
+        "max": 1.0,
+        "step": 0.01
+      },
+      {
+        "key": "chromaStrength",
+        "type": "number",
+        "label": "Chromatic dispersion (%)",
+        "min": 0.0,
+        "max": 1.0,
+        "step": 0.01
+      },
+      {
+        "key": "specStrength",
+        "type": "number",
+        "label": "Corner specular (%)",
+        "min": 0.0,
+        "max": 1.0,
+        "step": 0.01
+      },
+      {
+        "key": "blurRadiusPx",
+        "type": "integer",
+        "label": "Backdrop blur (px)",
+        "min": 0,
+        "max": 100,
+        "description": "0 disables the blur pyramid."
+      },
+      {
+        "key": "opaqueBackground",
+        "type": "boolean",
+        "label": "Fully opaque background",
+        "description": "Solid style only: fill the background squircle flat instead of backing it with the glass material. Honoured by the analog clocks and the city widgets."
+      },
+      {
+        "key": "clocks",
+        "type": "string",
+        "label": "Cities",
+        "description": "City widgets only (city-1/city-2/city-3/city-digital): comma-separated \"IANA/Zone|Label\" entries, e.g. \"Europe/London|,Asia/Tokyo|Tokyo\", up to 4 (city-1/city-2 show at most four; city-3 and city-digital show only the first). Label is optional -- when blank it falls back to the zone's derived city name -- and must not contain a comma. A zone that is not in tzdata shows UTC and logs a warning."
+      },
+      {
+        "key": "widgetStyle",
+        "type": "enum",
+        "label": "Default widget style",
+        "options": [
+          {
+            "label": "Liquid Glass",
+            "value": "liquid-glass"
+          },
+          {
+            "label": "Nothing",
+            "value": "nothing"
+          }
+        ],
+        "description": "What a widget is drawn in when neither it nor its category says otherwise. Set a whole category in the browser, or one widget from its right-click sheet."
+      },
+      {
+        "key": "followTheme",
+        "type": "boolean",
+        "label": "Follow the Omarchy theme",
+        "description": "Nothing style: take surfaces, ink and accent from the active Omarchy theme instead of the stock matte-black palette. Ignored by the Liquid Glass widgets, which have their own Style axis per widget."
+      },
+      {
+        "key": "systemFont",
+        "type": "boolean",
+        "label": "Use the system font",
+        "description": "Nothing style: draw words in the desktop's own font (the fontconfig alias `omarchy font set` writes) instead of the bundled Barlow faces. The Liquid Glass drawings always use that font - the bundled SF Pro Display cuts they used were removed, see fonts/LICENSES.md - and the dot-matrix displays have no font and do not change."
+      },
+      {
+        "key": "accentColor",
+        "type": "string",
+        "label": "Accent",
+        "description": "Nothing style: the one colour it uses for state, #D71921 by default. Ignored when Follow the Omarchy theme is on."
+      },
+      {
+        "key": "uiScale",
+        "type": "integer",
+        "label": "Scale",
+        "min": 60,
+        "max": 200,
+        "description": "Nothing style: percentage applied to every dimension - type, padding, dot pitch."
+      },
+      {
+        "key": "surfaceAlpha",
+        "type": "number",
+        "label": "Card opacity (%)",
+        "min": 0.0,
+        "max": 1.0,
+        "step": 0.01,
+        "defaultValue": 1.0,
+        "description": "Nothing style: opacity of the card material - the surface fills, and the plates drawn inside them. Ink, hairlines and the dial hubs stay opaque at every value, and 1 leaves a card exactly as it was. Stored 0..1, so the panel's readout prints 0.50 for half opacity, the same unit Tint opacity (%) keeps."
+      },
+      {
+        "key": "frost",
+        "type": "number",
+        "label": "Frost (%)",
+        "min": 0.0,
+        "max": 1.0,
+        "step": 0.01,
+        "defaultValue": 0.0,
+        "description": "Nothing style: how much of a level-0 card's backdrop is the blurred wallpaper. 0 - the default - is the matte card the style has always drawn, with no blur built at all; above 0 the blurred wallpaper fills that share of what is behind the surface, and Card opacity decides how much of it the surface colour covers on top. Independent of Card opacity: each knob still moves the card at any value of the other, and neither replaces the other. Frost 0 with Card opacity 0 is an invisible card - no backdrop and no surface - which is the pair at its floor rather than a clamp. Desktop widgets only - a launcher preview has no wallpaper behind it and stays matte. Stored 0..1, so the panel's readout prints 0.70 at 70%."
+      },
+      {
+        "key": "networkInterface",
+        "type": "string",
+        "label": "Network interface",
+        "description": "Pin the network widget to one interface, e.g. \"wlan0\" or \"enp14s0\", and show its name. Empty follows the live link (wired first) and shows what the connection is called - an SSID, or just Ethernet - never the device name."
+      },
+      {
+        "key": "storageMounts",
+        "type": "string",
+        "label": "Storage mounts",
+        "description": "Comma-separated mount points the storage widget shows, in that order - e.g. \"/, /home\". Empty shows every real filesystem, biggest first, which is also how to find the exact names to type."
+      },
+      {
+        "key": "photoFolder",
+        "type": "string",
+        "label": "Photos folder",
+        "description": "Absolute path, or ~/\u2026 , for the photos widget to show. Empty uses $XDG_PICTURES_DIR (or ~/Pictures). Per widget, so two photo tiles can show two folders."
+      },
+      {
+        "key": "photoIntervalSec",
+        "type": "integer",
+        "label": "Photo interval",
+        "min": 0,
+        "max": 3600,
+        "description": "Seconds before the photos widget advances to the next picture. 0 parks on the current one."
+      },
+      {
+        "key": "photoShuffle",
+        "type": "boolean",
+        "label": "Shuffle photos",
+        "description": "Show the folder in random order rather than sorted by filename."
+      },
+      {
+        "key": "useGeoclue",
+        "type": "boolean",
+        "label": "Ask GeoClue for the location (opt-in)",
+        "description": "Off by default. When on, the sunrise tile asks GeoClue2 for your coordinates before falling back to the prayer settings, Omarchy's weather location, or the latitude/longitude below. Omarchy runs no GeoClue agent, so the request is made under Firefox's app identity, which GeoClue answers without one; if a network location provider is enabled in /etc/geoclue/geoclue.conf, nearby Wi-Fi networks may be sent to that provider."
+      },
+      {
+        "key": "firstDayOfWeek",
+        "type": "enum",
+        "label": "First day of week",
+        "options": [
+          {
+            "label": "Sunday",
+            "value": 0
+          },
+          {
+            "label": "Monday",
+            "value": 1
+          }
+        ],
+        "description": "Calendar widget only."
+      },
+      {
+        "key": "eventLookaheadDays",
+        "type": "enum",
+        "label": "Event lookahead",
+        "options": [
+          {
+            "label": "7 days",
+            "value": 0
+          },
+          {
+            "label": "14 days",
+            "value": 1
+          },
+          {
+            "label": "30 days",
+            "value": 2
+          },
+          {
+            "label": "60 days",
+            "value": 3
+          }
+        ],
+        "description": "Calendar widget only: how far ahead the wide layout lists events. There is no event source on this machine yet (see components/EventSource.qml), so the list stays empty until one is added."
+      },
+      {
+        "key": "location",
+        "type": "string",
+        "label": "Weather location",
+        "description": "weather only: pin this widget to one city. Empty - the default - follows the city set with `omarchy-weather-location` (~/.local/state/omarchy/settings/weather.json, the same one the bar's weather widget shows) and, when that file does not exist, the city wttr.in detects from this machine's IP. The weather widget deliberately ignores the latitude/longitude below; those are the sunrise widget's."
+      },
+      {
+        "key": "unit",
+        "type": "enum",
+        "label": "Weather units",
+        "options": [
+          {
+            "label": "Automatic",
+            "value": ""
+          },
+          {
+            "label": "Metric (\u00b0C, km/h)",
+            "value": "metric"
+          },
+          {
+            "label": "Imperial (\u00b0F, mph)",
+            "value": "imperial"
+          }
+        ],
+        "description": "weather only: Automatic uses the country the location resolved to, then the system locale - the same rule Omarchy's own weather applies."
+      },
+      {
+        "key": "refreshMinutes",
+        "type": "integer",
+        "label": "Weather refresh (min)",
+        "min": 1,
+        "max": 720,
+        "description": "weather only: minutes between updates. Refreshes once on start as well."
+      },
+      {
+        "key": "latitude",
+        "type": "number",
+        "label": "Fallback latitude",
+        "description": "sunrise only: coordinates used when GeoClue and the prayer settings resolve nothing."
+      },
+      {
+        "key": "longitude",
+        "type": "number",
+        "label": "Fallback longitude"
+      },
+      {
+        "key": "playerFilter",
+        "type": "string",
+        "label": "Player filter",
+        "description": "now-playing only: comma-separated MPRIS identities, e.g. \"spotify,firefox\". Empty means every player. (Plasma had a live picker of running players; this port takes the names as text \u2014 `busctl --user list | grep mpris` lists what is running.)"
+      },
+      {
+        "key": "filterMode",
+        "type": "enum",
+        "label": "Filter mode",
+        "options": [
+          {
+            "label": "Allow only listed players",
+            "value": 0
+          },
+          {
+            "label": "Block listed players",
+            "value": 1
+          }
+        ],
+        "description": "now-playing only."
+      },
+      {
+        "key": "artRefreshEnabled",
+        "type": "boolean",
+        "label": "Force album-art refresh",
+        "description": "now-playing only: briefly pauses and resumes the player on track change to make stubborn players re-publish their art. Off by default because it is audible."
+      },
+      {
+        "key": "autoHideEnabled",
+        "type": "boolean",
+        "label": "Hide the now-playing widget when idle",
+        "description": "now-playing only: hide the widget when nothing is playing."
+      },
+      {
+        "key": "autoHideTimeout",
+        "type": "integer",
+        "label": "Hide after (s)",
+        "min": 1,
+        "max": 600,
+        "description": "now-playing only: delay before hiding once playback stops."
+      },
+      {
+        "key": "analogSecondSweep",
+        "type": "boolean",
+        "label": "Sweep the analog second hand",
+        "description": "Off: one step a second. On: a continuous sweep."
+      }
+    ],
+    "notes": {
+      "deadMusicKnobs": "The Plasma-era music applet's kcfg declared spectrumBars (18) and lyricsFont (0); neither is read by any QML in that package -- AudioSpectrum.qml was never instantiated and lyricsFont had no reader at all. They are deliberately absent here rather than shipped as controls that do nothing. If an audio spectrum is ever wired up (it needs a real audio source), add spectrumBars back then.",
+      "lyricsRemoved": "The now-playing widget (type `music` until it was renamed) shipped with LRCLIB-backed synced lyrics (SyncedLyricsView.qml, a Lyrics toggle in the wide/tall layouts, and five lyrics* settings). The operator dropped the feature, so the view, the fetch/parse code, the toggle and lyricsBlur/lyricsActiveOpacity/lyricsInactiveOpacity/lyricsFontSizeWide/lyricsFontSizeTall are all gone from this port. That is a product decision on the Quickshell side, not an upstream removal.",
+      "realtimeRefraction": "In settings.defaults (false) but deliberately NOT in settings.schema -- no user-facing control. Every ported widget's read of the old realtimeRefraction setting needs the default to exist (undefined otherwise), but the backdrop here is a still Image loaded from the wallpaper file, not a live wallpaper item, so wallpaperTex.live re-capturing every frame is a pure GPU cost with zero visual difference. Wallpaper file switches are already handled by WidgetHost.qml's _backdropItem null-toggle on Image.Ready. Do not re-add a schema entry for it."
+    }
+  }
+}

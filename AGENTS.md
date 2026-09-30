@@ -2,73 +2,383 @@ This file provides guidance to Agents when working with code in this repository.
 
 ## What this repo is
 
-macOS-Tahoe / iOS-style widgets for KDE Plasma 6. Each widget lives under `packages/<name>/` as a standalone KDE Plasma Applet, but all widgets share a common liquid-glass rendering pipeline from `1-common/`.
+The source tree of **`t1nk33r.nothing-glass`**, an Omarchy shell plugin for
+Quickshell: macOS-Tahoe / iOS-style desktop widgets that refract the live
+Hyprland wallpaper through a shader, plus a second, monochrome **Nothing OS**
+drawing of most of the same widgets. One plugin, one runtime, two styles.
 
-Requires Plasma 6.x and Qt 6.x. Shader rebuilds need `qsb` from `qt6-base-dev-tools`; scripts use `jq`, `zip`, `kpackagetool6`, `plasmoidviewer`.
+Requires Omarchy 4.x (Hyprland) and Quickshell 0.3.1. Nothing here needs a
+build step: `tests/run.sh` uses `jq`, `tests/sweep-widgets.sh` uses `qs`,
+`gamescope` and ImageMagick, `sync-lock-card.sh` uses `install`, and the
+`omarchy` CLI is what installs and updates the plugin. Rebuilding the shaders
+needs `qsb` from `qt6-base-dev-tools`.
 
-## Repo layout & sharing model
+*History, once:* this started as 16 KDE Plasma 6 applets under `packages/`
+sharing a `1-common/` symlink tree. Those trees, their install/package
+scripts and the translation catalogues were deleted when the port became the
+product; `git log` still has them. Nothing in this repo targets Plasma any
+more, and no doc here should be read as describing it.
 
-- `1-common/components/` — canonical `LiquidGlass.qml`, `MacOSColors.qml`, and `shaders/` directory. **Every package symlinks these in from its own `contents/ui/components/`** (relative paths like `../../../../../1-common/components/LiquidGlass.qml`). Don't copy — always symlink.
-- `1-common/fonts/` — shared font files; packages symlink the individual `.ttf`/`.otf` files they need into `contents/fonts/`.
-- `packages/<name>/contents/` — the actual plasmoid. Real files here: `main.qml`, `config/`, `widget/` (package-specific QML components), `metadata.json`, `icon.png`. Shared stuff (components, fonts, shaders) is symlinked in.
-- `2-packaged/` — `.plasmoid` ZIP outputs (symlinks dereferenced during packaging).
+## Repo layout
 
-The symlink pattern matters: when you edit `1-common/components/LiquidGlass.qml` or `1-common/components/shaders/liquidglass.frag`, every installed package sees the change after its next reload. Do NOT create per-package copies of these files. Shader `.qsb` files happen to be **hardlinks** to the canonical ones, so `./build-shaders.sh` updates all packages at once.
+**The repo root is the plugin.** `omarchy plugin add` clones this repository,
+validates it where it lands and installs the checkout unchanged — there is no
+build step, no second repository and **no symlink anywhere in the tree**
+(`omarchy-plugin-validate` refuses any symlink inside a plugin folder).
+
+```
+manifest.json            the plugin contract the shell reads
+Service.qml              the runtime: IPC surface, store, registry, one
+                         GlassSurface per screen
+BarWidget.qml            the bar entry point (the control panel)
+Panel.qml                the widget browser's toplevel
+GlassSurface.qml         the two layer surfaces: widgets, and the sheet
+WidgetHost.qml           one per widget instance
+Store.qml Options.qml    the instance store, and plugin-wide settings
+WidgetRegistry.qml       type -> QML file, group, default size
+WidgetFields.qml         the per-instance field table
+Placement.qml            drag/resize for one instance
+WidgetSettingsWindow.qml the right-click sheet
+WidgetInspector.qml WidgetPreview.qml LauncherTile.qml KnobRow.qml
+NothingLauncher.qml      the widget browser's content
+Theme.qml Wallpaper.qml FrostLayer.qml Config.qml PluginId.qml
+ScreenInsets.qml
+components/              shared QML: LiquidGlass.qml, MacOSColors.qml, the
+                         data sources (WeatherDataQs, PrayerTimes,
+                         GeoLocation, TailscaleData, NetworkData,
+                         StorageData, BatteryData, PhotoData, CodeburnData,
+                         EventSource, TzClock, WorldClockQs), shaders/,
+                         nothing/ (the NTheme primitives), qmldir
+widgets/<type>/          Liquid Glass drawing: main.qml (+ widget/ subtypes)
+widgets-nothing/<type>/  Nothing drawing of the same type
+fonts/                   the two Barlow faces + LICENSES.md, the inventory
+icons/                   the shared icon sets
+tests/                   run.sh, sweep-widgets.sh and the QML tests they drive
+glass-dev.qml            runs the surface standalone, scratch store
+build-shaders.sh         components/shaders/*.frag -> *.qsb
+sync-lock-card.sh        mirrors the prayer card into the lock plugin, if one is installed
+.github/                 CI workflow, issue templates, funding
+nothing-glass-widgets.desktop   optional menu entry (see the README)
+```
+
+There is no symlink left to explain: a widget at `widgets/<type>/main.qml`
+reaches the shared tree with `import "../../components"`, root-level files with
+`import "components"`, and a widget's own `widget/` subdirectory with
+`import "../../../components"`. **Never re-add a symlink** — validation refuses
+it, and the relative directory import is the mechanism that replaced it
+(PORTING.md items 1 and 21). Loader URL strings need the same treatment:
+`source: "../../components/MotionWatch.qml"` from a widget directory, never
+`"components/…"`.
+
+Four things about the plugin its file names do not tell you:
+
+- **It draws TWO styles from ONE plugin.** Which one an instance gets is
+  resolved per widget: its own `style` field, else its CATEGORY's style
+  (`categoryStyles`, keyed by the registry's `group`), else the `widgetStyle`
+  default. Set the first from the widget's right-click sheet, the other two in
+  the browser's Appearance pane. A Nothing widget styles itself from the
+  injected `nothing` (NTheme) object and must not import `MacOSColors`,
+  `LiquidGlass` or `qs.Ui`. There was briefly a second plugin,
+  `t1nk33r.nothing`; it is gone, and `Store._absorbLegacyStore()` migrates a
+  leftover `nothing.json` into the one store on first load. Read `PORTING.md`
+  item 30 before proposing a split again.
+- **Never spell the plugin id, store filename or layer namespace anywhere but
+  `PluginId.qml`** — ask it.
+- **A component directory needs a `qmldir` entry for every `.qml` file in
+  it.** Without it the directory is registered lazily and the first type
+  looked up fails with "`<T>` is not a type", which renders as an empty tile
+  and no error. `tests/run.sh` enforces this. `PORTING.md` items 20-21.
+- **`sync-lock-card.sh` exists and has no automatic caller.** It mirrors
+  `components/PrayerCard.qml` (+ `PrayerTimes`, `MacOSColors`, `LiquidGlass`,
+  the shaders and `components/prayers/*`) into `t1nk33r.lock`'s `glass/`
+  directory, and no-ops when that plugin is not installed. Run it by hand
+  after touching any of those files; the materialiser that used to invoke it
+  is gone with the flattening.
+
+`~/.config/omarchy/plugins/t1nk33r.nothing-glass/` is a **git checkout** —
+`omarchy plugin add` clones the repo straight into it, so the installed folder
+and this tree hold the same bytes. Never hand-edit the installed copy: the
+next `omarchy plugin update` fast-forwards it and overwrites the edit.
 
 ## Common commands
 
 ```bash
-./install.sh <name>          # install/update one widget (restarts plasmashell)
-./install.sh --all           # install all widgets in packages/
-./package.sh <name>          # build 2-packaged/<name>-<version>.plasmoid (symlinks dereferenced)
-./package.sh --all
-./build-shaders.sh           # recompile 1-common/components/shaders/*.frag -> *.qsb
-./test.reload.sh <name>      # open the package in plasmoidviewer (dev iteration; skip plasmashell restart)
+omarchy-restart-shell                         # re-register the plugin, the bar and the service
+bash tests/run.sh                             # the drift/consistency tests (see below)
+bash tests/sweep-widgets.sh                   # load-and-draw every type, both styles (see below)
+./build-shaders.sh                            # components/shaders/*.frag -> *.qsb
+./sync-lock-card.sh                           # mirror the prayer card into the lock plugin, if installed
+qs -n -p glass-dev.qml                        # run GlassSurface standalone, no install, scratch store
+omarchy plugin update t1nk33r.nothing-glass    # pull a new revision into the installed checkout
 ```
 
+IPC — `omarchy-shell t1nk33r.nothing-glass <verb> [args]`, all of them declared
+in `Service.qml`:
+
+| Verb | Arguments |
+|---|---|
+| `listTypes` | — |
+| `listWidgets` | — |
+| `add` | `<type> <screen>` (empty screen = focused) |
+| `remove` | `<id>` |
+| `move` | `<id> <x> <y>` |
+| `resize` | `<id> <w> <h>` |
+| `set` | `<id> <key> <valueJson>` — per-instance override |
+| `launcher` | `<screen>` (empty = focused monitor) |
+| `option` | `<key> <value>` — plugin-wide; takes bare words and JSON |
+| `reload` | — |
+
+The bar control panel has its own handler, `BarWidget.qml`, on the
+separate target `t1nk33r.nothing-glass-panel`: `toggle`, `open`, `close`. It
+only exists while the bar entry is placed (`PORTING.md` item 28; item 34 is
+the way in when the icon is gone).
+
 Notes:
-- `install.sh` runs `killall plasmashell && kstart plasmashell` on success; if you're making rapid QML-only changes, `test.reload.sh` is faster.
-- `plasmoidviewer` does NOT expose a real containment, so `LiquidGlass`'s wallpaper path fails and the fallback translucent rect is rendered. For end-to-end testing of the glass, install and view on the actual desktop.
-- `build-shaders.sh` prefers `qsb6` → `/usr/lib/qt6/bin/qsb` → `qsb`, working around a broken Qt5 `qtchooser` symlink at `/usr/bin/qsb` on some systems.
+- `build-shaders.sh` prefers `qsb6` → `/usr/lib/qt6/bin/qsb` → `qsb`, working
+  around a broken Qt5 `qtchooser` symlink at `/usr/bin/qsb` on some systems.
+- The `glass-dev.qml` harness points `Store` at a **scratch** file, not
+  `~/.config/omarchy/nothing-glass.json`; two writers on the real store lose
+  each other's writes.
 
-## LiquidGlass architecture (the key component)
+## Dev loop
 
-`1-common/components/LiquidGlass.qml` + `1-common/components/shaders/liquidglass.frag` form the backdrop used by every widget. Reading both is essential before touching either.
+Three loops, from cheapest to most real:
 
-Pipeline:
-1. `ShaderEffectSource { id: wallpaperTex; sourceItem: glass.wallpaperItem }` captures the Plasma wallpaper behind the widget. `wallpaperItem` is discovered by walking `Plasmoid.containment.wallpaperGraphicsObject` via `findRenderableSource()` (follows Loaders and nested children).
-2. `ShaderEffect { fragmentShader: "shaders/liquidglass.frag.qsb" }` samples the wallpaper with Snell-on-a-dome edge refraction, chromatic dispersion, tint, corner specular, and a squircle silhouette mask.
-3. Fallback `Rectangle` renders a flat tinted rounded rect when `wallpaperItem` is null (panels, plasmoidviewer). `glass.active` toggles between the two.
+1. **Tests only** — `bash tests/run.sh` after touching the manifest, the
+   registry, a settings key, a `qmldir` or a component directory;
+   `bash tests/sweep-widgets.sh` after touching a widget body, a component or
+   the registry. Both run against this tree; the sweep starts its own
+   compositor and reports per tile.
+2. **Commit + pull into the installed checkout** — edit here, `git commit`,
+   then `git -C ~/.config/omarchy/plugins/t1nk33r.nothing-glass pull --ff-only
+   local master` where `local` is a remote pointing at this clone. The shell's
+   plugin watcher reloads on the file change (`Local plugin changed,
+   reloading: <id>` in the journal), so edit→see is a few seconds with no
+   restart. This is how the owner's own install is wired.
+3. **A release** — `omarchy plugin update t1nk33r.nothing-glass` is what a
+   user runs: it fetches the plugin's `origin`, fast-forwards, validates and
+   rolls back on failure. It refuses to move past local changes, which is why
+   the installed checkout must stay read-only. `omarchy-restart-shell` after
+   either of the last two when something looks cached.
 
-Important nuances:
-- **`realtimeRefraction: false` by default.** `wallpaperTex.live` binds to this. The `updateGeometry()` Timer (16ms) calls `wallpaperTex.scheduleUpdate()` when the widget moves and the width/height Connections do the same on resize — so static wallpapers only re-capture on actual geometry change. Turn the config on only for animated/video wallpapers.
-- **Mouse hover state** is plumbed into the shader via `mousePos` (widget UV) and `mouseFade` (0..1 with 180ms Behavior) — currently used by the corner-specular effect only.
-- **Shader uniforms** mirror QML properties 1:1 via the `ShaderEffect { property real ...; }` block. Adding a uniform means: add the QML property on `glass`, add it on `glassShader`, add it to the shader's `uniform buf { }`, rebuild shaders.
+## The settings model
 
-Shader specifics (`liquidglass.frag`):
-- `sceneSDFAndNormal()` returns `vec3(d, nx, ny)` for the squircle silhouette. Fast paths for interior / straight edges skip `pow()`; only corner-wedge fragments pay the p-norm. `d` is normalized by the analytic gradient magnitude to stay unit-gradient at the 45° corner apex (otherwise AA feather and the edge band visibly widen at corners).
-- Edge refraction uses `sinθI = (1-t)²` through the `refractThickness` band; normal direction comes directly from `sceneSDFAndNormal` — no finite-difference gradient calls.
-- Corner specular: discrete-diagonal pick with a 2-way softmax over the TL+BR vs TR+BL pairs, so only one diagonal's two corners are ever lit. "Light" position is parked at `aTL * 1.2` at rest and blends toward the cursor on hover.
+A widget body reads `plugin.settings.<key>` — 400 such reads across 41 files
+in the two widget trees (count each with
+`grep -rIo --include='*.qml' 'plugin\.settings\.' widgets widgets-nothing`).
+`plugin` is an id, not a property: `WidgetHost.qml`
+declares `Config { id: plugin }` so unqualified lookups from the loaded widget
+document resolve through the Loader's parent-context chain.
+
+Merge order, computed in `GlassSurface._mergedSettings()`:
+
+1. `manifest.json` → `settings.defaults`
+2. the plugin's `shell.json` entry — its `plugins[]` row, then whichever
+   `bar.layout.<section>` holds it (normally only one of the two exists)
+3. `~/.config/omarchy/nothing-glass-options.json` (`Options.qml`) — **last**,
+   because the shell relocates its own entry and strips what was on it
+   (`PORTING.md` item 29)
+
+`WidgetHost._mergedSettings()` then lays that instance's own `settings`
+override from the store on top, so two weather tiles can show two cities.
+Values from sources 2 and 3 are coerced to the type of the matching default.
+
+Instances live in `~/.config/omarchy/nothing-glass.json` (`Store.qml`), written
+leading-edge and coalesced for 250 ms.
+
+Five knobs used to be stored as integers scaled by 10 or 100 and are now plain
+reals: `roundness` (7.5), `refractIOR` (1.7), `tintAlpha` (0.1),
+`chromaStrength` (0.3), `specStrength` (0.7). Their schema type is `number`
+with real `min`/`max`/`step`. `_adoptLegacyScaledKeys()` converts a config
+written by an older build (`roundnessX10`, `refractIORx100`, `tintAlphaPct`,
+`chromaStrengthPct`, `specStrengthPct`) at that single merge point — do not
+teach read sites two spellings, and do not reintroduce scaled integers.
+
+`realtimeRefraction` is in `settings.defaults` but deliberately not in
+`settings.schema`: the backdrop is a still `Image` of the wallpaper file, so
+re-capturing per frame costs GPU for no visual change.
+
+### `bash tests/run.sh`
+
+Run it after touching the manifest, the registry, a settings key or a
+component directory. It is the only thing that catches these, and each check
+came from a real bug:
+
+1. `manifest.json`'s `settings.defaults` must match `GlassSurface.qml`'s
+   `_fallbackDefaults` literal key-for-key and value-for-value. The
+   duplication exists because the first `_mergedSettings()` pass runs before
+   the manifest has loaded; the test is what keeps the two honest.
+2. Every `plugin.settings.<key>` a widget reads must have a default —
+   otherwise the binding is `undefined` at runtime.
+3. `WidgetRegistry.qml` must not claim a drawing the tree does not ship, and
+   no widget directory may be unreachable from a launcher group; `PluginId.qml`
+   and the manifest must agree on the id; the legacy-store migration must stay
+   guarded by `_mayAbsorb`.
+4. Every `.qml` in `components/`, `components/nothing/` and each widget's
+   `widget/` must be listed in that directory's `qmldir`.
+5. Every key `WidgetFields.qml` offers must be a real setting.
+6. `PrayerTimes`' rollover rules, headless through the `nowOverride` seam, if
+   `qs` is on PATH (skipped otherwise). Never move the machine clock to test
+   time-of-day code — it re-derives the whole schedule and the rollover rules
+   are what is under test.
+7. The calendar's no-backend state never draws an account path, across
+   eight HOME / XDG_STATE_HOME / override spellings
+   (`tests/eventsource-home-relative.sh`).
+8. GeoClue stays off by default and an opt-out holds even mid-lookup
+   (`tests/geolocation-optin.sh`, with the helper stubbed).
+
+Checks 2 and 5 read a scan rather than a file, so both refuse an EMPTY one: a
+`plugin.settings.<key>` grep or a `WidgetFields.qml` key table that comes back
+with nothing fails the run and names the root or the file it looked in, because
+an empty scan compares nothing against nothing and reports success. (Before
+that guard the pipelines simply ended the script there under
+`set -e`/`pipefail`, with no message at all — a stop a reader could mistake for
+a crash rather than a finding.)
+
+### `bash tests/sweep-widgets.sh`
+
+The runtime half of the above. Everything run.sh checks is read off the files,
+and all of it can pass while a tile renders as an empty square — which is what
+a type that does not resolve does here (PORTING.md items 20-21). So this one
+loads every type `WidgetRegistry.qml` offers, in every style `stylesFor()`
+claims, at 192x192, through the same injected ids `WidgetHost.qml` gives a
+widget (`plugin`, `theme`, `backdrop`, `nothing`), and then asserts **per
+tile** that it loaded, that nothing Qt logged names its own files, and that its
+pixels are neither blank nor one flat colour. The type list comes from the
+registry itself, so a type registered wrongly is a row like any other — a row
+that fails. The list does not come from `stylesFor()` unexamined, though: the
+rows it produced are also compared against the pairs `WidgetRegistry.qml`'s own
+table implies (`nothingOnly` → one style, `nothing: true` → both, else Liquid
+Glass), because a style that quietly stops being offered renders fewer tiles
+and every tile that is left still passes — a smaller green run, which is the
+one answer this harness must not give. Disagreeing with the table fails the run
+before the verdict is printed.
+
+Run it after touching a widget body, a component, a `qmldir` or the registry.
+It needs `qs`, `gamescope` and ImageMagick (`magick`), starts its own headless
+compositor in its own `XDG_RUNTIME_DIR` and its own scratch `HOME`, and skips
+rather than fails when a tool is missing. It finishes in well under a minute
+and prints `PASS n / FAIL m` last, with each failure naming the tile, its size,
+its measurements and the captured error.
 
 ## Per-widget QML conventions
 
-Widgets follow a consistent shape — look at `packages/calendar/contents/ui/main.qml` or `packages/clock-square/contents/ui/main.qml` as templates:
+Templates: `widgets/clock-digital/main.qml` (Liquid Glass) and
+`widgets-nothing/clock-digital/main.qml` (Nothing).
 
-- `PlasmoidItem { Plasmoid.backgroundHints: PlasmaCore.Types.NoBackground; preferredRepresentation: fullRepresentation }` — the glass IS the background.
-- `MacOSColors { id: colors; styleMode: plasmoid.configuration.styleMode; appearance: plasmoid.configuration.appearance }` — semantic color/opacity tokens. Use `colors.foreground`, `colors.cardBackground`, etc.; never hardcode colors or branch on `colors.isGlass` / `colors.isLight` inline.
-- Standard glass property bindings in every main.qml (cornerRadius, roundnessX10/10, refractThickness, refractIORx100/100, refractScale, tintAlphaPct/100, chromaStrengthPct/100, specStrengthPct/100, realtimeRefraction). Config stores fractional values scaled by 100 (or 10 for roundness) because kcfg entries are Int.
-- Plasmoid config lives in `contents/config/main.xml` (kcfg) + `contents/config/config.qml` (ConfigModel) + `contents/ui/config/ConfigGeneral.qml` (Kirigami.FormLayout with `cfg_*` alias properties). The three files must agree entry-by-entry.
-- Widget-specific QML components go under `contents/ui/widget/` (e.g. calendar's `TodayBadge.qml`, clock-square's `TickRing.qml` and `DigitalTime.qml`).
+- The root is a plain `Item { anchors.fill: parent }`. The host owns the
+  window, the placement, the input mask and the backdrop; a widget draws.
+- `WidgetHost.qml` injects four ids into the widget document: `plugin`
+  (settings), `theme` (`systemBackground` + the Omarchy `palette`), `backdrop`
+  (`backdrop.item`, the screen's wallpaper `Image`) and `nothing` (the NTheme,
+  for the Nothing tree).
+- Liquid Glass widget:
+  `MacOSColors { styleMode: plugin.settings.styleMode; appearance: plugin.settings.appearance; systemBackground: theme.systemBackground; themePalette: theme.palette }`
+  — semantic tokens only, never a hardcoded color, never an inline branch on
+  `colors.isGlass` / `colors.isLight`. `themePalette` is required: without it
+  style modes 2/3 silently fall back to the macOS palette.
+- The standard glass block, values passed through unscaled:
+  ```qml
+  LiquidGlass {
+      anchors.fill: parent
+      wallpaperItem: backdrop.item
+      radius: plugin.settings.cornerRadius
+      roundness: plugin.settings.roundness
+      refractThickness: plugin.settings.refractThickness
+      refractIOR: plugin.settings.refractIOR
+      refractScale: plugin.settings.refractScale
+      tint: colors.glassTint
+      tintAlpha: plugin.settings.tintAlpha
+      chromaStrength: plugin.settings.chromaStrength
+      specStrength: plugin.settings.specStrength
+      blurRadius: plugin.settings.blurRadiusPx
+      realtimeRefraction: plugin.settings.realtimeRefraction
+  }
+  ```
+- Widget-specific components go in `widgets/<type>/widget/` with a `qmldir`
+  (e.g. calendar's `TodayBadge.qml`, clock-digital's `TickRing.qml`).
+- The shared tree is reached by a **relative directory import**, by depth,
+  never by a symlink and never by a bare module name: `import "components"` in
+  a root-level file, `import "../../components"` in `widgets/<type>/main.qml`,
+  `import "../../../components"` in a widget's own `widget/` subdirectory.
+  `Qt.resolvedUrl` paths follow the same rule — a widget that loads a face
+  writes `Qt.resolvedUrl("../../fonts/barlow_semibold.ttf")`. A Loader's
+  `source:` string is a path, not an import, and needs the dots too; a missed
+  one is silent (PORTING.md item 1).
+- A new setting is three edits, all required: `manifest.json`'s
+  `settings.defaults`, its `settings.schema` entry, and `GlassSurface.qml`'s
+  `_fallbackDefaults`. Add it to `WidgetFields.qml` if it should be editable
+  per instance.
+
+## LiquidGlass architecture (the key component)
+
+`components/LiquidGlass.qml` + `components/shaders/liquidglass.frag` form the
+backdrop of every Liquid Glass widget. Read both before touching either.
+
+Pipeline:
+1. `wallpaperItem` — supplied by the host, here `backdrop.item`: a hidden
+   screen-sized `Image` of `~/.local/state/omarchy/current/background` living
+   in the same layer surface as the widgets, so `mapToItem()` works. There is
+   no compositor API for the live wallpaper and `ShaderEffectSource` cannot
+   sample across windows, so each surface loads the same file the compositor
+   does — see `Wallpaper.qml`'s header.
+2. `crop.frag` maps wallpaper UV into widget-local UV.
+3. Dual Kawase `kawase_down`/`kawase_up`, 1-6 levels driven by `blurRadius`
+   (0 makes the chain inert and the glass shader samples the capture direct).
+4. `liquidglass.frag` — Snell-on-a-dome edge refraction, chromatic dispersion,
+   tint, corner specular, squircle silhouette mask.
+5. Fallback `Rectangle` (flat tinted rounded rect) whenever `wallpaperItem` is
+   null or zero-sized. `glass.active` switches between the two, so a flat
+   uniform tile in a screenshot means the capture failed.
+
+Important nuances:
+- **`realtimeRefraction: false` by default.** `wallpaperTex.live` binds to it;
+  a 16 ms `updateGeometry()` Timer and the width/height Connections
+  `scheduleUpdate()` on move and resize, so a static wallpaper re-captures
+  only on geometry change. `WidgetHost._refreshBackdrop()` additionally
+  null-toggles `_backdropItem` when the wallpaper Image reaches `Ready`,
+  because a `ShaderEffectSource` re-captures on `sourceItem` *identity*
+  change only — that is what makes a wallpaper switch appear.
+- **Mouse hover** is plumbed in as `mousePos` (widget UV) and `mouseFade`
+  (0..1, 180 ms Behavior); only the corner specular reads it.
+- **Uniforms mirror QML properties 1:1.** A new one means: property on
+  `glass`, property on `glassShader`, entry in the shader's `uniform buf { }`,
+  then `./build-shaders.sh`.
+- **Solid mode** skips capture and refraction but keeps the silhouette and
+  specular through the same shader, so the material still reads as macOS.
+
+Shader specifics (`liquidglass.frag`):
+- `sceneSDFAndNormal()` returns `vec3(d, nx, ny)` for the squircle. Fast paths
+  for interior / straight edges skip `pow()`; only corner-wedge fragments pay
+  the p-norm. `d` is normalized by the analytic gradient magnitude to stay
+  unit-gradient at the 45° corner apex — otherwise the AA feather and the edge
+  band visibly widen at the corners.
+- Edge refraction uses `sinθI = (1-t)²` across the `refractThickness` band;
+  the normal comes straight from `sceneSDFAndNormal`, no finite differences.
+- Corner specular: a discrete-diagonal pick with a 2-way softmax over TL+BR
+  vs TR+BL, so only one diagonal's two corners are ever lit. `restLight`
+  parks the light at 1.2× the top-left corner offset and it blends toward the
+  cursor on hover.
 
 ## MacOSColors token reference
 
-`1-common/components/MacOSColors.qml` is the single source of truth for all colors and opacities. **Never hardcode a color or branch on `colors.isGlass` / `colors.isLight` in widget code** — add a token here instead.
+`components/MacOSColors.qml` is the single source of truth for the Liquid
+Glass palette. **Never hardcode a color or branch on `colors.isGlass` /
+`colors.isLight` in widget code** — add a token here instead.
 
 **Mode axes:**
-- `styleMode`: 0 = Glass (translucent shader), 1 = Solid (opaque)
-- `appearance`: 0 = Dark, 1 = Light, 2 = Follow system
-- `isGlass` / `isSolid` — derived booleans
-- `isLight` — **always false in glass mode** (`!isGlass && (appearance===1 || systemLight)`). Glass is always dark-on-dark.
+- `styleMode`: 0 = Glass (shader), 1 = Solid (opaque), 2 = Solid following the
+  Omarchy theme, 3 = Glass following the Omarchy theme
+- `appearance`: 0 = Dark, 1 = Light, 2 = Follow system — ignored by the two
+  theme modes, which take polarity from the theme
+- `isGlass` (0 or 3) / `isSolid` (1 or 2) / `isThemed` (2 or 3) — derived
+- `isLight` — in modes 0/1 always false in glass mode
+  (`!isGlass && (appearance===1 || systemLight)`), so plain glass is always
+  dark-on-dark. In a theme mode it is the luminance of
+  `themePalette.background`, glass included.
+- `themePalette` — `{ background, foreground, accent, urgent, surface }`, the
+  Omarchy `Color` singleton passed through `plugin/Theme.qml` and injected as
+  `theme.palette`. Null makes modes 2/3 fall back to the macOS palette.
 
 **Core palette (solid mode, adapts light/dark):**
 - `background`, `surface`, `surfaceAlt` — fill colors
@@ -78,9 +388,59 @@ Widgets follow a consistent shape — look at `packages/calendar/contents/ui/mai
 
 **Glass-aware tokens (use these in widgets):**
 - `foreground` — white in glass, `solidForeground` in solid
-- `glassTint`, `glassFallbackOpacity` — passed directly to `LiquidGlass`
+- `glassTint`, `glassTintAlpha`, `glassFallbackOpacity` — passed to `LiquidGlass`
 - `todayAccent` — white in glass, red in solid (calendar today badge)
-- `punchOutText` — `true` in glass (use destination-out canvas compositing for badge text)
+- `punchOutText` — `true` in plain glass (destination-out canvas compositing
+  for badge text)
+
+**State ink** (an accent is a MEANING, not a shade — a metric tile reads one of
+these instead of inventing a threshold colour of its own):
+- `accentRed` — the fault ink, the one every threshold tile reaches for, and
+  the colour `todayAccent` already resolves to in solid mode.
+  `themePalette.urgent` in a theme mode, else Apple's red: `#FF3B30` dark,
+  `#D70015` light.
+- `accentAmber` — the warning step BETWEEN normal and fault: the Claude usage
+  tiles' 50-79% band, the media-server tile's stale feed. Apple's systemOrange,
+  `#FF9F0A` dark / `#FF9500` light, and deliberately not theme-aware — the
+  Omarchy palette carries `urgent` and nothing between it and its accent, so
+  there is no second key to read and a fixed amber is the honest form.
+- `accentGreen` — the headroom ink: a live figure well clear of its limit (the
+  Claude tiles' percentage under the warning band). Apple's systemGreen,
+  `#30D158` dark, deepened to `#17803D` light, where the bright green measures
+  under 3:1 on a pale panel and stops reading as a figure.
+
+`actionGreen` / `actionOrange` below are NOT these — that pair is the timer's
+button fills.
+
+**Analog dial tokens** (never hardcode `#ffffff`/`#343436` for a clock plate):
+- `dialPlate` — the disc the marks and hands sit on
+- `dialPlateDay` / `dialPlateNight` — per-city day/night discs
+- `dialMark` — the mark ink for a `dialPlate` disc, i.e. the end `dialPlate`
+  took: the pick is made here, not in the widget
+- `dialMarkDay` / `dialMarkNight` — text drawn on those discs
+- `dialNumeralOpacity` / `dialHandOpacity` — how opaque a dial's numerals and
+  its hands are drawn on that face: `0.85` / `0.92` in glass, `1.0` in solid
+
+**Clock-face ink** (the faint static marks a face draws its content over, and
+the big digits it draws them in):
+- `dialTickOpacity` — an analog dial's perimeter ticks, flanking its hour marks
+  and reading as part of the dial: `0.24` in glass, `0.30` in solid
+- `tickRingOpacity` — a digital clock's sixty-tick ring, texture under the
+  comet trail: `0.18` in glass, `0.30` in solid
+- `readoutOpacity` — what a digital clock draws its OWN time in (`textQuiet`,
+  0.55, in glass; full ink in solid) — its own token rather than
+  `annotationOpacity`, because this is the tile's content and not a caption on it
+- `rollingReadoutOpacity` — the rolling seconds cylinder (`test-timer`), one
+  digit and nothing else on the face: `0.62` in glass, stopping at `0.92`
+  rather than full ink in solid
+
+**Annotation tokens:**
+- `textQuiet` — the lowest opacity informative text may be drawn at (0.55)
+- `annotationOpacity` — a secondary annotation's opacity on the widget's own
+  face: `textQuiet` in glass, `1.0` in solid
+- `citySecondaryOpacity` — the line under a city cell's primary (day word,
+  DST diff): `0.85` in glass, `0.6` in solid, where it is a step down from its
+  `1.0` primary rather than the glass face's softening
 
 **Card tokens:**
 - `cardBackground` — `#ffffff` dark modes, `#000000` light solid
@@ -91,42 +451,72 @@ Widgets follow a consistent shape — look at `packages/calendar/contents/ui/mai
 **Timer action tokens:**
 - `countdownText` — white in glass, orange `#FF8B00` in solid
 - `actionGreen` / `actionOrange` — icon colors for solid mode buttons
-- `actionGreenBg` / `actionOrangeBg` — button background (solid fill in glass, tinted in solid)
-- `buttonIcon` — white in glass, `solidForeground` in solid (for cancel/neutral buttons)
+- `actionGreenBg` / `actionOrangeBg` — button background (solid fill in glass,
+  tinted in solid)
+- `actionIconInk(stateColor)` — the ink for an icon on an action disc, i.e. on
+  a fill of `actionGreenBg`/`actionOrangeBg`: `#ffffff` in glass, where the
+  disc IS the action colour; the caller's own `actionGreen`-or-`actionOrange`
+  in solid, where the disc is an 18% wash of it. A FUNCTION, not a property:
+  the style arm is this file's and the state arm is the widget's, and a widget
+  may not spell the style arm out itself
+- `buttonIcon` — white in glass, `solidForeground` in solid (cancel/neutral)
 - `cancelButtonBg` — semi-white in glass, semi-foreground in solid
+
+**Weather / media tokens:** `weatherGradientTop/Bottom`, `weatherForeground`,
+`weatherIconSet`, `weatherSeparator`, `weatherRangeBar*`, `musicSecondary`.
+
+The Nothing style does not use this file at all: it reads the injected
+`nothing` (`components/nothing/NTheme.qml`), whose surfaces, ink and accent
+come from `accentColor`/`uiScale`, or from the live Omarchy theme when
+`followTheme` is on.
 
 ## Timer / power conventions
 
-- Do **not** gate plasmoid Timers on `Qt.application.state === Qt.ApplicationActive`. Desktop plasmoids are not a "focused app" — this condition flips to inactive whenever focus moves to another window, freezing the timer. Gate on `visible` if you want to sleep when hidden, or leave `running: true` for always-on clocks/tickers.
-- For midnight rollovers etc., prefer scheduling a single-shot Timer at the next boundary over a polling Timer (see `calendar/contents/ui/main.qml`'s `midnightTimer` + `scheduleNextMidnight()`).
-- Heavy per-frame work in Canvas `onPaint` should precompute geometry on property changes (see `clock-square/contents/ui/widget/TickRing.qml`'s `_rebuild()` cache of tick endpoints).
+- Do **not** gate a widget's Timers on `Qt.application.state === Qt.ApplicationActive`.
+  These surfaces are never the focused application — `keyboardFocus: None` on
+  a Bottom layer surface — so such a gate freezes the timer permanently. Gate
+  on `visible` to sleep when hidden, or leave `running: true` for always-on
+  clocks and tickers. The timer widget's countdown is driven off an absolute
+  `targetTime` rather than a decrementing counter, which is what keeps it
+  correct across dropped frames and suspend.
+- For midnight rollovers, schedule a single-shot Timer at the next boundary
+  instead of polling — `widgets/calendar/main.qml`'s `midnightTimer` +
+  `scheduleNextMidnight()`.
+- A face that only changes per minute gets a one-second watchdog that compares
+  minute/hour/date and assigns only on change (`widgets/clock-digital/main.qml`),
+  not a per-second property write.
+- Heavy per-frame Canvas work precomputes geometry on property change — see
+  `widgets/clock-digital/widget/TickRing.qml`'s `_rebuild()` tick-endpoint
+  cache. Canvas does not repaint on a bound property change: mirror the value
+  into a local property and call `requestPaint()` from its `onXxxChanged`.
 
-## Working with metadata / adding a new widget
+## Adding a widget type
 
-1. Copy `packages/calendar/` as a template, rename, edit `metadata.json` (`KPlugin.Id`, `Name`, `Description`, `Version`).
-2. Symlink `LiquidGlass.qml`, `MacOSColors.qml`, and the `shaders` directory from `1-common/components/` into `contents/ui/components/` (use relative paths — check an existing package for exact depth).
-3. Symlink fonts from `1-common/fonts/` into `contents/fonts/` for each font you actually use.
-4. Mirror `contents/config/main.xml` and `contents/ui/config/ConfigGeneral.qml` from an existing package; drop the entries you don't need (e.g. `firstDayOfWeek` is calendar-only).
-5. `./install.sh <name>` to register with `kpackagetool6`.
-
-## Compact panel representation
-
-The timer widget has a compact representation for use in Plasma panels. The pattern can be applied to other widgets:
-
-- Set `preferredRepresentation` conditionally: compact in panels, full on desktop:
-  ```qml
-  preferredRepresentation: (Plasmoid.formFactor === PlasmaCore.Types.Horizontal ||
-                            Plasmoid.formFactor === PlasmaCore.Types.Vertical)
-                           ? compactRepresentation : fullRepresentation
-  ```
-- The `compactRepresentation` uses panel-responsive layout `states` (horizontalPanel / verticalPanel / desktop) and a `MouseArea` that toggles `root.expanded`.
-- For panel popup context, cap `cornerRadius` to avoid an overly circular popup: `Math.min(plasmoid.configuration.cornerRadius, 20)` when `formFactor` is Horizontal or Vertical.
-- Canvas-based indicators inside compact views must bind local mirror properties (e.g. `property real _p: ...`) and call `requestPaint()` in their `onXxxChanged` handlers — Canvas does not auto-repaint on bound property changes.
-- Use `TextMetrics` to pre-measure the widest possible label text and pin `width` to that value, so switching label content never causes the compact widget to resize.
+1. Create `widgets/<type>/main.qml` (and/or `widgets-nothing/<type>/main.qml`),
+   copying the closest existing type. Start it with
+   `import "../../components"` — a widget's own subcomponents beside it in
+   `widget/` still use `import "widget"`.
+2. Nothing else to link: there is no per-widget `components` symlink and no
+   per-widget font/icon directory any more. A face is loaded with
+   `Qt.resolvedUrl("../../fonts/<file>.ttf")`, an icon under `icons/` with
+   `Qt.resolvedUrl("../../icons/…")`, and a Loader's `source:` needs the same
+   `../../` prefix.
+3. Register it in `WidgetRegistry.qml`: `label`, `hint`, a `group` that
+   appears in `groups`, and `nothing: true` / `nothingOnly: true` for the
+   styles it actually ships.
+4. New settings: `manifest.json` (`settings.defaults` + `settings.schema`),
+   `GlassSurface.qml`'s `_fallbackDefaults`, and `WidgetFields.qml` if the key
+   is per-instance editable.
+5. `widget/qmldir` must list every `.qml` beside it.
+6. `bash tests/run.sh`, then `bash tests/sweep-widgets.sh` (it loads the new
+   type in both styles and fails on an empty tile) — or iterate with
+   `qs -n -p glass-dev.qml`.
 
 ## Wide-mode side panel layout
 
-Both the calendar and timer widgets support a side-panel layout when stretched wider than 2:1. The pattern to follow when adding this to a widget:
+Calendar and timer switch to a side-panel layout when stretched wider than
+2:1 (the Nothing drawings use their own 1.6:1 threshold against the three grid
+presets). The pattern:
 
 **Trigger condition:**
 ```qml
@@ -134,113 +524,83 @@ readonly property bool isWide: full.width >= full.height * 2
 readonly property real wideGap: Math.round(full.height * 0.04)
 ```
 
-**Structure:** `LiquidGlass` stays `anchors.fill: parent` (single backdrop for the full widget). The content area splits into two sibling Items:
+**Structure:** `LiquidGlass` stays `anchors.fill: parent` (one backdrop for
+the whole widget). The content splits into two sibling Items:
 
 ```
 Item { id: leftPanel;  anchors { ...; right: rightPanel.left; rightMargin: wideGap } }
 Item { id: rightPanel; width: isWide ? full.height : full.width; anchors.right: parent.right }
 ```
 
-- `rightPanel` is always the original square content, sized `height × height` in wide mode.
-- `leftPanel` is `visible: isWide` and fills the remaining horizontal space.
-- Existing content items are reparented into `rightPanel` via `parent: rightPanel` — their internal anchors (`top/left/right/bottom: parent.*`) continue to work unchanged.
-- `leftPanel` should have `clip: true` to prevent content overflow.
+- `rightPanel` is always the original square content, sized `height × height`
+  in wide mode.
+- `leftPanel` is `visible: isWide`, fills the remaining width, and sets
+  `clip: true`.
+- Existing content is reparented via `parent: rightPanel` — its internal
+  anchors keep working unchanged.
 
 **Card component pattern (`widget/XxxCard.qml`):**
-- Thin cards with compact padding. Height ≈ `fontSize * 2.8`, radius ≈ `height * 0.25`.
-- Background: use `colors.cardBackground` (color) + `colors.cardBackgroundOpacity` (real) — automatically resolves to white-on-dark or black-on-light. Pass these as properties; never branch on `isGlass`/`isLight` inside a card component.
-- Hover/press opacity: use `colors.cardHoverOpacity` and `colors.cardPressOpacity` tokens.
-- Left vertical pill tag (3 px wide, `radius: 1.5`, height = card inner height, colored per entry) for event/category cards. Preset cards omit the pill.
-- Font size derived from `full.height`, not width, to stay consistent with the right panel.
-- Scrollable lists use `ListView` with `clip: true` and `interactive: true` (default). A `Column + Repeater` is only appropriate for very short fixed lists.
+- Thin cards, compact padding. Height ≈ `fontSize * 2.8`, radius ≈ `height * 0.25`.
+- Background: `colors.cardBackground` + `colors.cardBackgroundOpacity`, passed
+  in as properties; never branch on `isGlass`/`isLight` inside a card.
+- Hover/press: `colors.cardHoverOpacity`, `colors.cardPressOpacity`.
+- A 3 px left vertical pill (`radius: 1.5`, full inner height, colored per
+  entry) marks event/category cards; preset cards omit it.
+- Font size derives from `full.height`, not width, to match the right panel.
+- Scrollable lists use `ListView { clip: true }`; a `Column + Repeater` is
+  only for very short fixed lists.
 
 **Left panel sizing constants (scale from `full.height`):**
-- `_margin`: `Math.round(full.height * 0.09)` — outer padding matching the right panel's grid margins
-- `_cardSize`: `Math.round(full.height * 0.052)` — font size for card text
+- `_margin`: `Math.round(full.height * 0.09)` — matches the right panel's grid margins
+- `_cardSize`: `Math.round(full.height * 0.052)` — card text size
 - `_cardSpacing`: `Math.round(full.height * 0.025)` — gap between cards
 
 **Reference implementations:**
-- `packages/calendar/contents/ui/main.qml` + `packages/calendar/contents/ui/widget/EventCard.qml`
-- `packages/timer/contents/ui/main.qml` + `packages/timer/contents/ui/widget/PresetCard.qml`
+- `widgets/calendar/main.qml` + `widgets/calendar/widget/EventCard.qml`
+- `widgets/timer/main.qml` + `widgets/timer/widget/PresetCard.qml`
 
-## Calendar event integration
+## What the calendar widget does today
 
-The calendar widget reads live events from KDE's calendar system and groups them into temporal sections in the wide-mode left panel. Events are **never shown in narrow mode** — the left panel is hidden when `width < height * 2`.
+Month grid, today badge, midnight rollover, `firstDayOfWeek`, both layouts,
+and the wide panel's three temporal groupings (today / this week / upcoming)
+with their date formats and `eventType` pill colours — all intact.
 
-### System requirements
+`components/EventSource.qml` is the seam, and it has two backends, either of
+them sufficient: `khal` when it is on `PATH`, and the watched document
+`~/.local/state/omarchy/calendar-events.json` (the schema
+`tmn73/omarchy-calendar` publishes; `events/CalendarEvents.js` adopts it
+verbatim). Its `state` is exactly one of `no-backend` / `empty` / `stale` /
+`ok`, and each drawing words its empty state from that without branching its
+layout on it. The Liquid Glass drawing says "No calendar connected", "Calendar
+may be out of date" or "Nothing scheduled" and adds `stateDetail` (the watched
+path, or the sync age); the Nothing drawing says "No calendar connected",
+"Calendar may be stale" or "Nothing scheduled" and prints no detail.
+`stateDetail` is spelled from where the path came from (`~/.local/state/…` or
+`$XDG_STATE_HOME/…`), never the resolved path, because it is drawn onto the
+desktop — `tests/eventsource-home-relative.sh` holds that. Anything that returns
+objects shaped like `EventCard.qml` renders — that is the whole contract.
+Events are never shown in narrow mode.
 
-- **`plasma-workspace`** — provides `org.kde.plasma.workspace.calendar 2.0` (always present on Plasma 6). The QML module lives at `/usr/lib/x86_64-linux-gnu/qt6/qml/org/kde/plasma/workspace/calendar/`.
-- **`kpim6-kdepim-addons`** (optional) — provides the `pimevents` calendar plugin at `/usr/lib/x86_64-linux-gnu/qt6/plugins/plasmacalendarplugins/pimevents.so`. Without it, Akonadi/PIM events are silently skipped and the widget shows "No upcoming events". Install with `sudo apt install kpim6-kdepim-addons`.
-- **`kdepim-runtime`** — the Akonadi server that syncs with Nextcloud, Google Calendar, Outlook, etc. via CalDAV/CardDAV. `kpim6-kdepim-addons` depends on it.
-- **Holiday and astronomical event plugins** (`holidaysevents.so`, `astronomicalevents.so`) ship with `plasma-workspace` and require no extra packages.
-- Calendar sources (CalDAV accounts, local calendars) are configured system-wide in **Merkuro Calendar** or **KOrganizer** — the widget reads whatever Akonadi has already synced.
+## Plan numbers in comments
 
-### Architecture
+`PORTING.md` is the engineering record, and the code cites its items **by
+number** — those numbers are frozen: never renumber an item, never reuse one,
+append at the end. Plan numbers that appear in comments (e.g. "(plan 012)",
+"plan 005 step 2") are **provenance from the private design record**: they date
+a decision and have no public target, so do not try to resolve one. A comment
+that needs the reader to go somewhere must point at a file in this repo.
 
-**Import:** `import org.kde.plasma.workspace.calendar 2.0 as PlasmaCalendar`
+## Agent skills
 
-**Key types** (from `calendarplugin.qmltypes`):
-- `PlasmaCalendar.EventPluginsManager` — loads/unloads calendar plugins. Set `enabledPlugins` to a `QStringList` of plugin IDs. Known IDs: `pimevents`, `holidaysevents`, `astronomicalevents`.
-- `PlasmaCalendar.Calendar` — a non-visual backend for a single calendar month. Properties: `days` (7), `weeks` (6), `firstDayOfWeek`, `today`. Methods: `goToYearAndMonth(year, month)` where `month` is **1-based**. The `daysModel` property is a `DaysModel`.
-- `DaysModel` (not directly creatable) — call `daysModel.setPluginsManager(manager)` once on `Component.onCompleted`. Then `daysModel.eventsForDate(date)` returns a `QVariantList` of `EventDataDecorator` objects. The `agendaUpdated(date)` signal fires when event data for a date changes.
-- `EventDataDecorator` properties: `title` (string), `startDateTime` (QDateTime), `endDateTime` (QDateTime), `isAllDay` (bool), `isMinor` (bool), `eventColor` (string, may be empty), `description` (string), `eventType` (string).
+### Issue tracker
 
-**Multi-month lookahead:** A single `Calendar` backend only holds data for one displayed month. The calendar widget uses **three backends** (current, next, and month-after-next) to cover up to a 90-day lookahead:
+Issues live in GitHub Issues on `t1nk333r/t1nk33r.nothing-glass` — the only remote, so a plain `gh` resolves to it and no `-R` is needed.
 
-```qml
-PlasmaCalendar.Calendar { id: calendarBackend; ... Component.onCompleted: daysModel.setPluginsManager(eventPluginsManager) }
-PlasmaCalendar.Calendar { id: nextMonthBackend; ... Component.onCompleted: { daysModel.setPluginsManager(eventPluginsManager); goToYearAndMonth(...) } }
-PlasmaCalendar.Calendar { id: thirdMonthBackend; ... Component.onCompleted: { daysModel.setPluginsManager(eventPluginsManager); goToYearAndMonth(...) } }
-```
+### Triage labels
 
-Call `goToYearAndMonth(year, 1basedMonth)` — note month is 1-based, opposite of JS `Date.getMonth()`.
+The five canonical roles, each label string equal to its name: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`.
 
-**Event collection:** `_doRebuildEventsModel()` iterates dates from today through the lookahead end, calls `daysModel.eventsForDate(date)` on the backend whose displayed month matches the date, deduplicates multi-day events by `title + startDateTime.getTime()`, sorts all-day events before timed events, and groups results into three buckets: today, this week (after today), upcoming (beyond this week).
+### Domain docs
 
-**Debounce:** Multiple `agendaUpdated` signals fire in rapid succession when plugins load. Use an 80ms debounce Timer to coalesce them before calling `_doRebuildEventsModel()`.
-
-**Section header + card mixed ListView:** The `eventsModel` ListModel holds both section headers (`isHeader: true`) and event entries (`isHeader: false`) interleaved. Use a `Loader` delegate that switches `sourceComponent` based on `model.isHeader`. Pass data to the loaded item via `onLoaded { item.prop = model.value }` rather than `required property` (which doesn't cross the Loader boundary from a delegate context).
-
-### Config entries
-
-Three files must stay in sync (see `contents/config/main.xml`, `contents/ui/config/ConfigGeneral.qml`):
-
-| Entry | Type | Default | Meaning |
-|---|---|---|---|
-| `eventLookaheadDays` | Int | `2` | Index into `[7, 14, 30, 60]` preset days array |
-| `enabledCalendarPlugins` | StringList | `pimevents,holidaysevents` | Plugin IDs to load |
-
-`enabledCalendarPlugins` is a `StringList` kcfg type but QML stores/reads it as a JS array via `plasmoid.configuration.enabledCalendarPlugins`. In `ConfigGeneral.qml` it's bridged with a `cfg_` string property and helper functions that split/join on commas.
-
-### Event colors
-
-`EventDataDecorator.eventColor` is populated from `Akonadi::CollectionColorAttribute` — the per-collection color the user sets in Merkuro or KOrganizer. When it is empty (collection has no color, or event comes from a plugin that doesn't set colors), `_pillColorFor(ev)` falls back to a color keyed on `ev.eventType`:
-
-| `eventType` string | Meaning | Fallback color |
-|---|---|---|
-| `"Event"` | Calendar event (VEVENT) | `#4B9EFF` blue |
-| `"Todo"` | Task / to-do (VTODO) | `#FF9500` orange |
-| `"Journal"` | Journal entry (VJOURNAL) | `#34C759` green |
-| `"Holiday"` | Public holiday (holidaysevents plugin) | `#FF6B6B` red |
-
-If `eventType` is unrecognised, `colors.accent` (#0a84ff) is used. Collection colors always win over type fallbacks.
-
-### Display rules
-
-- **"Events today"** — `startDate == today`. `timeLabel` = `Qt.formatDateTime(ev.startDateTime, "h:mm AP")` or `"All day"`.
-- **"This week"** — after today, before start of next week. `timeLabel` = `Qt.formatDateTime(d, "ddd d")` (e.g. "Wed 7").
-- **"Upcoming"** — beyond this week, within lookahead. `timeLabel` = `Qt.formatDateTime(d, "MMM d")` (e.g. "May 15").
-- **Empty state** — when `eventsModel.count === 0`, show `"No upcoming events"` centered in `leftPanel` at 45% opacity.
-- Section headers that are not the first item get extra `topPadding` to visually separate groups.
-
-### Plugin config pages (collection picker)
-
-The `pimevents` plugin stores which Akonadi collections to monitor in `~/.config/plasmashellrc` under `[PIMEventsPlugin] calendars=<comma-separated collection IDs>`. Without this config, the plugin monitors nothing and returns zero events.
-
-`config.qml` uses the same dynamic `Instantiator` pattern as the Plasma digital clock: it iterates `EventPluginsManager.model`, reads each plugin's `configUi` role (e.g. `"pimevents/PimEventsConfig.qml"`), and appends a `ConfigCategory` tab for each enabled plugin. The pimevents config page shows a tree of Akonadi collections with checkboxes — the user must check the ones they want. Holidays plugin has a similar config page for region selection.
-
-Reference implementation: `KDE/plasma-workspace/applets/digital-clock/config.qml` — the `Instantiator` with `delegate: ConfigCategory` pattern.
-
-## Plan files
-
-Ongoing design decisions for in-progress work may live in `~/.claude/plans/` outside the repo. When resuming work, check there before making architectural assumptions.
+Single-context: one `CONTEXT.md` at the repo root, created lazily when terms or
+decisions are actually resolved — do not scaffold one empty.

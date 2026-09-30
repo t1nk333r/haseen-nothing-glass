@@ -1,0 +1,22 @@
+# Explicit type registrations for this directory.
+#
+# Without them the directory is an implicit one, and Quickshell's QML
+# scanner registers it lazily: the FIRST type looked up in a
+# not-yet-registered directory fails with "<T> is not a type", and which
+# type that is varies from run to run. Reproduced on this machine with
+# `NBadge is not a type` from widgets-nothing/battery/main.qml while every
+# other primitive in the same file resolved. A qmldir makes the directory
+# an explicit module directory, so every type is known before first use.
+NBadge 1.0 NBadge.qml
+NButton 1.0 NButton.qml
+NCard 1.0 NCard.qml
+NDial 1.0 NDial.qml
+NDivider 1.0 NDivider.qml
+NDotField 1.0 NDotField.qml
+NDotMatrix 1.0 NDotMatrix.qml
+NFrost 1.0 NFrost.qml
+NLabel 1.0 NLabel.qml
+NMono 1.0 NMono.qml
+NProgress 1.0 NProgress.qml
+NText 1.0 NText.qml
+NTheme 1.0 NTheme.qml

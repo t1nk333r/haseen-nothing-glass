@@ -1,0 +1,18 @@
+# Explicit type registrations for this directory.
+#
+# `import "widget"` on an implicit directory is registered lazily by
+# Quickshell's QML scanner, and the first type looked up in a
+# not-yet-registered copy fails with "<T> is not a type" - a different
+# type each run, and the widget renders as nothing. Observed as
+# `TickRing is not a type` in the dev harness. See PORTING.md item 21.
+# Adding a file here means adding its line below; tests/run.sh enforces it.
+AlbumArt 1.0 AlbumArt.qml
+AudioSpectrum 1.0 AudioSpectrum.qml
+BarLayout 1.0 BarLayout.qml
+ControlButton 1.0 ControlButton.qml
+FlipAlbumArt 1.0 FlipAlbumArt.qml
+MarqueeText 1.0 MarqueeText.qml
+MusicSlider 1.0 MusicSlider.qml
+SquareLayout 1.0 SquareLayout.qml
+TallWideLayout 1.0 TallWideLayout.qml
+WideLayout 1.0 WideLayout.qml

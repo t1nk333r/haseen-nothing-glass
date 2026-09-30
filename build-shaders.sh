@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 
 # Precompile GLSL shaders to Qt's .qsb format.
-# Run this whenever 1-common/components/shaders/*.frag changes.
+# Run this whenever components/shaders/*.frag changes.
 # Requires qsb from qt6-base-dev-tools.
 
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SHADER_DIR="${SCRIPT_DIR}/1-common/components/shaders"
+SHADER_DIR="${SCRIPT_DIR}/components/shaders"
 
 QSB="$(command -v qsb6 || command -v /usr/lib/qt6/bin/qsb || command -v qsb)"
 if [[ -z "$QSB" || ! -x "$QSB" ]]; then

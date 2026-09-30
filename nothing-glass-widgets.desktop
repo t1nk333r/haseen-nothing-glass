@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Nothing Glass
+Comment=Add, remove and restyle the Nothing Glass desktop widgets
+Exec=omarchy-shell t1nk33r.nothing-glass launcher ""
+Terminal=false
+Categories=Utility;

@@ -1,0 +1,36 @@
+# Explicit type registrations for the shared component directory.
+#
+# There is one copy of this directory and it ships exactly as it is: the repo
+# root is the plugin, `omarchy plugin add` installs the checkout unchanged, and
+# nothing dereferences symlinks or materialises a copy of this directory per
+# widget any more (widgets reach it with `import "../../components"`; the
+# symlink tree that used to be copied is in git history). Without a qmldir
+# the directory is implicit and Quickshell's scanner registers it lazily, so
+# the first type looked up in a not-yet-registered directory fails with
+# "<T> is not a type" - observed as BatteryData, WorldClockQs, EventSource,
+# PrayerTimes and Notify all failing on their first use, one per widget.
+# Listing the types makes registration eager and the load order irrelevant.
+BatteryData 1.0 BatteryData.qml
+ClaudeUsageData 1.0 ClaudeUsageData.qml
+CodeburnData 1.0 CodeburnData.qml
+DeepSeekData 1.0 DeepSeekData.qml
+EventSource 1.0 EventSource.qml
+GeoLocation 1.0 GeoLocation.qml
+GlassScale 1.0 GlassScale.qml
+LiquidGlass 1.0 LiquidGlass.qml
+MacOSColors 1.0 MacOSColors.qml
+MacSpinner 1.0 MacSpinner.qml
+MotionWatch 1.0 MotionWatch.qml
+NetworkData 1.0 NetworkData.qml
+Notify 1.0 Notify.qml
+OmarchyLocation 1.0 OmarchyLocation.qml
+OmarrData 1.0 OmarrData.qml
+PerfData 1.0 PerfData.qml
+PhotoData 1.0 PhotoData.qml
+PrayerCard 1.0 PrayerCard.qml
+PrayerTimes 1.0 PrayerTimes.qml
+StorageData 1.0 StorageData.qml
+TailscaleData 1.0 TailscaleData.qml
+TzClock 1.0 TzClock.qml
+WeatherDataQs 1.0 WeatherDataQs.qml
+WorldClockQs 1.0 WorldClockQs.qml
