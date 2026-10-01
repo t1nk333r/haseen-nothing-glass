@@ -1,6 +1,7 @@
 import QtQuick
 import Quickshell
 import Quickshell.Io
+import "JsonRead.js" as JsonRead
 
 // The weather location Omarchy itself uses, so the desktop weather tile and
 // the bar's weather widget cannot disagree about where you are.
@@ -34,11 +35,16 @@ QtObject {
   readonly property bool hasCoordinates: latitude !== 0 || longitude !== 0
   readonly property bool valid: name !== "" || hasCoordinates
 
+  // weather.json is a name and two coordinates; one over 1 MiB is refused
+  // unparsed and reads as unset, like any malformed file (JsonRead.js).
+  readonly property int maxDocumentBytes: JsonRead.MiB
+
   function _apply(raw) {
     var name = ""
     var lat = 0
     var lon = 0
     try {
+      if (JsonRead.tooLarge(raw, loc.maxDocumentBytes)) throw new Error("too large")
       var data = JSON.parse(String(raw || ""))
       if (data && typeof data === "object") {
         if (typeof data.name === "string") name = data.name.replace(/^\s+|\s+$/g, "")

@@ -115,10 +115,42 @@ QtObject {
     return null
   }
 
+  // shell.json is ~10 KB here; 4 MiB is far past any real one. A larger file
+  // is refused unparsed - it is parsed on the shell's GUI thread. Inline
+  // rather than JsonRead.js's `tooLarge`: sync-lock-card.sh mirrors this file
+  // into the lock plugin without that helper.
+  readonly property int _maxShellBytes: 4 * 1048576
+  // The 70-day window the zone script prints is a few KiB.
+  readonly property int _maxZoneBytes: 1048576
+
+  // Kept local because the lock-card mirror does not ship JsonRead.js.
+  function _tooLarge(text, maxBytes) {
+    var bytes = text.length
+    if (bytes > maxBytes) return true
+    for (var i = 0; i < text.length; i++) {
+      var c = text.charCodeAt(i)
+      if (c < 128) continue
+      if (c < 2048) bytes++
+      else if (c >= 0xd800 && c <= 0xdbff && i + 1 < text.length
+          && text.charCodeAt(i + 1) >= 0xdc00 && text.charCodeAt(i + 1) <= 0xdfff) {
+        bytes += 2
+        i++
+      } else bytes += 2
+      if (bytes > maxBytes) return true
+    }
+    return false
+  }
+
   function _applyShellConfig(text) {
+    var raw = String(text || "")
+    if (prayers._tooLarge(raw, prayers._maxShellBytes)) {
+      prayers.error = "shell.json is too large"
+      prayers.ok = false
+      return
+    }
     var cfg = null
     try {
-      cfg = JSON.parse(String(text || ""))
+      cfg = JSON.parse(raw)
     } catch (e) {
       prayers.error = "shell.json is not valid JSON"
       return
@@ -201,8 +233,10 @@ QtObject {
     stdout: StdioCollector {
       onStreamFinished: {
         var zone = null
+        var raw = String(text || "")
         try {
-          zone = JSON.parse(String(text || ""))
+          if (prayers._tooLarge(raw, prayers._maxZoneBytes)) throw new Error("too large")
+          zone = JSON.parse(raw)
         } catch (e) {
           prayers.error = "timezone window did not parse"
           prayers.ok = false

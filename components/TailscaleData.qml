@@ -210,7 +210,18 @@ QtObject {
     var id = String(peerId || "")
     var peer = null
     for (var i = 0; i < ts.peers.length; i++) if (ts.peers[i].id === id) { peer = ts.peers[i]; break }
-    if (!peer || peer.ip === "") return false
+    if (!peer) return false
+    // The address comes from `tailscale status --json` and becomes the last
+    // argv of `tailscale ping`, where anything starting with `-` is read as a
+    // flag. Only a dotted quad is ever handed over; anything else is refused
+    // with the reason, the same way a ping that got no answer reports one.
+    if (!ts._isDottedQuad(peer.ip)) {
+      ts.pingResultId = id
+      ts.pingMs = 0
+      ts.pingVia = ""
+      ts.pingError = "no IPv4 address to ping"
+      return false
+    }
     ts._pingNextId = id
     ts._pingNextName = peer.name
     ts._pingNextIp = peer.ip
@@ -220,6 +231,15 @@ QtObject {
       return true
     }
     ts._startPing()
+    return true
+  }
+
+  // Four decimal octets, 0-255, no leading zeros beyond a lone 0 (a leading
+  // zero is octal to inet_aton) - nothing else is an IPv4 address here.
+  function _isDottedQuad(s) {
+    var m = /^(0|[1-9][0-9]{0,2})\.(0|[1-9][0-9]{0,2})\.(0|[1-9][0-9]{0,2})\.(0|[1-9][0-9]{0,2})$/.exec(String(s))
+    if (!m) return false
+    for (var i = 1; i <= 4; i++) if (Number(m[i]) > 255) return false
     return true
   }
 
@@ -522,9 +542,9 @@ QtObject {
     if (!Array.isArray(list)) return ""
     for (var i = 0; i < list.length; i++) {
       var ip = String(list[i])
-      if (ip.indexOf(":") === -1) return ip
+      if (ts._isDottedQuad(ip)) return ip
     }
-    return list.length > 0 ? String(list[0]) : ""
+    return ""
   }
 
   // ── serve/funnel ────────────────────────────────────────────────────

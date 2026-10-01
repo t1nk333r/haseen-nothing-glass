@@ -124,7 +124,7 @@ Variants {
   function _entryOverrides(entry, out, defaults) {
     if (!entry) return
     for (var ek in entry) {
-      if (ek === "id") continue
+      if (ek === "id" || root._plain.isUnsafeKey(ek)) continue
       out[ek] = (defaults && ek in defaults) ? root._coerceLike(entry[ek], defaults[ek]) : entry[ek]
     }
   }
@@ -215,13 +215,67 @@ Variants {
     return null
   }
 
+  // ── What a plugin-wide setting may be ──────────────────────────────
+  // Every writer of a plugin-wide value - the IPC `option` verb, the bar
+  // panel, the browser - comes through setPluginSetting, and with it through
+  // this check, because the value lands on this plugin's own shell.json entry
+  // as well as in the options file. Only a key `settings.defaults` declares
+  // is a setting; anything else (`id`, `enabled`, `kind`...) is the entry's
+  // own structure, and writing it there corrupts the entry. The value has to
+  // have the default's type - a number finite, a boolean a boolean, an
+  // object a plain object - and stay small.
+  //
+  // Returns { value } (coerced: "2" for a number, "true" for a boolean, 12
+  // for a string) or { error } saying why it was refused. Also the check for
+  // a per-instance override of the same key (Service.qml's `set` verb).
+  readonly property int maxSettingChars: 16384
+  readonly property PlainData _plain: PlainData {}
+
+  function settingDefaults() {
+    return (root.manifest && root.manifest.settings && root.manifest.settings.defaults) || root._fallbackDefaults
+  }
+
+  function checkPluginSetting(key, value) {
+    var k = String(key === undefined || key === null ? "" : key)
+    var defaults = root.settingDefaults()
+    if (root._plain.isUnsafeKey(k) || !Object.prototype.hasOwnProperty.call(defaults, k))
+      return { error: "'" + k + "' is not a setting of this plugin" }
+    var sample = defaults[k]
+    var v = value
+    if (typeof sample === "number") {
+      if (typeof v === "string" && v.trim() !== "") v = Number(v)
+      if (typeof v !== "number" || !isFinite(v)) return { error: k + " takes a finite number" }
+    } else if (typeof sample === "boolean") {
+      if (v === "true") v = true
+      else if (v === "false") v = false
+      if (typeof v !== "boolean") return { error: k + " takes true or false" }
+    } else if (typeof sample === "string") {
+      if (typeof v === "number" && isFinite(v)) v = String(v)
+      if (typeof v !== "string") return { error: k + " takes a string" }
+    } else if (sample !== null && typeof sample === "object") {
+      if (!v || typeof v !== "object" || Array.isArray(v)) return { error: k + " takes a JSON object" }
+    }
+    var c = root._plain.clean(v)
+    if (!c.ok) return { error: k + " is not plain JSON data" }
+    if (root._plain.exceedsBytes(JSON.stringify(c.value), root.maxSettingChars))
+      return { error: k + " is longer than " + root.maxSettingChars + " bytes" }
+    return { value: c.value }
+  }
+
   function setPluginSetting(key, value) {
+    var checked = root.checkPluginSetting(key, value)
+    if (checked.error !== undefined) {
+      console.warn("nothing-glass: refused plugin setting: " + checked.error)
+      return false
+    }
+    key = String(key)
+    value = checked.value
     if (!root.shell) return false
     var id = root.identity.id
     var cfg = root._shellConfig
     var entry = root._findEntryAnywhere(cfg, id)
     var next = {}
-    for (var k in (entry || {})) if (k !== "id") next[k] = entry[k]
+    for (var k in (entry || {})) if (k !== "id" && !root._plain.isUnsafeKey(k)) next[k] = entry[k]
     next[key] = value
 
     // `updateEntryInline` edits the entry WHEREVER it is - bar layout first,
@@ -245,13 +299,13 @@ Variants {
     // persisted (the IPC `option` reply is built from this) is the bug the old
     // fallback masked from the other side.
     var durable = false
-    if (root.options) { root.options.set(key, value); durable = true }
+    if (root.options) durable = root.options.set(key, value)
 
     // And through the shell as well, when the entry exists, so the settings UI
     // shows the same value while its entry lasts. Its own false return (the id
     // is in neither the bar layout nor plugins[]) is a display miss, not a
     // write failure, so it does not override the durable result.
-    if (entry && typeof root.shell.updateEntryInline === "function")
+    if (durable && entry && typeof root.shell.updateEntryInline === "function")
       root.shell.updateEntryInline(id, next)
 
     return durable
@@ -279,6 +333,7 @@ Variants {
     + "/omarchy/shell.json"
 
   property var _shellConfig: null
+  readonly property int maxShellConfigChars: 4 * 1024 * 1024
 
   // A typed property, NOT a bare child: this file's root is `Variants`, whose
   // default property takes the per-screen delegate, so a loose FileView here
@@ -290,8 +345,16 @@ Variants {
     watchChanges: true
     printErrors: false
     onLoaded: {
+      var t = String(text() || "")
+      // Not parsed past this size: JSON.parse would build the whole thing on
+      // the GUI thread. Treated as unreadable, like a half-written file.
+      if (root._plain.exceedsBytes(t, root.maxShellConfigChars)) {
+        console.warn("nothing-glass: shell.json is larger than " + root.maxShellConfigChars +
+                     " bytes, keeping last known settings")
+        return
+      }
       try {
-        root._shellConfig = JSON.parse(text())
+        root._shellConfig = JSON.parse(t)
       } catch (e) {
         // A half-written file during someone else's save: keep the last good
         // copy rather than dropping every setting for a frame.
@@ -544,7 +607,7 @@ Variants {
     // is; WidgetHost.qml provides the `backdrop` id + recapture-on-load/
     // on-switch fix (see its own comments) at the per-instance level, since
     // there is no longer one single glass to patch.
-    Wallpaper { id: backdrop; anchors.fill: parent }
+    Wallpaper { id: backdrop; anchors.fill: parent; active: screenScope.screenDrawn }
 
     // One blur per screen, beside the wallpaper it blurs and for the same
     // reason Wallpaper is here: the blurrable backdrop is this window's own

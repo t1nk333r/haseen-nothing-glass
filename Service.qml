@@ -42,7 +42,7 @@ Item {
   // through this same object.
   PluginId { id: plugin }
 
-  Store { id: store; identity: plugin }
+  Store { id: store; identity: plugin; registry: registry }
   WidgetRegistry { id: registry }
 
   // The bar panel's "Browse widgets" button and the IPC verb below reach the
@@ -117,21 +117,27 @@ Item {
       if (target === "") return "error: no screen to add to"
       var size = registry.defaultSize(type)
       var id = store.add(type, target, { w: size.width, h: size.height })
-      return id ? id : "error: store not loaded yet, retry"
+      return id ? id : ("error: " + store.lastError)
     }
 
     function remove(id: string): string {
-      return store.remove(id) ? ("removed " + id) : ("error: no widget with id '" + id + "'")
+      return store.remove(id) ? ("removed " + id) : ("error: " + store.lastError)
     }
 
     function move(id: string, x: int, y: int): string {
-      return store.move(id, x, y) ? ("moved " + id + " to " + x + "," + y) : ("error: no widget with id '" + id + "'")
+      return store.move(id, x, y) ? ("moved " + id + " to " + x + "," + y) : ("error: " + store.lastError)
     }
 
     function resize(id: string, w: int, h: int): string {
-      return store.resize(id, w, h) ? ("resized " + id + " to " + w + "x" + h) : ("error: no widget with id '" + id + "'")
+      return store.resize(id, w, h) ? ("resized " + id + " to " + w + "x" + h) : ("error: " + store.lastError)
     }
 
+    // A per-instance override, so only what a widget can actually be told:
+    // the row's own `style` column, or one of the plugin's settings (every
+    // field WidgetFields.qml offers is one of those), with a value of that
+    // setting's type - the same check `option` makes (GlassSurface's
+    // checkPluginSetting). Anything else would sit in the row where nothing
+    // reads it.
     function set(id: string, key: string, valueJson: string): string {
       var value
       try {
@@ -139,7 +145,17 @@ Item {
       } catch (e) {
         return "error: invalid JSON value: " + e
       }
-      return store.set(id, key, value) ? ("set " + id + "." + key) : ("error: no widget with id '" + id + "'")
+      var k = String(key || "")
+      if (k === "style") {
+        // "" clears it back to the category/plugin default.
+        if (value !== "" && plugin.styles.indexOf(value) === -1)
+          return "error: style takes one of " + plugin.styles.join(", ") + ", or \"\" to inherit"
+      } else {
+        var checked = surface.checkPluginSetting(k, value)
+        if (checked.error !== undefined) return "error: " + checked.error
+        value = checked.value
+      }
+      return store.set(id, k, value) ? ("set " + id + "." + k) : ("error: " + store.lastError)
     }
 
     // Open the widget browser, or close it with the same call - a launcher
@@ -188,8 +204,10 @@ Item {
       else if (value === "true") v = true
       else if (value === "false") v = false
       else if (value !== "" && !isNaN(Number(value))) v = Number(value)
-      return surface.setPluginSetting(k, v)
-        ? ("set " + k + " = " + JSON.stringify(v))
+      var checked = surface.checkPluginSetting(k, v)
+      if (checked.error !== undefined) return "error: " + checked.error
+      return surface.setPluginSetting(k, checked.value)
+        ? ("set " + k + " = " + JSON.stringify(checked.value))
         : ("error: could not write " + k + " - is the shell config reachable?")
     }
 

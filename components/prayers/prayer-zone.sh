@@ -42,13 +42,6 @@ fi
 days=$((10#$days))
 now_epoch=$((10#$now_epoch))
 
-state_home="${XDG_STATE_HOME:-$HOME/.local/state}"
-state_dir="$state_home/omarchy/t1nk33r.omaprayers"
-mkdir -p "$state_dir" || fail "could not create prayer state directory"
-chmod 700 "$state_dir" || fail "could not secure prayer state directory"
-rm -f -- "$state_dir"/cache-*.json "$state_dir/current.json" "$state_dir/fetch.lock" \
-  || fail "could not remove legacy prayer cache files"
-
 today=$(TZ="$timezone" date -d "@$now_epoch" +%F) || fail "could not resolve today in $timezone"
 
 civil_shift() {

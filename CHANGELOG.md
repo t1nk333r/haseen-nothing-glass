@@ -31,3 +31,23 @@ of the same widgets.
   documents the tiles' network activity, including the remote cover art a
   player can point Now Playing at.
 - `add <type> ""` places the widget on the focused monitor, as documented.
+- Hardened against hostile input:
+  - Now Playing cover art is downloaded HTTPS-only with a 4 MiB and 10 s
+    bound, and local or inline art is bounded too. Colour is sampled from a
+    64x64 copy, and a stalled load can no longer freeze the flip.
+  - Weather requests are bounded in time and size, and a malformed report is
+    rolled back whole.
+  - Every Text draws plain text.
+  - The photo folder must be an absolute path, so it can never become a
+    `find` expression.
+  - The `df`, `khal`, `codeburn` and photo-scan children have deadlines.
+  - Tailscale ping targets, notification titles and clock time zones are
+    validated.
+  - File-backed JSON is refused past a byte cap before parsing.
+  - The IPC `option` and `set` verbs write only declared settings, with
+    finite, bounded values. The store clamps impossible geometry, caps rows
+    and per-row settings, and refuses writes while unreadable.
+  - The store and options files are written 0600.
+  - Legacy-store absorption is recorded durably, so it cannot duplicate
+    widgets.
+  - The prayer helper no longer touches another plugin's state.

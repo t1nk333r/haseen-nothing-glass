@@ -267,8 +267,12 @@ QtObject {
     cu.notice = ""
   }
 
+  // The collector's record is a few KiB; one over 1 MiB is refused unparsed
+  // and reads as invalid (JsonRead.js).
+  property int maxDocumentBytes: JsonRead.MiB
+
   function _apply(text) {
-    var record = JsonRead.parseOrNull(text)
+    var record = JsonRead.tooLarge(text, cu.maxDocumentBytes) ? null : JsonRead.parseOrNull(text)
     if (!record || typeof record !== "object") {
       cu._missing()
       cu.state = "invalid"

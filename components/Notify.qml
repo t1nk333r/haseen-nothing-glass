@@ -32,7 +32,9 @@ QtObject {
     if (!notify.enabled) return
     var u = (urgency === undefined || urgency === null) ? "normal" : String(urgency)
     if (u !== "low" && u !== "normal" && u !== "critical") u = "normal"
-    var argv = ["notify-send", "-u", u, "-a", "Liquid Glass",
+    // `--` ends the options: a title or body starting with `-` (a timer
+    // label, a track title) is then text, never a notify-send flag.
+    var argv = ["notify-send", "-u", u, "-a", "Liquid Glass", "--",
                 String(title === undefined ? "" : title),
                 String(body === undefined ? "" : body)]
     var q = notify._queue.slice()

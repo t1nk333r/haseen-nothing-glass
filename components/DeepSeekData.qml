@@ -298,9 +298,21 @@ QtObject {
     ds.ledgerVersion = 0
   }
 
+  // The ledger keeps one small row per day; 4 MiB is decades of them, and a
+  // file over it is refused unparsed and reads as unreadable. The config is a
+  // handful of fields and gets 1 MiB (JsonRead.js).
+  property int maxLedgerBytes: 4 * JsonRead.MiB
+  property int maxConfigBytes: JsonRead.MiB
+
   function _applyLedger(raw) {
     ds.loaded = true
     ds._nowMs = Date.now()
+    if (JsonRead.tooLarge(raw, ds.maxLedgerBytes)) {
+      ds.ledgerFound = true
+      ds._clear()
+      ds.errorMessage = "The DeepSpend ledger is too large."
+      return
+    }
     var text = String(raw == null ? "" : raw).trim()
     if (text === "") {
       ds.ledgerFound = false
@@ -377,6 +389,10 @@ QtObject {
   }
 
   function _applyConfig(raw) {
+    if (JsonRead.tooLarge(raw, ds.maxConfigBytes)) {
+      ds.lowBalance = 0
+      return
+    }
     var text = String(raw == null ? "" : raw).trim()
     if (text === "") {
       ds.lowBalance = 0

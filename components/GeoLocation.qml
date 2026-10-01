@@ -1,6 +1,7 @@
 import QtQuick
 import Quickshell
 import Quickshell.Io
+import "JsonRead.js" as JsonRead
 
 // Where this machine is, for widgets that need coordinates rather than a city
 // name (the sunrise tile computes sun times from lat/lon).
@@ -88,8 +89,11 @@ QtObject {
         // may already be buffered: never let it land after the opt-out.
         if (!geo.useGeoclue) return
         var out = null
+        var raw = String(text || "")
         try {
-          out = JSON.parse(String(text || "").trim().split("\n").pop())
+          // One JSON line is all the helper prints; 64 KiB is far past it.
+          if (JsonRead.tooLarge(raw, 64 * 1024)) throw new Error("too large")
+          out = JSON.parse(raw.trim().split("\n").pop())
         } catch (e) {
           geo._geoclue.error = "fix helper produced no JSON"
           geo._geoclue.ok = false
@@ -125,8 +129,15 @@ QtObject {
     property string label: ""
   }
 
+  // shell.json is ~10 KB on a real desktop and weather.json a few hundred
+  // bytes; a file over these caps is refused unparsed and treated exactly
+  // like an unreadable one (JsonRead.js).
+  readonly property int _maxShellBytes: 4 * JsonRead.MiB
+  readonly property int _maxWeatherBytes: JsonRead.MiB
+
   function _applyShell(text) {
     var cfg = null
+    if (JsonRead.tooLarge(text, geo._maxShellBytes)) { geo._prayer.ok = false; return }
     try { cfg = JSON.parse(String(text || "")) } catch (e) { return }
     var id = "t1nk33r.omaprayers"
     var entry = {}
@@ -181,7 +192,9 @@ QtObject {
     onFileChanged: reload()
     onLoaded: {
       var d = null
-      try { d = JSON.parse(String(text() || "")) } catch (e) { geo._weather.ok = false; return }
+      var raw = String(text() || "")
+      if (JsonRead.tooLarge(raw, geo._maxWeatherBytes)) { geo._weather.ok = false; return }
+      try { d = JSON.parse(raw) } catch (e) { geo._weather.ok = false; return }
       var lat = Number(d ? d.latitude : NaN)
       var lon = Number(d ? d.longitude : NaN)
       geo._weather.label = String((d && d.name) || "")

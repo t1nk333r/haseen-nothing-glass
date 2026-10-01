@@ -96,8 +96,7 @@ Item {
     Process {
         id: offsetProc
         running: false
-        environment: ({ TZ: root.timeZone })
-        command: ["date", "+%Z %z"]
+        command: ["env", "TZ=" + root.timeZone, "date", "+%Z %z"]
         // A timeZone change while `date` is still running must re-run, or
         // the OLD zone's answer is stored under the new zone until the next
         // hourly refresh.
@@ -105,6 +104,9 @@ Item {
         stdout: StdioCollector {
             onStreamFinished: {
                 const s = String(text || "").trim();
+                // A run started for an earlier zone that has since been
+                // replaced by an invalid one has nothing to say about it.
+                if (!root._zoneNameValid(root.timeZone)) return;
                 const m = /^(\S+)\s+([+-])(\d{2})(\d{2})$/.exec(s);
                 if (m) {
                     const abbrev = m[1];
@@ -128,8 +130,32 @@ Item {
     }
 
     property bool _refetch: false
+
+    // An IANA name, as prayer-zone.sh accepts one: relative components of
+    // letters, digits and `._+-`, no `..`. `timeZone` comes from the `clocks`
+    // setting and becomes `TZ` for `date`, and glibc reads a TZ that starts
+    // with `/` or `:` as a FILE to load - so anything else never reaches the
+    // environment and is shown as the unknown zone it is.
+    function _zoneNameValid(zone) {
+        const z = String(zone);
+        return /^[A-Za-z0-9][A-Za-z0-9._+-]*(\/[A-Za-z0-9._+-]+)*$/.test(z) && z.indexOf("..") === -1;
+    }
+
     function _refreshOffset() {
         if (!root.timeZone) { root._offsetKnown = false; return; }
+        if (!root._zoneNameValid(root.timeZone)) {
+            if (root.zoneValid)
+                console.warn("TzClock: zone", JSON.stringify(root.timeZone), "is not an IANA zone name; showing UTC. Check the `clocks` setting.");
+            // The same state `date` produces for a name tzdata does not know.
+            root._refetch = false;
+            root.zoneValid = false;
+            root._offsetMinutes = 0;
+            const wasKnown = root._offsetKnown;
+            root._offsetKnown = true;
+            root._recompute();
+            if (!wasKnown) root._scheduleNextMinuteTick();
+            return;
+        }
         if (offsetProc.running) root._refetch = true;
         else offsetProc.running = true;
     }
@@ -211,32 +237,28 @@ Item {
     // canary's worth of information.
     Process {
         running: root.runSelfTest
-        environment: ({ TZ: "America/New_York" })
-        command: ["date", "-d", "@1768478400", "+%z"]
+        command: ["env", "TZ=America/New_York", "date", "-d", "@1768478400", "+%z"]
         stdout: StdioCollector {
             onStreamFinished: root._dstAssert("America/New_York", "2026-01-15 12:00 UTC (EST, no DST)", "-0500", String(text || "").trim())
         }
     }
     Process {
         running: root.runSelfTest
-        environment: ({ TZ: "America/New_York" })
-        command: ["date", "-d", "@1784116800", "+%z"]
+        command: ["env", "TZ=America/New_York", "date", "-d", "@1784116800", "+%z"]
         stdout: StdioCollector {
             onStreamFinished: root._dstAssert("America/New_York", "2026-07-15 12:00 UTC (EDT, DST)", "-0400", String(text || "").trim())
         }
     }
     Process {
         running: root.runSelfTest
-        environment: ({ TZ: "Australia/Adelaide" })
-        command: ["date", "-d", "@1768478400", "+%z"]
+        command: ["env", "TZ=Australia/Adelaide", "date", "-d", "@1768478400", "+%z"]
         stdout: StdioCollector {
             onStreamFinished: root._dstAssert("Australia/Adelaide", "2026-01-15 12:00 UTC (ACDT, southern-summer DST)", "+1030", String(text || "").trim())
         }
     }
     Process {
         running: root.runSelfTest
-        environment: ({ TZ: "Australia/Adelaide" })
-        command: ["date", "-d", "@1784116800", "+%z"]
+        command: ["env", "TZ=Australia/Adelaide", "date", "-d", "@1784116800", "+%z"]
         stdout: StdioCollector {
             onStreamFinished: root._dstAssert("Australia/Adelaide", "2026-07-15 12:00 UTC (ACST, southern-winter no DST)", "+0930", String(text || "").trim())
         }

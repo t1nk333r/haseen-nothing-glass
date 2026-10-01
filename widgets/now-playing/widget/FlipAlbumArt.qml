@@ -14,22 +14,18 @@ Flipable {
     property string _pending: ""
     property bool _hasPending: false
     property int _pendingDir: 1
-    property int _stampCounter: 0
 
     property string _faceACanonical: ""
     property string _faceBCanonical: ""
 
-    function _stamp(url) {
-        _stampCounter++
-        if (url.indexOf("?") >= 0)
-            return url + "&_t=" + _stampCounter
-        return url + "?_t=" + _stampCounter
-    }
-
+    // No cache-busting stamp: every cover arrives from CoverArt under a URL of
+    // its own (a fresh `?g=` per copy), so the same string always means the
+    // same picture. The stamp used to make "" into the relative URL "?_t=N"
+    // and a `data:` URL into a corrupt one.
     Component.onCompleted: {
         if (artUrl !== "") {
             _faceACanonical = artUrl
-            faceA.artUrl = _stamp(artUrl)
+            faceA.artUrl = artUrl
         }
     }
 
@@ -107,24 +103,29 @@ Flipable {
             return
         }
 
-        var stamped = _stamp(url)
         if (_showingA) {
             _faceBCanonical = url
-            faceB.artUrl = stamped
+            faceB.artUrl = url
         } else {
             _faceACanonical = url
-            faceA.artUrl = stamped
+            faceA.artUrl = url
         }
 
         flipAnim.flipDir = dir
         _state = 1
-        preloader.source = stamped
+        // Cleared first: an earlier load that failed leaves its URL here, and
+        // assigning the same string again would change nothing and never
+        // report a status - the wait below would then only end on the guard.
+        preloader.source = ""
+        preloader.source = url
+        loadGuard.restart()
 
         if (preloader.status === Image.Ready)
             _startFlip(dir)
     }
 
     function _startFlip(dir) {
+        loadGuard.stop()
         _state = 2
         flipAnim.flipDir = dir
         flipAnim.fromAngle = _angle
@@ -137,6 +138,34 @@ Flipable {
         _state = 0
         preloader.source = ""
 
+        if (_hasPending) {
+            var url = _pending
+            var dir = _pendingDir
+            _pending = ""
+            _pendingDir = 1
+            _hasPending = false
+            _processChange(url, dir)
+        }
+    }
+
+    // A load that never reports Ready or Error must not hold the face for
+    // good: every later cover queues behind state 1. Settled as an error, so
+    // the next pending URL - or "" - goes ahead. CoverArt hands over local
+    // copies, which decode in milliseconds; the bound is for whatever does not.
+    Timer {
+        id: loadGuard
+        interval: 4000
+        repeat: false
+        onTriggered: {
+            if (flip._state !== 1) return
+            preloader.source = ""
+            flip._preloadFailed()
+        }
+    }
+
+    function _preloadFailed() {
+        loadGuard.stop()
+        _state = 0
         if (_hasPending) {
             var url = _pending
             var dir = _pendingDir
@@ -171,15 +200,7 @@ Flipable {
                     flip._startFlip(flipAnim.flipDir)
                 }
             } else if (status === Image.Error) {
-                flip._state = 0
-                if (flip._hasPending) {
-                    var url = flip._pending
-                    var dir = flip._pendingDir
-                    flip._pending = ""
-                    flip._pendingDir = 1
-                    flip._hasPending = false
-                    flip._processChange(url, dir)
-                }
+                flip._preloadFailed()
             }
         }
     }

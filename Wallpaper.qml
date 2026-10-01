@@ -25,7 +25,19 @@ Image {
   // theme switches repoint.
   property string resolvedPath: ""
 
-  source: resolvedPath ? "file://" + resolvedPath : ""
+  // False only while this screen's monitor is switched off (DPMS) -
+  // GlassSurface.qml's `screenDrawn`, the one "nothing is drawn" signal the
+  // shell has. The backstop poll stops with it, and a wake re-reads the link
+  // at once so a wallpaper changed in the dark is current on the first frame.
+  // Unknown reads as true: the failure mode is a poll, never a stale backdrop.
+  property bool active: true
+  onActiveChanged: if (wallpaper.active) wallpaper.refresh()
+
+  // A file URL, not a path: `#`, `?` and `%` in a file name are a fragment, a
+  // query and an escape to the URL parser, so the path is percent-encoded
+  // (encodeURI leaves `#` and `?` alone, hence the two replaces).
+  source: resolvedPath
+    ? "file://" + encodeURI(resolvedPath).replace(/#/g, "%23").replace(/\?/g, "%3F") : ""
   fillMode: Image.PreserveAspectCrop
   cache: true
   asynchronous: true
@@ -61,7 +73,7 @@ Image {
 
   Timer {
     interval: 5000
-    running: true
+    running: wallpaper.active
     repeat: true
     onTriggered: wallpaper.refresh()
   }

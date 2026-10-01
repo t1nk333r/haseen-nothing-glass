@@ -1,6 +1,8 @@
 import QtQuick
 import Quickshell
 import Quickshell.Io
+import "JsonRead.js" as JsonRead
+import "ChildBound.js" as ChildBound
 
 // What the AI coding tools cost, as numbers and short labels.
 //
@@ -234,8 +236,23 @@ QtObject {
     if (!cb.active || cb.recomputing) return
     cb.recomputing = true
     cb._liveApplied = false
+    syncProc.started = false
     syncProc.running = true
   }
+
+  // The one bound on `recomputing`: that latch clears only when the run
+  // ends, so a codeburn that never answers would disable Sync for the rest
+  // of the session. ChildBound.js ends it - TERM at `syncTimeoutSec`, KILL
+  // `_syncKillGraceSec` later, to everything it started. Far above the
+  // measured 1.26 s warm, so a cold corpus scan still finishes.
+  property int syncTimeoutSec: 60
+  property int _syncKillGraceSec: 3
+
+  // The largest document handed to JSON.parse, from the cache or from
+  // codeburn's stdout. The biggest snapshot here is ~0.7 MB and the daily
+  // rollup ~0.3 MB; anything over 8 MiB is refused unparsed and the walk
+  // moves on to the next candidate (JsonRead.js).
+  property int maxDocumentBytes: 8 * JsonRead.MiB
 
   // ── Source selection ────────────────────────────────────────────────
   // [{ path, kind, mtimeMs }] in priority order: snapshots newest first,
@@ -333,6 +350,7 @@ QtObject {
     var c = cb._candidates[cb._try]
     if (!c) return
     var doc = null
+    if (JsonRead.tooLarge(text, cb.maxDocumentBytes)) { cb._advance(); return }
     try {
       doc = JSON.parse(String(text || ""))
     } catch (e) {
@@ -567,19 +585,23 @@ QtObject {
   property Process _syncProc: Process {
     id: syncProc
     running: false
+    // Whether the exec itself worked; reset by `recompute()` at every launch.
+    property bool started: false
     // status.sh exports this PATH before exec'ing codeburn, because the
     // shell's own environment does not carry ~/.npm-global/bin and the CLI
     // is an npm global here. Its stdout is the BARE payload - the same shape
     // as a snapshot's `payload`, without the envelope.
-    command: ["sh", "-c",
+    command: ChildBound.argv(cb.syncTimeoutSec, cb._syncKillGraceSec, ["sh", "-c",
       "PATH=\"$HOME/.npm-global/bin:$HOME/.local/share/mise/shims:$HOME/.local/bin:$PATH\"; " +
       "exec codeburn status --format menubar-json --scope combined " +
-      "--period today --no-optimize --no-timeline"]
+      "--period today --no-optimize --no-timeline"])
     stdout: StdioCollector {
       onStreamFinished: {
+        var raw = String(this.text || "")
+        if (JsonRead.tooLarge(raw, cb.maxDocumentBytes)) return
         var doc = null
         try {
-          doc = JSON.parse(String(this.text || ""))
+          doc = JSON.parse(raw)
         } catch (e) {
           return
         }
@@ -589,11 +611,13 @@ QtObject {
         }
       }
     }
-    onExited: function (code) {
+    onStarted: syncProc.started = true
+    onExited: function (code, status) {
       cb.recomputing = false
-      if (code !== 0 && !cb.loaded) {
+      if ((code !== 0 || status !== 0) && !cb.loaded) {
         cb.loaded = true
-        cb.errorMessage = "codeburn exited " + code
+        cb.errorMessage = ChildBound.timedOut(code, status)
+          ? "codeburn did not answer" : "codeburn exited " + code
       }
       // Only when nothing came back on stdout. codeburn serves a MEMOIZED
       // snapshot when the corpus fingerprint is unchanged, keeping the old
@@ -602,6 +626,16 @@ QtObject {
       // reads as a failed refresh. The scan timer still adopts the file
       // later, and by then its own timestamp is the newer one.
       if (!cb._liveApplied) cb.refresh()
+    }
+    // A launch Quickshell cannot exec drops `running` with no `exited`; the
+    // latch must clear on that path too.
+    onRunningChanged: {
+      if (syncProc.running || syncProc.started) return
+      cb.recomputing = false
+      if (!cb.loaded) {
+        cb.loaded = true
+        cb.errorMessage = "codeburn not runnable"
+      }
     }
   }
 

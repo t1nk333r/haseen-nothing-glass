@@ -458,9 +458,20 @@ QtObject {
     om.calendar = []
   }
 
+  // omarr's feed is a few KiB for a full fleet; one over 4 MiB is refused
+  // unparsed and reads as unreadable (JsonRead.js).
+  property int maxDocumentBytes: 4 * JsonRead.MiB
+
   function _apply(raw) {
     om.loaded = true
     om._nowMs = Date.now()
+    if (JsonRead.tooLarge(raw, om.maxDocumentBytes)) {
+      om.feedFound = true
+      om._clear()
+      om.state = "unreadable"
+      om.errorMessage = "The omarr feed is too large."
+      return
+    }
     var text = String(raw === undefined || raw === null ? "" : raw).trim()
     if (text === "") {
       // The writer's file is gone (or was never written): omarr has not run,

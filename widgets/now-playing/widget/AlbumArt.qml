@@ -37,8 +37,8 @@ Item {
         // (widgets-nothing/now-playing/main.qml:458): 2x headroom for a
         // fractional scale, and a floor for the frame before layout has run.
         //
-        // `cache: false` above stays: FlipAlbumArt._stamp() appends a fresh
-        // counter to every URL, so a cache entry could never be hit.
+        // `cache: false` above stays: CoverArt hands every copy over under a
+        // fresh URL (`?g=`), so a cache entry could never be hit.
         sourceSize.width: Math.max(1, Math.round(art.width * 2))
         sourceSize.height: Math.max(1, Math.round(art.height * 2))
     }

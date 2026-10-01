@@ -204,7 +204,7 @@ echo "OK: no unreachable widget directories"
 store_file="$PLUGIN_DIR/Store.qml"
 grep -q '_mayAbsorb' "$store_file" \
   || { echo "Store.qml lost the _mayAbsorb guard: a scratch store would eat nothing.json" >&2; exit 1; }
-grep -qE 'if \(!store\.loaded \|\| !store\._mayAbsorb\) return' "$store_file" \
+grep -qE 'if \(!store\.loaded( \|\| [^)]*)? \|\| !store\._mayAbsorb\) return' "$store_file" \
   || { echo "Store._absorbLegacy() no longer checks _mayAbsorb before migrating" >&2; exit 1; }
 for legacy in liquidglass.json nothing.json liquid-nothing.json; do
   grep -qE "path: store\._mayAbsorb \? \(store\._home \+ \"/\.config/omarchy/$legacy\"\) : \"\"" "$store_file" \
@@ -850,6 +850,100 @@ JSON
   ]
 }
 JSON
+  # A fourth retired file whose `.migrated` name is ALREADY taken - a restored
+  # backup, a sync tool - so `mv -n` keeps the source where it is. Absorbing
+  # it must still happen exactly once, however many times the store starts.
+  cat >"$home/.config/omarchy/liquidglass.json" <<'JSON'
+{
+  "version": 1,
+  "widgets": [
+    { "id": "battery-1", "type": "battery", "screen": "TEST-1",
+      "x": 21, "y": 22, "w": 192, "h": 192, "settings": {} }
+  ]
+}
+JSON
+  printf '%s\n' '{"version":1,"widgets":[]}' >"$home/.config/omarchy/liquidglass.json.migrated"
+  # A layout shaped like a real desktop: 37 widgets of 22 types, three tile
+  # sizes, two screens, both styles and none, and the per-instance settings
+  # the field table offers (strings, numbers, reals, booleans, non-ASCII). The
+  # load must hand every row back exactly as it is written here.
+  cat >"$home/scratch/legit.json" <<'JSON'
+{
+  "version": 1,
+  "widgets": [
+    {"id": "tailscale-1", "type": "tailscale", "screen": "DP-1", "x": 16, "y": 40, "w": 192, "h": 192, "style": "nothing", "settings": {}},
+    {"id": "network-1", "type": "network", "screen": "HDMI-A-1", "x": 224, "y": 144, "w": 400, "h": 192, "settings": {"networkInterface": "wlan0"}},
+    {"id": "storage-1", "type": "storage", "screen": "DP-1", "x": 432, "y": 248, "w": 400, "h": 400, "style": "nothing", "settings": {"storageMounts": "/, /home"}},
+    {"id": "photos-1", "type": "photos", "screen": "HDMI-A-1", "x": 640, "y": 352, "w": 192, "h": 192, "style": "nothing", "settings": {"photoFolder": "~/Pictures/Wallpapers", "photoIntervalSec": 45, "photoShuffle": false}},
+    {"id": "clock-digital-1", "type": "clock-digital", "screen": "DP-1", "x": 848, "y": 456, "w": 192, "h": 192, "style": "nothing", "settings": {}},
+    {"id": "calendar-1", "type": "calendar", "screen": "HDMI-A-1", "x": 1056, "y": 560, "w": 400, "h": 192, "style": "nothing", "settings": {"firstDayOfWeek": 1, "eventLookaheadDays": 2}},
+    {"id": "timer-1", "type": "timer", "screen": "DP-1", "x": 1264, "y": 664, "w": 400, "h": 400, "style": "nothing", "settings": {}},
+    {"id": "sunrise-1", "type": "sunrise", "screen": "HDMI-A-1", "x": 16, "y": 768, "w": 192, "h": 192, "style": "nothing", "settings": {"latitude": 40.7128, "longitude": -74.006, "useGeoclue": false}},
+    {"id": "tailscale-2", "type": "tailscale", "screen": "DP-1", "x": 224, "y": 872, "w": 192, "h": 192, "style": "nothing", "settings": {}},
+    {"id": "prayer-1", "type": "prayer", "screen": "HDMI-A-1", "x": 432, "y": 40, "w": 400, "h": 192, "style": "nothing", "settings": {}},
+    {"id": "codeburn-1", "type": "codeburn", "screen": "DP-1", "x": 640, "y": 144, "w": 400, "h": 400, "style": "nothing", "settings": {}},
+    {"id": "weather-1", "type": "weather", "screen": "HDMI-A-1", "x": 848, "y": 248, "w": 192, "h": 192, "style": "nothing", "settings": {"location": "Lisbon", "unit": "metric", "refreshMinutes": 30}},
+    {"id": "clock-analog-1", "type": "clock-analog", "screen": "DP-1", "x": 1056, "y": 352, "w": 192, "h": 192, "style": "nothing", "settings": {"analogSecondSweep": true}},
+    {"id": "calendar-2", "type": "calendar", "screen": "HDMI-A-1", "x": 1264, "y": 456, "w": 400, "h": 192, "settings": {}},
+    {"id": "perf-1", "type": "perf", "screen": "DP-1", "x": 16, "y": 560, "w": 400, "h": 400, "settings": {}},
+    {"id": "deepseek-1", "type": "deepseek", "screen": "HDMI-A-1", "x": 224, "y": 664, "w": 192, "h": 192, "settings": {}},
+    {"id": "claude-usage-1", "type": "claude-usage", "screen": "DP-1", "x": 432, "y": 768, "w": 192, "h": 192, "style": "nothing", "settings": {}},
+    {"id": "omarr-1", "type": "omarr", "screen": "HDMI-A-1", "x": 640, "y": 872, "w": 400, "h": 192, "style": "nothing", "settings": {}},
+    {"id": "clock-digital-2", "type": "clock-digital", "screen": "DP-1", "x": 848, "y": 40, "w": 400, "h": 400, "settings": {}},
+    {"id": "weather-2", "type": "weather", "screen": "HDMI-A-1", "x": 1056, "y": 144, "w": 192, "h": 192, "settings": {"location": "São Paulo"}},
+    {"id": "calendar-3", "type": "calendar", "screen": "DP-1", "x": 1264, "y": 248, "w": 192, "h": 192, "settings": {}},
+    {"id": "now-playing-1", "type": "now-playing", "screen": "HDMI-A-1", "x": 16, "y": 352, "w": 400, "h": 192, "settings": {"playerFilter": "spotify,mpv", "autoHideEnabled": true}},
+    {"id": "codeburn-2", "type": "codeburn", "screen": "DP-1", "x": 224, "y": 456, "w": 400, "h": 400, "settings": {}},
+    {"id": "claude-usage-2", "type": "claude-usage", "screen": "HDMI-A-1", "x": 432, "y": 560, "w": 192, "h": 192, "settings": {}},
+    {"id": "deepseek-2", "type": "deepseek", "screen": "DP-1", "x": 640, "y": 664, "w": 192, "h": 192, "settings": {}},
+    {"id": "perf-2", "type": "perf", "screen": "HDMI-A-1", "x": 848, "y": 768, "w": 400, "h": 192, "settings": {}},
+    {"id": "tailscale-3", "type": "tailscale", "screen": "DP-1", "x": 1056, "y": 872, "w": 400, "h": 400, "settings": {}},
+    {"id": "battery-1", "type": "battery", "screen": "HDMI-A-1", "x": 1264, "y": 40, "w": 192, "h": 192, "settings": {}},
+    {"id": "network-2", "type": "network", "screen": "DP-1", "x": 16, "y": 144, "w": 192, "h": 192, "settings": {}},
+    {"id": "storage-2", "type": "storage", "screen": "HDMI-A-1", "x": 224, "y": 248, "w": 400, "h": 192, "settings": {}},
+    {"id": "perf-3", "type": "perf", "screen": "DP-1", "x": 432, "y": 352, "w": 400, "h": 400, "settings": {}},
+    {"id": "codeburn-3", "type": "codeburn", "screen": "HDMI-A-1", "x": 640, "y": 456, "w": 192, "h": 192, "settings": {}},
+    {"id": "claude-usage-3", "type": "claude-usage", "screen": "DP-1", "x": 848, "y": 560, "w": 192, "h": 192, "settings": {}},
+    {"id": "deepseek-3", "type": "deepseek", "screen": "HDMI-A-1", "x": 1056, "y": 664, "w": 400, "h": 192, "settings": {}},
+    {"id": "calendar-4", "type": "calendar", "screen": "DP-1", "x": 1264, "y": 768, "w": 400, "h": 400, "settings": {}},
+    {"id": "city-2-1", "type": "city-2", "screen": "HDMI-A-1", "x": 16, "y": 872, "w": 192, "h": 192, "style": "liquid-glass", "settings": {"clocks": "America/Los_Angeles|LA,Europe/London|,Asia/Tokyo|Tokyo"}},
+    {"id": "tailscale-4", "type": "tailscale", "screen": "DP-1", "x": 224, "y": 40, "w": 192, "h": 192, "style": "liquid-glass", "settings": {}}
+  ]
+}
+JSON
+  # Rows no writer of this plugin produces: non-finite geometry (spelled as
+  # strings - Qt's JSON.parse refuses 1e999), absurd and negative numbers,
+  # string sizes, `__proto__` and `constructor` keys, a style that is not a
+  # string and settings far past the per-row cap. Every row must come
+  # through - clamped, never dropped.
+  local note
+  note="$(head -c 20000 /dev/zero | tr '\0' x)"
+  cat >"$home/scratch/hostile.json" <<JSON
+{
+  "version": 1,
+  "widgets": [
+    {"id": "inf-1", "type": "weather", "screen": "TEST-1", "x": "NaN", "y": -40, "w": "Infinity", "h": -10,
+     "settings": {"__proto__": {"polluted": true}, "location": "Paris"}},
+    {"id": "huge-1", "type": "perf", "screen": "TEST-1", "x": 1e308, "y": "12", "w": "192", "h": null,
+     "settings": {"note": "$note"}},
+    {"__proto__": {"polluted": true}, "id": "proto-1", "type": "timer", "screen": "TEST-1",
+     "x": 16, "y": 16, "w": 192, "h": 192, "style": 12, "settings": {"constructor": 1, "durationSec": 300}}
+  ]
+}
+JSON
+  # A well-formed document past the 4 MiB parse cap: it must take the
+  # corrupt-file path (not loaded, backed up, left on disk as it is).
+  { printf '%s' '{"version":1,"widgets":[{"id":"big-1","type":"perf","screen":"TEST-1","x":16,"y":16,"w":192,"h":192,"settings":{}}],"pad":"'
+    head -c 4500000 /dev/zero | tr '\0' a
+    printf '%s\n' '"}'; } >"$home/scratch/huge.json"
+  # 300 ordinary rows, more than the 256 a writer may add: all of them load.
+  { printf '%s' '{"version":1,"widgets":['
+    local i
+    for ((i = 1; i <= 300; i++)); do
+      ((i > 1)) && printf ','
+      printf '{"id":"perf-%d","type":"perf","screen":"TEST-1","x":%d,"y":16,"w":192,"h":192,"settings":{}}' "$i" "$i"
+    done
+    printf '%s\n' ']}'; } >"$home/scratch/crowd.json"
 }
 
 # For runtime-settings-merge.qml: the plugin's shell.json entry and its own
@@ -917,5 +1011,26 @@ bash "$SCRIPT_DIR/weather-http.sh"
 # The real weather header and calendar event card given <img> markup: no
 # fetch, against an AutoText control that must fetch.
 bash "$SCRIPT_DIR/untrusted-text.sh"
+
+# ── 13. Now Playing cover art is bounded before Qt sees it ─────────────────
+#
+# Real curl against local HTTPS/HTTP servers, through both real drawings.
+bash "$SCRIPT_DIR/cover-art.sh"
+
+# ── 14. Settings never become arguments, and children have deadlines ───────
+bash "$SCRIPT_DIR/photo-folder.sh"
+bash "$SCRIPT_DIR/argv-hardening.sh"
+bash "$SCRIPT_DIR/child-deadlines.sh"
+bash "$SCRIPT_DIR/prayer-zone-state.sh"
+
+# ── 15. File-backed JSON is refused past its cap ───────────────────────────
+bash "$SCRIPT_DIR/json-caps.sh"
+
+# ── 16. Wallpaper paths, hidden clocks ─────────────────────────────────────
+bash "$SCRIPT_DIR/wallpaper.sh"
+bash "$SCRIPT_DIR/clock-visibility.sh"
+
+# ── 17. The IPC verbs only write real settings ─────────────────────────────
+bash "$SCRIPT_DIR/settings-ipc.sh"
 
 exit 0

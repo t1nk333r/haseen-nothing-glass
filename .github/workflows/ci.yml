@@ -201,7 +201,7 @@ jobs:
     container: archlinux:latest
     steps:
       - name: Install packages
-        run: pacman -Syu --noconfirm --needed git jq diffutils quickshell gamescope imagemagick mesa vulkan-swrast curl python procps-ng
+        run: pacman -Syu --noconfirm --needed git jq diffutils quickshell gamescope imagemagick mesa vulkan-swrast curl python procps-ng openssl
 
       - name: Checkout
         uses: actions/checkout@v4
@@ -236,7 +236,45 @@ jobs:
             "OK: the calendar never draws an account path" \
             "OK: GeoClue stays off by default and an opt-out holds" \
             "OK: weather requests are bounded in time and size" \
-            "OK: text from outside is drawn as plain text, never obeyed"; do
+            "OK: text from outside is drawn as plain text, never obeyed" \
+            'OK: a good cover becomes a local copy under $XDG_RUNTIME_DIR and draws' \
+            "OK: an endless or oversize body is refused at the 4 MiB cap, before the deadline" \
+            "OK: a stalled body settles at the deadline, and the next cover then loads" \
+            "OK: http://, a redirect to http, relative, ftp:// and another host's file:// are refused; zero requests reach http" \
+            "OK: file:///dev/zero, a FIFO and an oversize file are refused within the deadline" \
+            "OK: a data:image URL is drawn under the cap and refused over it" \
+            "OK: a new cover kills the fetch it supersedes" \
+            "OK: destroying the component kills its fetch and removes its 0700 directory" \
+            "OK: with no curl there is no art and no hang" \
+            "OK: cover directories are exclusive, validated, and cleaned even during creation; collisions remain untouched" \
+            "OK: FlipAlbumArt comes to rest after a load that never completes, a failed one, and \"\"" \
+            "OK: both tiles draw a copied cover, ask http for nothing, and stay under" \
+            "OK: 40 distinct covers are each drawn and sampled, and RSS grows" \
+            "OK: photo folder refuses expressions and relative paths (find never sees them)" \
+            "OK: photo URLs load for names holding # ? %" \
+            "OK: an in-flight photo scan cannot overwrite rejection of a new invalid folder" \
+            "OK: tailscale ping only ever targets a dotted-quad address" \
+            "OK: notify-send gets a dash-led title after --" \
+            "OK: a clocks zone that is not an IANA name never becomes TZ" \
+            "OK: a hung df, khal, codeburn and find each settle within their bound" \
+            "OK: each source recovers after a bound expires (refresh/Sync run again)" \
+            "OK: no hung child or grandchild is left behind" \
+            "OK: every capped source reads its document when it is small" \
+            "OK: a document over its cap is refused unparsed and reads as unreadable" \
+            "OK: prayer-zone.sh leaves another plugin's state, HOME and TMPDIR untouched" \
+            "OK: prayer-zone.sh still prints the timezone window" \
+            "OK: a wallpaper path holding # ? % loads" \
+            "OK: the wallpaper link poll pauses while the screen is not drawn, and resumes with a read" \
+            "OK: both analog clock hands pause hidden and resume visible" \
+            "OK: the options file loads without prototype keys" \
+            "OK: option refuses structural, prototype and malformed keys and values, and writes nothing" \
+            "OK: option still writes a real setting to both places" \
+            "OK: set takes only real per-instance settings, and a refusal writes nothing" \
+            "OK: set, move and resize still write, with geometry clamped" \
+            "OK: the store and the options file are mode 0600 after a write" \
+            "OK: an options file or shell.json past 4 MiB is not parsed" \
+            "OK: an unparsable store refuses writes and preserves its original and backup" \
+            "OK: options migration is durable when the retired filename already exists"; do
             grep -qF "$marker" /tmp/run.log || missing+="  - $marker"$'\n'
           done
           # The settings-merge test drives a real Wayland compositor, and a GitHub runner

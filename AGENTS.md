@@ -247,6 +247,49 @@ came from a real bug:
 12. `WeatherDataQs._renderOutputs` names exactly the properties the render
     path writes (static, section 4f), so a report that throws mid-render is
     rolled back whole.
+13. Now Playing cover art never reaches Qt's loader raw. `components/CoverArt.qml`
+    copies it first:
+    - HTTPS only, including redirects, at most 3 redirects;
+    - a 4 MiB cap and a 10 s deadline;
+    - local files and `data:` URLs bounded too;
+    - one fetch in flight;
+    - copies in a 0700 directory under `$XDG_RUNTIME_DIR`, removed on teardown.
+
+    Colour is sampled from a 64x64 grab, never from a `Canvas.loadImage` of the
+    cover. `tests/cover-art.sh` covers these cases, against local HTTPS and
+    HTTP servers and both real drawings:
+    - an endless, stalled or oversize body;
+    - `http` and a downgrade redirect;
+    - `/dev/zero`, a FIFO and an oversize file;
+    - superseding, destruction and no `curl`;
+    - flip recovery;
+    - flat RSS over 40 distinct covers.
+
+    It needs `openssl`.
+14. A setting never becomes an argument, and no child runs unbounded:
+    - `tests/photo-folder.sh`: a `-delete` photo folder deletes nothing;
+    - `tests/argv-hardening.sh`: Tailscale ping takes only a dotted quad,
+      `notify-send` gets `--`, and a clock zone must be an IANA name;
+    - `tests/child-deadlines.sh`: a hung `df`, `khal`, `codeburn` or `find`
+      settles, recovers and leaves no child behind (`components/ChildBound.js`);
+    - `tests/prayer-zone-state.sh`: the prayer helper writes nothing outside
+      its own work directory.
+15. File-backed JSON is refused past a per-source UTF-8 byte cap before
+    `JSON.parse` (`components/JsonRead.js`, `tests/json-caps.sh`).
+16. Wallpaper paths holding `#`, `?` or `%` load. The wallpaper poll pauses
+    while the screen is not drawn, and the 16 ms analog hands stop while
+    hidden (`tests/wallpaper.sh`, `tests/clock-visibility.sh`).
+17. The IPC `option` and `set` verbs write only declared settings with finite,
+    bounded values (`tests/settings-ipc.sh`). The store's own guards are in
+    `tests/runtime-store.qml`:
+    - clamped geometry, rows kept;
+    - prototype keys dropped;
+    - 16 KiB per-row settings and 256 rows;
+    - a 4 MiB parse cap;
+    - no writes while unreadable;
+    - 0600 files;
+    - durable legacy absorption;
+    - a 37-row layout loaded unchanged.
 
 Checks 2 and 5 read a scan rather than a file, so both refuse an EMPTY one: a
 `plugin.settings.<key>` grep or a `WidgetFields.qml` key table that comes back

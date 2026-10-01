@@ -1,6 +1,7 @@
 import QtQuick
 import Quickshell.Services.Mpris
 import "../../components/nothing"
+import "../../components"
 
 // Now Playing, Nothing style.
 //
@@ -77,9 +78,17 @@ Item {
     readonly property string artist:  _activePlayer?.trackArtist ?? ""
     readonly property string _rawAlbumArt: _activePlayer?.trackArtUrl ?? ""
 
-    // No placeholder image here: with no art the cover slot draws the dot
-    // matrix note instead, so the "no art" state is a pattern, not a PNG.
-    property string albumArt: ""
+    // The player's URL, after the debounce. It is never drawn: CoverArt turns
+    // it into a bounded local copy (or refuses it), and `albumArt` - the only
+    // URL the cover Image is given - is what CoverArt says. No placeholder
+    // image either: with no art the cover slot draws the dot matrix note
+    // instead, so the "no art" state is a pattern, not a PNG.
+    property string _requestedArt: ""
+    CoverArt {
+        id: _cover
+        source: root._requestedArt
+    }
+    readonly property string albumArt: _cover.url
     readonly property bool hasArt: root.albumArt !== ""
 
     // Same debounce as the Liquid Glass twin, including the reset on "" - a
@@ -90,7 +99,7 @@ Item {
     Timer {
         id: _artDebounceTimer
         interval: 150
-        onTriggered: root.albumArt = root._rawAlbumArt
+        onTriggered: root._requestedArt = root._rawAlbumArt
     }
 
     readonly property bool isPlaying: _activePlayer?.isPlaying ?? false
@@ -138,7 +147,7 @@ Item {
     onTrackChanged: {
         if (track === "" || track === "Not Playing") {
             _artDebounceTimer.stop()
-            albumArt = ""
+            _requestedArt = ""
         }
         root.position = root._playerPositionUs()
         root._lastPosTick = 0

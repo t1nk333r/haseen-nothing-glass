@@ -121,7 +121,15 @@ Item {
     readonly property string track:   _activePlayer?.trackTitle ?? ""
     readonly property string artist:  _activePlayer?.trackArtist ?? ""
     readonly property string _rawAlbumArt: _activePlayer?.trackArtUrl ?? ""
-    property string albumArt: ""
+    // The player's URL, after the debounce. It is never drawn: CoverArt turns
+    // it into a bounded local copy (or refuses it), and `albumArt` - the only
+    // URL any Image or Canvas in this tree is given - is what CoverArt says.
+    property string _requestedArt: ""
+    CoverArt {
+        id: _cover
+        source: root._requestedArt
+    }
+    readonly property string albumArt: _cover.url
 
     // True only when a player actually handed over cover art. The square
     // layout paints `albumArt` full-bleed behind everything, so the background
@@ -150,7 +158,7 @@ Item {
     Timer {
         id: _artDebounceTimer
         interval: 150
-        onTriggered: root.albumArt = root._rawAlbumArt
+        onTriggered: root._requestedArt = root._rawAlbumArt
     }
     // MprisPlayer exposes isPlaying directly, so the PlaybackStatus enum
     // comparison the Plasma version needed is gone.
@@ -204,7 +212,7 @@ Item {
     onTrackChanged: {
         if (track === "" || track === "Not Playing") {
             _artDebounceTimer.stop()
-            albumArt = ""
+            _requestedArt = ""
         }
         root.position = root._playerPositionUs()
         root._lastPosTick = 0
@@ -218,7 +226,7 @@ Item {
         repeat: false
         onTriggered: {
             if (root.albumArt !== "" && root.albumArt !== root._lastSampledUrl)
-                sampleCanvas.requestPaint()
+                root._sampleArt()
         }
     }
     onIsPlayingChanged: {
@@ -330,9 +338,8 @@ Item {
     property string _lastSampledUrl: ""
 
     onAlbumArtChanged: {
-        if (albumArt !== "") {
-            sampleCanvas.loadImage(albumArt)
-        } else {
+        if (albumArt === "") {
+            _dropGrab()
             _hasSampledColor = false
             _sampledTint = "#000000"
             _sampledGradientTop = "#1A1B1E"
@@ -343,6 +350,52 @@ Item {
         }
     }
 
+    // The sampler never loads a cover itself. `Canvas.loadImage(url)` decoded
+    // every cover at full size and kept each one for the life of the tile (41
+    // distinct 2000px covers held ~760 MB). Instead the cover is decoded once,
+    // at 64x64, by this Image; that is grabbed into a 64x64 picture of our
+    // own, which the canvas reads and unloads straight away. Nothing is kept
+    // per track: one 64px Image, and at most one 64px grab in flight.
+    // (`ctx.drawImage(imageItem)` is no way round it: Qt resolves an Image
+    // argument to its `source` URL and loads that at full size.)
+    Image {
+        id: sampleImage
+        width: 64
+        height: 64
+        visible: false
+        asynchronous: true
+        cache: false
+        source: root.albumArt
+        sourceSize.width: 64
+        sourceSize.height: 64
+        onStatusChanged: if (status === Image.Ready) root._sampleArt()
+    }
+
+    // The grab being read, and the cover it was taken of. The result object is
+    // held until the canvas has read it: its `itemgrabber:` URL lives as long
+    // as the object does.
+    property var _grab: null
+    property string _grabFor: ""
+
+    function _dropGrab() {
+        if (root._grab) sampleCanvas.unloadImage(String(root._grab.url))
+        root._grab = null
+        root._grabFor = ""
+    }
+
+    function _sampleArt() {
+        if (root.albumArt === "" || sampleImage.status !== Image.Ready) return
+        var want = root.albumArt
+        sampleImage.grabToImage(function (result) {
+            if (want !== root.albumArt) return
+            root._dropGrab()
+            root._grab = result
+            root._grabFor = want
+            sampleCanvas.loadImage(String(result.url))
+            sampleCanvas.requestPaint()
+        }, Qt.size(64, 64))
+    }
+
     Canvas {
         id: sampleCanvas
         width: 64
@@ -350,27 +403,25 @@ Item {
         visible: true
         opacity: 0
 
-        Component.onCompleted: {
-            if (root.albumArt !== "") loadImage(root.albumArt)
-        }
-
-        onImageLoaded: {
-            if (root.albumArt !== "" && root.albumArt !== root._lastSampledUrl) {
-                root._lastSampledUrl = root.albumArt
-                _resampleTimer.stop()
-                requestPaint()
-            }
-        }
+        onImageLoaded: requestPaint()
 
         onPaint: {
-            var url = root.albumArt
-            if (!url || !isImageLoaded(url)) return
+            var grab = root._grab
+            if (!grab) return
+            var grabUrl = String(grab.url)
+            if (!isImageLoaded(grabUrl)) return
+            var sampledFor = root._grabFor
 
             var ctx = getContext("2d")
             ctx.reset()
-            ctx.drawImage(url, 0, 0, 64, 64)
+            ctx.drawImage(grabUrl, 0, 0, 64, 64)
 
             var imgData = ctx.getImageData(0, 0, 64, 64)
+            root._dropGrab()
+            if (sampledFor !== root.albumArt) return
+            root._lastSampledUrl = sampledFor
+            _resampleTimer.stop()
+
             var d = imgData.data
             var pixels = []
             for (var i = 0; i < d.length; i += 4) {

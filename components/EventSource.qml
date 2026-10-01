@@ -2,6 +2,8 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 import "events/CalendarEvents.js" as CalendarEvents
+import "JsonRead.js" as JsonRead
+import "ChildBound.js" as ChildBound
 
 // The calendar widget's only view of event data.
 //
@@ -222,11 +224,18 @@ QtObject {
     readonly property bool _stale: source._fileLoaded && source._syncedAtMs > 0
         && (source._nowMs - source._syncedAtMs) > source.staleAfterSeconds * 1000
 
+    // The published document is a few KiB for a busy calendar; 4 MiB is far
+    // past any real one, and a file over it is refused unparsed (JsonRead.js).
+    property int maxDocumentBytes: 4 * JsonRead.MiB
+
     function _applyFile(text) {
         if (source._fileSettled && text === source._lastSeenText) return
         source._lastSeenText = text
         source._fileSettled = true
-        var parsed = CalendarEvents.parseDocument(text)
+        var parsed = JsonRead.tooLarge(text, source.maxDocumentBytes)
+            ? { ok: false, error: "the file is larger than "
+                + Math.round(source.maxDocumentBytes / JsonRead.MiB) + " MiB", rows: [], syncedAtMs: 0 }
+            : CalendarEvents.parseDocument(text)
         source._fileLoaded = parsed.ok
         source._fileError = parsed.ok ? "" : parsed.error
         source._fileEvents = parsed.ok ? parsed.rows : []
@@ -280,19 +289,29 @@ QtObject {
     // anything else as a failed line, so `[locale] datetimeformat =
     // %Y-%m-%d %H:%M` is a requirement of using khal here and a machine
     // without it gets a `readError` instead of wrong times.
+    // Bounded by ChildBound.js: a khal stuck on a vdir behind a dead network
+    // mount is TERMed at the bound and KILLed `_khalKillGraceSec` later, and
+    // the seam reports it instead of holding a process for the session.
+    property int khalTimeoutSec: 20
+    property int _khalKillGraceSec: 3
+
     property Process _khalList: Process {
         id: khalList
         running: false
-        command: ["khal", "list", source._khalWindow[0], source._khalWindow[1],
+        command: ChildBound.argv(source.khalTimeoutSec, source._khalKillGraceSec,
+                 ["khal", "list", source._khalWindow[0], source._khalWindow[1],
                   "--json", "uid", "--json", "title", "--json", "start",
-                  "--json", "end", "--json", "all-day", "--json", "calendar"]
+                  "--json", "end", "--json", "all-day", "--json", "calendar"])
         stdout: StdioCollector {
             onStreamFinished: source._applyKhal(text)
         }
-        onExited: function (exitCode) {
-            if (exitCode === 0 || source._khalError !== "") return
+        onExited: function (exitCode, exitStatus) {
+            if (exitCode === 0 && exitStatus === 0) return
+            var timedOut = ChildBound.timedOut(exitCode, exitStatus)
+            if (!timedOut && source._khalError !== "") return
             source._khalEvents = []
-            source._khalError = "khal list exited " + exitCode
+            source._khalError = timedOut ? "khal list did not answer"
+                : "khal list exited " + exitCode
             source.eventsChanged()
         }
     }

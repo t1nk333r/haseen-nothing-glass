@@ -65,6 +65,20 @@ Item {
   // { key: value } - only what the user actually changed, never the defaults.
   property var values: ({})
   property bool loaded: false
+  property bool _corrupt: false
+
+  // Which keys and values are allowed is GlassSurface.checkPluginSetting's
+  // call, made before anything reaches set(). This file only guarantees that
+  // what it holds is plain data: unsafe keys and non-JSON values never enter
+  // `values` (PlainData.qml), from disk or from set().
+  PlainData { id: plain }
+
+  // A document larger than this is not parsed: it takes the unreadable path
+  // below (ignored, values {}), the same as one that does not parse.
+  readonly property int maxFileChars: 4 * 1024 * 1024
+
+  // chmod 600 after our own writes, and the checked rename of the retired file.
+  OwnFiles { id: chores }
 
   function get(key, fallback) {
     var k = String(key)
@@ -72,24 +86,34 @@ Item {
   }
 
   function set(key, value) {
+    if (!options.loaded || options._corrupt) return false
     var k = String(key || "")
-    if (k === "") return false
-    var next = {}
-    for (var existing in options.values) next[existing] = options.values[existing]
-    next[k] = value
+    if (plain.isUnsafeKey(k)) return false
+    var c = plain.clean(value)
+    if (!c.ok) return false
+    var next = plain.cleanObject(options.values)
+    next[k] = c.value
     options.values = next
     options._write()
     return true
   }
 
   function clear(key) {
+    if (!options.loaded || options._corrupt) return false
     var k = String(key || "")
     if (!Object.prototype.hasOwnProperty.call(options.values, k)) return false
     var next = {}
-    for (var existing in options.values) if (existing !== k) next[existing] = options.values[existing]
+    var keys = Object.keys(options.values)
+    for (var i = 0; i < keys.length; i++) if (keys[i] !== k) next[keys[i]] = options.values[keys[i]]
     options.values = next
     options._write()
     return true
+  }
+
+  // The `options` object of a parsed document, as plain data; {} for a
+  // document that is not one.
+  function _optionsOf(parsed) {
+    return (parsed && typeof parsed === "object") ? plain.cleanObject(parsed.options) : {}
   }
 
   // Written the same way the widget store is: blocking, so a shell that is
@@ -112,10 +136,9 @@ Item {
     var next = {}
     var text = ""
     try { text = String(legacyOptions.text()) } catch (e) { text = "" }
-    if (text.trim() !== "") {
+    if (text.trim() !== "" && !plain.exceedsBytes(text, options.maxFileChars)) {
       try {
-        var parsed = JSON.parse(text)
-        if (parsed && typeof parsed.options === "object" && parsed.options !== null) next = parsed.options
+        next = options._optionsOf(JSON.parse(text))
       } catch (e) {
         next = {}
       }
@@ -126,7 +149,10 @@ Item {
     if (Object.keys(next).length === 0) return  // nothing on offer: leave the old file where it is
 
     options._write()
-    Quickshell.execDetached(["mv", "-n", options._legacyPath, options._legacyPath + ".migrated"])
+    // Checked: `mv -n` keeps the source when the target exists. Nothing
+    // depends on it going - adoption only ever runs while our own file is
+    // absent, and the write above has just created it.
+    chores.retire(options._legacyPath, options._legacyPath + ".migrated")
     console.log("nothing-glass: adopted plugin settings from liquidglass-options.json")
   }
 
@@ -156,16 +182,26 @@ Item {
     printErrors: false
 
     onLoaded: {
-      try {
-        var parsed = JSON.parse(text())
-        options.values = (parsed && typeof parsed.options === "object" && parsed.options !== null)
-          ? parsed.options : {}
-      } catch (e) {
-        console.warn("nothing-glass: " + options.path + " unreadable, ignoring it")
+      var t = String(text() || "")
+      if (plain.exceedsBytes(t, options.maxFileChars)) {
+        options._corrupt = true
+        console.warn("nothing-glass: " + options.path + " is larger than " +
+                     options.maxFileChars + " bytes, ignoring it")
         options.values = {}
+      } else {
+        try {
+          options.values = options._optionsOf(JSON.parse(t))
+          options._corrupt = false
+        } catch (e) {
+          options._corrupt = true
+          console.warn("nothing-glass: " + options.path + " unreadable, ignoring it")
+          options.values = {}
+        }
       }
       options.loaded = true
     }
+    // Plugin settings: owner-only (OwnFiles.qml).
+    onSaved: chores.restrict(options.path)
     // No file yet is the normal first run - and it is also what a rename
     // looks like from here, so the previous name is consulted once, through
     // _migrate(). Only a genuinely absent file counts: a path that is there

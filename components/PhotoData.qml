@@ -1,6 +1,7 @@
 import QtQuick
 import Quickshell
 import Quickshell.Io
+import "ChildBound.js" as ChildBound
 
 // A folder of pictures, as a list of file URLs plus a cursor that advances on
 // its own. No thumbnailing and no cache: Image with `sourceSize` set does the
@@ -60,44 +61,102 @@ QtObject {
 
   function next() { if (photos.count > 0) photos.index = (photos.index + 1) % photos.count }
   function previous() { if (photos.count > 0) photos.index = (photos.index + photos.count - 1) % photos.count }
-  function refresh() { scan.running = true }
+
+  // Only an absolute folder is ever scanned. The setting is free text from the
+  // settings sheet, the IPC `set`/`option` verbs and the config files, and a
+  // relative value is meaningless here - it would resolve against the
+  // shell's own working directory - while one starting with `-` is worse:
+  // `find` reads it as an EXPRESSION, not a path (`--` does not change that
+  // for GNU find), and `-delete` then deletes every file in that directory.
+  function refresh() {
+    if (photos._dir.charAt(0) !== "/") {
+      // Discard an older absolute folder's result if it is still in flight.
+      photos._rescan = scan.running
+      photos.files = []
+      photos.index = 0
+      photos.loaded = true
+      photos.errorMessage = "Photo folder must be an absolute path"
+      return
+    }
+    if (scan.running) { photos._rescan = true; return }
+    scan.started = false
+    scan.running = true
+  }
 
   on_DirChanged: photos.refresh()
+
+  // A folder on a dead network mount or a wedged FUSE daemon would hold the
+  // scan - and with it every later refresh - for as long as the mount hangs.
+  // ChildBound.js bounds it, ending the whole pipeline: TERM at `timeoutSec`,
+  // KILL `_killGraceSec` later.
+  property int timeoutSec: 15
+  property int _killGraceSec: 3
+  // A refresh asked for while a scan was running (the folder changed under
+  // it); the exit handler starts it, so the newest folder always wins.
+  property bool _rescan: false
+  // The list the last scan printed, applied by the exit handler - the first
+  // place that knows whether the scan finished or was cut off.
+  property var _pending: null
 
   property Process _scan: Process {
     id: scan
     running: false
+    // Whether the exec itself worked; reset by `refresh()` at every launch.
+    property bool started: false
     // -maxdepth 1: a wallpaper folder with a nested archive should not turn
     // one widget into a recursive directory walk.
     // The folder is passed as an argument, never interpolated into the
     // script: the setting is editable from the settings sheet and the IPC
     // `set` verb, so a name holding a shell metacharacter would otherwise be
     // expanded by the shell instead of used literally - and a name holding a
-    // command would be executed.
-    command: ["sh", "-c",
-      "find \"$1\" -maxdepth 1 -type f " +
+    // command would be executed. `refresh()` only ever passes an absolute
+    // path; the `./` prefix is the script's own guarantee that whatever it is
+    // handed reaches `find` as a path and never as an expression.
+    command: ChildBound.argv(photos.timeoutSec, photos._killGraceSec, ["sh", "-c",
+      "d=$1; case $d in /*) ;; *) d=./$d ;; esac; " +
+      "find \"$d\" -maxdepth 1 -type f " +
       "\\( -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.png' -o -iname '*.webp' \\) " +
       "2>/dev/null | head -400 | sort",
-      "sh", photos._dir]
+      "sh", photos._dir])
     stdout: StdioCollector {
       onStreamFinished: {
         var out = []
         var lines = String(this.text || "").split("\n")
         for (var i = 0; i < lines.length; i++) {
           var p = lines[i].trim()
-          if (p !== "") out.push("file://" + encodeURI(p).replace(/#/g, "%23"))
+          // `#` and `?` would end the path at a fragment or a query, and
+          // encodeURI leaves both alone (Wallpaper.qml encodes the same way).
+          if (p !== "") out.push("file://" + encodeURI(p).replace(/#/g, "%23").replace(/\?/g, "%3F"))
         }
-        if (photos.shuffle) {
-          for (var j = out.length - 1; j > 0; j--) {
-            var k = Math.floor(Math.random() * (j + 1))
-            var tmp = out[j]; out[j] = out[k]; out[k] = tmp
-          }
-        }
-        photos.files = out
-        photos.index = 0
-        photos.loaded = true
-        photos.errorMessage = out.length === 0 ? "No pictures in " + photos.folderLabel : ""
+        photos._pending = out
       }
+    }
+    onStarted: scan.started = true
+    onExited: function (code, status) {
+      var out = photos._pending || []
+      photos._pending = null
+      if (photos._rescan) { photos._rescan = false; photos.refresh(); return }
+      photos.loaded = true
+      if (ChildBound.timedOut(code, status)) {
+        photos.errorMessage = "Photo folder did not answer"
+        return
+      }
+      if (photos.shuffle) {
+        for (var j = out.length - 1; j > 0; j--) {
+          var k = Math.floor(Math.random() * (j + 1))
+          var tmp = out[j]; out[j] = out[k]; out[k] = tmp
+        }
+      }
+      photos.files = out
+      photos.index = 0
+      photos.errorMessage = out.length === 0 ? "No pictures in " + photos.folderLabel : ""
+    }
+    onRunningChanged: {
+      if (scan.running || scan.started) return
+      photos._pending = null
+      photos._rescan = false
+      photos.loaded = true
+      photos.errorMessage = "Could not scan the photo folder"
     }
   }
 

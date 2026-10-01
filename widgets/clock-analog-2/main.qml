@@ -21,7 +21,9 @@ Item {
         id: frameTimer
         interval: 16
         repeat: true
-        running: true
+        // Off while the host is hidden (its screen is switched off): a 60 Hz
+        // sweep with nothing drawn is all cost (WidgetHost.qml `visible`).
+        running: full.visible
         onTriggered: {
             const now = Date.now()
             const d = new Date(now)

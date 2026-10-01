@@ -1,6 +1,7 @@
 import QtQuick
 import Quickshell
 import Quickshell.Io
+import "ChildBound.js" as ChildBound
 
 // Filesystem use. There is no service for this - `df` is the interface - so
 // this is the one data component in the set that polls, and it is written to
@@ -46,7 +47,23 @@ QtObject {
 
   readonly property var primary: store.entries.length > 0 ? store.entries[0] : null
 
-  function refresh() { if (store.active) proc.running = true }
+  function refresh() {
+    if (!store.active || proc.running) return
+    proc.started = false
+    proc.running = true
+  }
+
+  // One `df` stats every mount, so one dead NFS server or wedged FUSE daemon
+  // holds it for as long as that mount does - and while it is held the poll
+  // steps around it, so the tile would freeze on its last reading for the
+  // session. ChildBound.js bounds it: TERM at `timeoutSec`, KILL
+  // `_killGraceSec` later, to everything it started.
+  property int timeoutSec: 10
+  property int _killGraceSec: 3
+  // The rows the last run printed. Applied by the exit handler, which is the
+  // first place that knows whether the run finished or was cut off; the
+  // collector always ends before `exited` is emitted.
+  property var _pendingRows: null
 
   function _human(kb) {
     var units = ["K", "M", "G", "T", "P"]
@@ -59,10 +76,14 @@ QtObject {
 
   property Process _proc: Process {
     id: proc
+    // Whether the exec itself worked; reset by `refresh()` at every launch. A
+    // launch Quickshell cannot exec drops `running` with no `exited`.
+    property bool started: false
     // -P forces the one-line-per-filesystem POSIX format (a long device name
     // wraps otherwise and every field shifts); -k fixes the unit at 1 KiB so
     // the parsing does not depend on the host's block size.
-    command: ["df", "-Pk", "-x", "tmpfs", "-x", "devtmpfs", "-x", "efivarfs", "-x", "overlay"]
+    command: ChildBound.argv(store.timeoutSec, store._killGraceSec,
+      ["df", "-Pk", "-x", "tmpfs", "-x", "devtmpfs", "-x", "efivarfs", "-x", "overlay"])
     stdout: StdioCollector {
       onStreamFinished: {
         var rows = []
@@ -87,10 +108,28 @@ QtObject {
         // a named subset is reordered by `entries` to match what was asked
         // for.
         rows.sort(function (a, b) { return b.size - a.size })
-        store.allEntries = rows
-        store.loaded = true
-        store.errorMessage = rows.length === 0 ? "No filesystems" : ""
+        store._pendingRows = rows
       }
+    }
+    onStarted: proc.started = true
+    onExited: function (code, status) {
+      var rows = store._pendingRows || []
+      store._pendingRows = null
+      store.loaded = true
+      // What a cut-off run printed is a partial table, so the last full one
+      // stays.
+      if (ChildBound.timedOut(code, status)) { store.errorMessage = "df did not answer"; return }
+      if (ChildBound.notRunnable(code)) { store.errorMessage = "df not runnable"; return }
+      // Any other exit still printed every filesystem it could read (df
+      // exits 1 when one mount fails), so that table is applied.
+      store.allEntries = rows
+      store.errorMessage = rows.length === 0 ? "No filesystems" : ""
+    }
+    onRunningChanged: {
+      if (proc.running || proc.started) return
+      store._pendingRows = null
+      store.loaded = true
+      store.errorMessage = "df not runnable"
     }
   }
 

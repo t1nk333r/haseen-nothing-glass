@@ -15,6 +15,31 @@
 // file travels with the components that import it and needs no registration of
 // its own. The clone root is the plugin: there is no copy step to run.
 
+// One mebibyte, for spelling the per-source caps below.
+var MiB = 1048576
+
+// Refuse text whose UTF-8 representation exceeds the byte cap before parsing.
+// Most source documents are ASCII; UTF-16 length is a cheap lower bound.
+// Count non-ASCII bytes without allocating an encoded copy of a large file.
+function tooLarge(text, maxBytes) {
+  if (text === undefined || text === null) return false
+  var t = String(text)
+  var bytes = t.length
+  if (bytes > maxBytes) return true
+  for (var i = 0; i < t.length; i++) {
+    var c = t.charCodeAt(i)
+    if (c < 128) continue
+    if (c < 2048) bytes++
+    else if (c >= 0xd800 && c <= 0xdbff && i + 1 < t.length
+        && t.charCodeAt(i + 1) >= 0xdc00 && t.charCodeAt(i + 1) <= 0xdfff) {
+      bytes += 2
+      i++
+    } else bytes += 2
+    if (bytes > maxBytes) return true
+  }
+  return false
+}
+
 // The parsed document, or null.
 //
 // The text is taken AS GIVEN - this does not trim. Trimming is not one rule

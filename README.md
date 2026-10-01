@@ -125,6 +125,9 @@ keeps time correctly across suspend.
 - **System**, **battery**, **network** and **storage** cover the machine.
 - **Photos** shows a slideshow from a folder you choose.
 - **Claude** and **DeepSeek** show usage and balance, if you use them.
+- **Codeburn** shows coding-agent spend from the local `codeburn` cache. Its
+  refresh button runs the `codeburn` CLI.
+- **Media server** shows the status feed an omarr install writes locally.
 
 ## Using it
 
@@ -171,7 +174,10 @@ Most tiles read only your own machine. These are the ones that can go online:
 - **Now playing** shows the cover art your music player hands it. When the
   player gives a web address rather than a local file, as streaming players
   often do, the tile downloads the image from that address. The player picks
-  the host, not this plugin.
+  the host, not this plugin. Downloads are HTTPS only, including redirects (at
+  most three). They are capped at 4 MiB and 10 seconds, and plain `http://`
+  and other schemes are refused. The copy lives in a private directory under
+  `$XDG_RUNTIME_DIR` and is deleted when the tile goes away.
 
 The hosts named above are fixed. The others are chosen by you or your
 software, not this plugin: cover-art addresses come from the player, tailnet

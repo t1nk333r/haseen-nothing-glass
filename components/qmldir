@@ -13,6 +13,7 @@
 BatteryData 1.0 BatteryData.qml
 ClaudeUsageData 1.0 ClaudeUsageData.qml
 CodeburnData 1.0 CodeburnData.qml
+CoverArt 1.0 CoverArt.qml
 DeepSeekData 1.0 DeepSeekData.qml
 EventSource 1.0 EventSource.qml
 GeoLocation 1.0 GeoLocation.qml
