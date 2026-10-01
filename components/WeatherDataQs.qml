@@ -420,6 +420,8 @@ QtObject {
             property bool _streamDone: false
             property bool _exited: false
             property int _exitCode: -1
+            property bool _started: false
+            property bool _settled: false
             stdout: StdioCollector {
                 waitForEnd: true
                 onStreamFinished: {
@@ -433,10 +435,24 @@ QtObject {
                 req._exited = true
                 req._settle()
             }
+            // A curl that could not be started (not installed, not
+            // executable) never exits and never streams; without this the
+            // tile would wait on it forever. Same test TailscaleData uses: it
+            // stopped running without ever having started. It fails the way a
+            // network error does, so the retry budget applies.
+            onStarted: req._started = true
+            onRunningChanged: {
+                if (req.running || req._started) return
+                req._exitCode = -1
+                req._streamDone = true
+                req._exited = true
+                req._settle()
+            }
             // Both halves, in whichever order they arrive: the exit code says
-            // whether curl finished, the stream holds what it got.
+            // whether curl finished, the stream holds what it got. Once only.
             function _settle() {
-                if (!req._streamDone || !req._exited) return
+                if (req._settled || !req._streamDone || !req._exited) return
+                req._settled = true
                 wd._httpSettled(req)
             }
         }
@@ -501,9 +517,17 @@ QtObject {
                 }
             }
 
+            // Coordinates go into the next request's URL, so only real
+            // numbers - and not 0,0, which _fetchWeather reads as "none" and
+            // would answer by geocoding again, forever.
+            if (hit && !(typeof hit.latitude === "number" && isFinite(hit.latitude) &&
+                         typeof hit.longitude === "number" && isFinite(hit.longitude) &&
+                         !(hit.latitude === 0 && hit.longitude === 0)))
+                hit = null
+
             if (hit) {
-                wd._geoLatitude = hit.latitude
-                wd._geoLongitude = hit.longitude
+                wd._geoLatitude = Number(hit.latitude)
+                wd._geoLongitude = Number(hit.longitude)
                 wd._countryCode = String(hit.country_code || "")
                 wd._geocodedFor = name
                 wd.cityName = hit.name || name
@@ -555,7 +579,9 @@ QtObject {
         wd._httpGet(url, function (status, body) {
             if (status === 200) {
                 try {
-                    wd._report = JSON.parse(body)
+                    var report = JSON.parse(body)
+                    if (!wd._reportUsable(report)) throw new Error("unexpected shape")
+                    wd._report = report
                     wd._render()
                     wd.isLoading = false
                     wd.errorMessage = ""
@@ -576,6 +602,32 @@ QtObject {
 
     // A tile torn down mid-request takes its request with it.
     Component.onDestruction: wd._cancelHttp()
+
+    // The renderer walks every array in the report, so its lengths are the
+    // server's to choose: `{"length": 1e12}` parses as JSON and would spin the
+    // shell's GUI thread for good. A report is used only if each array it
+    // walks is a real array of a size Open-Meteo can actually send - at most
+    // 16 forecast days, so 16 daily entries and 16 x 24 hourly ones.
+    function _arrayOk(a, max) { return Array.isArray(a) && a.length <= max }
+
+    function _reportUsable(r) {
+        if (!r || typeof r !== "object" || Array.isArray(r)) return false
+        var d = r.daily
+        if (d !== undefined) {
+            if (!d || typeof d !== "object") return false
+            var dk = ["temperature_2m_max", "temperature_2m_min", "weather_code", "sunrise", "sunset"]
+            for (var i = 0; i < dk.length; i++)
+                if (!wd._arrayOk(d[dk[i]], 16) || d[dk[i]].length === 0) return false
+        }
+        var h = r.hourly
+        if (h !== undefined) {
+            if (!h || typeof h !== "object") return false
+            var hk = ["time", "temperature_2m", "weather_code"]
+            for (var j = 0; j < hk.length; j++)
+                if (!wd._arrayOk(h[hk[j]], 16 * 24)) return false
+        }
+        return true
+    }
 
     // ── Rendering ───────────────────────────────────────────────────────
     // The last good response, in metric, so a unit flip re-renders offline.

@@ -1,13 +1,20 @@
 #!/usr/bin/env bash
-# The weather tile's requests are bounded. Each case runs the real
-# WeatherDataQs - real curl - against a local server that answers, stalls,
-# or streams a body that never ends:
+# The weather tile's requests are bounded, and what comes back cannot hang
+# the shell. Each case runs the real WeatherDataQs - real curl - against a
+# local server:
 #   ok         a normal answer still renders (the bounds cost nothing)
 #   deadline   a stalled forecast fails at the deadline instead of hanging
 #   size cap   an endless body is cut off at the byte cap, well before the
 #              deadline, so it never piles up in the shell
-#   supersede  refreshes during a stalled request leave exactly one request
-#              in flight, and tearing the tile down leaves none
+#   hostile    a tiny report whose "array" claims a trillion entries is
+#              rejected, and the shell's event loop keeps running
+#   no curl    with curl missing the fetch fails and says so, instead of
+#              waiting on a process that never started
+#   0,0 city   a geocoder answering 0,0 for a city is "not found", not an
+#              endless geocode/forecast recursion
+#   supersede  refreshes during a stalled request leave exactly one in flight
+#   teardown   destroying a tile mid-request, in a shell that keeps running,
+#              leaves no request behind
 set -euo pipefail
 root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 for tool in qs curl python3 pgrep; do
@@ -21,12 +28,15 @@ cleanup() {
   rm -rf "$scratch"
 }
 trap cleanup EXIT
-mkdir -p "$scratch/home" "$scratch/runtime"
+mkdir -p "$scratch/home" "$scratch/runtime" "$scratch/nocurl"
 chmod 700 "$scratch/runtime"
 cp -r "$root/components" "$scratch/components"
+# A PATH with the shell and pgrep on it, and no curl.
+ln -s "$(command -v qs)" "$scratch/nocurl/qs"
+ln -s "$(command -v pgrep)" "$scratch/nocurl/pgrep"
 
 cat > "$scratch/server.py" <<'EOF'
-import json, sys, time, datetime
+import json, time, datetime
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 
 def forecast():
@@ -41,6 +51,13 @@ def forecast():
                   "sunrise": [d + "T06:00" for d in days], "sunset": [d + "T18:00" for d in days]},
     }
 
+# Valid JSON, 200 OK, a couple of hundred bytes - and an "array" whose
+# length asks the renderer for a trillion iterations.
+HOSTILE = {"current": {"temperature_2m": 23},
+           "daily": {"sunrise": ["2026-10-01T06:00"], "sunset": ["2026-10-01T18:00"],
+                     "temperature_2m_max": [25], "temperature_2m_min": [15],
+                     "weather_code": {"length": 1000000000000}}}
+
 class H(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
     def log_message(self, *a): pass
@@ -53,10 +70,14 @@ class H(BaseHTTPRequestHandler):
         self.wfile.write(body)
     def do_GET(self):
         path = self.path.split("?")[0]
-        if path == "/geo":
+        if path == "/geozero":
+            self.send_json({"results": [{"name": "Nowhere", "latitude": 0, "longitude": 0, "country_code": ""}]})
+        elif path == "/geo":
             self.send_json({"results": [{"name": "Testville", "latitude": 10.5, "longitude": 20.5, "country_code": "DE"}]})
         elif path == "/ok":
             self.send_json(forecast())
+        elif path == "/hostile":
+            self.send_json(HOSTILE)
         elif path == "/stall":
             time.sleep(120)
         elif path == "/huge":
@@ -94,15 +115,21 @@ Scope {
     readonly property string scenario: Quickshell.env("PROBE_SCENARIO")
     property var started: Date.now()
     property bool reported: false
+    // Behind a Loader so the teardown case can destroy the tile while the
+    // shell - this Scope - keeps running.
+    readonly property var wd: tile.item
 
-    C.WeatherDataQs {
-        id: wd
-        location: "Testville"
-        _geocodeEndpoint: probe.base + "/geo"
-        _forecastEndpoint: probe.base + "/" + Quickshell.env("PROBE_MODE")
-        _httpProtocols: "=http"
-        _httpTimeoutSec: Number(Quickshell.env("PROBE_TIMEOUT"))
-        _httpMaxBytes: Number(Quickshell.env("PROBE_MAXBYTES"))
+    LazyLoader {
+        id: tile
+        active: true
+        C.WeatherDataQs {
+            location: "Testville"
+            _geocodeEndpoint: probe.base + "/" + (Quickshell.env("PROBE_GEO") || "geo")
+            _forecastEndpoint: probe.base + "/" + Quickshell.env("PROBE_MODE")
+            _httpProtocols: "=http"
+            _httpTimeoutSec: Number(Quickshell.env("PROBE_TIMEOUT"))
+            _httpMaxBytes: Number(Quickshell.env("PROBE_MAXBYTES"))
+        }
     }
 
     // How many curls are talking to the stalling endpoint right now.
@@ -121,10 +148,12 @@ Scope {
         if (probe.reported) return
         probe.reported = true
         console.log("RESULT|" + what + "|" + ((Date.now() - probe.started) / 1000).toFixed(1)
-                    + "|" + wd.errorMessage + "|" + wd.currentTemp)
+                    + "|" + probe.wd.errorMessage + "|" + probe.wd.currentTemp)
         Qt.quit()
     }
 
+    // Also the heartbeat: if anything blocks the event loop, this stops and
+    // the run produces no RESULT at all.
     Timer {
         property int ticks: 0
         interval: 100; repeat: true; running: true
@@ -132,47 +161,60 @@ Scope {
             ticks++
             if (probe.scenario === "supersede") {
                 // Let the forecast start stalling, refresh twice, then count.
-                if (ticks === 15) wd.forceRefresh()
-                if (ticks === 17) wd.forceRefresh()
+                if (ticks === 15) probe.wd.forceRefresh()
+                if (ticks === 17) probe.wd.forceRefresh()
                 if (ticks === 25) count.running = true
                 return
             }
-            if (wd.currentTemp !== "--") probe.report("rendered")
-            else if (wd.errorMessage !== "") probe.report("failed")
+            if (probe.scenario === "teardown") {
+                // Destroy the tile mid-stall; the shell keeps running.
+                if (ticks === 15) tile.active = false
+                if (ticks === 22) count.running = true
+                return
+            }
+            if (!probe.wd) return
+            if (probe.wd.currentTemp !== "--") probe.report("rendered")
+            else if (probe.wd.errorMessage !== "") probe.report("failed")
             else if (ticks > 250) probe.report("timeout")
         }
     }
 }
 EOF
 
-# run <scenario> <mode> <timeout s> <max bytes>
+# run <scenario> <mode> <timeout s> <max bytes> [PATH]
 run() {
-  env -i PATH="$PATH" HOME="$scratch/home" XDG_RUNTIME_DIR="$scratch/runtime" QT_QPA_PLATFORM=offscreen \
-    PROBE_PORT="$port" PROBE_SCENARIO="$1" PROBE_MODE="$2" PROBE_TIMEOUT="$3" PROBE_MAXBYTES="$4" \
-    timeout 40 qs -n -p "$scratch/probe.qml" 2>&1 | sed -n 's/.*RESULT|//p' | head -1 || true
+  timeout 40 env -i PATH="${5:-$PATH}" HOME="$scratch/home" XDG_RUNTIME_DIR="$scratch/runtime" QT_QPA_PLATFORM=offscreen \
+    PROBE_PORT="$port" PROBE_SCENARIO="$1" PROBE_MODE="$2" PROBE_TIMEOUT="$3" PROBE_MAXBYTES="$4" PROBE_GEO="${PROBE_GEO:-geo}" \
+    qs -n -p "$scratch/probe.qml" 2>&1 | sed -n 's/.*RESULT|//p' | head -1 || true
 }
 
 failed=0
 fail() { echo "weather request bounds, $1" >&2; failed=1; }
+# expect_fail <case> <result> <message> <under seconds>
+expect_fail() {
+  local what secs msg
+  IFS='|' read -r what secs msg _ <<<"$2"
+  if [[ $what != failed || $msg != "$3" ]]; then
+    fail "$1: expected '$3', got '${2:-<nothing - the event loop stopped>}'"
+  elif (( ${secs%.*} >= $4 )); then
+    fail "$1: took ${secs}s, expected under $4s"
+  fi
+}
 
 r=$(run ok ok 10 1048576)
 [[ $r == rendered\|*\|\|23 ]] || fail "ok: expected the forecast to render 23, got '${r:-<nothing>}'"
 
-r=$(run deadline stall 2 1048576)
-IFS='|' read -r what secs msg _ <<<"$r"
-[[ $what == failed && $msg == "Failed to fetch weather" ]] || fail "deadline: expected the fetch to fail, got '${r:-<nothing>}'"
-[[ $what != failed ]] || (( ${secs%.*} < 6 )) || fail "deadline: took ${secs}s with a 2s deadline"
-
-r=$(run size huge 30 65536)
-IFS='|' read -r what secs msg _ <<<"$r"
-[[ $what == failed && $msg == "Failed to fetch weather" ]] || fail "size cap: expected the fetch to fail, got '${r:-<nothing>}'"
-[[ $what != failed ]] || (( ${secs%.*} < 10 )) || fail "size cap: took ${secs}s, so the cap did not cut it off (deadline is 30s)"
+expect_fail "deadline (2s)" "$(run deadline stall 2 1048576)" "Failed to fetch weather" 6
+expect_fail "size cap (deadline 30s)" "$(run size huge 30 65536)" "Failed to fetch weather" 10
+expect_fail "hostile report" "$(run hostile hostile 10 1048576)" "Error parsing weather" 6
+expect_fail "no curl" "$(run nocurl ok 10 1048576 "$scratch/nocurl")" "Network error" 6
+expect_fail "0,0 city" "$(PROBE_GEO=geozero run zero ok 10 1048576)" "Location not found" 6
 
 r=$(run supersede stall 30 1048576)
 [[ $r == "inflight|1" ]] || fail "supersede: expected exactly 1 request in flight after two refreshes, got '${r:-<nothing>}'"
-sleep 0.5
-left=$(pgrep -fc -- "127.0.0.1:$port/stall" || true)
-[[ $left == 0 ]] || fail "supersede: $left request(s) outlived the tile"
+
+r=$(run teardown stall 30 1048576)
+[[ $r == "inflight|0" ]] || fail "teardown: expected no request left after the tile was destroyed, got '${r:-<nothing>}'"
 
 (( failed == 0 )) || exit 1
-echo "OK: weather requests are bounded in time and size, one at a time (4 cases)"
+echo "OK: weather requests are bounded in time and size, one at a time (8 cases)"
