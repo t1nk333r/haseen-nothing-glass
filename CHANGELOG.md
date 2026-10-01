@@ -45,9 +45,10 @@ of the same widgets.
     validated.
   - File-backed JSON is refused past a byte cap before parsing.
   - The IPC `option` and `set` verbs write only declared settings, with
-    finite, bounded values. The store clamps impossible geometry, caps rows
-    and per-row settings, and refuses writes while unreadable.
-  - The store and options files are written 0600.
+    finite, bounded values. The store clamps impossible geometry, caps
+    per-row settings, draws at most 256 widgets, and refuses writes while
+    unreadable or over that limit.
+  - The store, its backup and the options file are kept 0600.
   - Legacy-store absorption is recorded durably, so it cannot duplicate
     widgets.
   - The prayer helper no longer touches another plugin's state.

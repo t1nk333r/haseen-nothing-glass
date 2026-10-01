@@ -75,9 +75,8 @@ jobs:
   # an unresolvable import, an unknown type and a wrong-typed binding as
   # WARNINGS and exits 0 for all of them — so the step also greps the log for
   # the categories that mean a resolution failure. It is precise about which
-  # ones: `[import]` and `[incompatible-type]` are gated (the latter with one
-  # documented exemption for a QML coercion qmllint cannot model), while
-  # `[unqualified]` — 3335 of the 3361 warning headers today — is only
+  # ones: `[import]` and `[incompatible-type]` are gated with no exemption,
+  # while `[unqualified]` — 3335 of the 3361 warning headers today — is only
   # recorded, because it is the injected ids this job does not resolve rather
   # than a defect in the plugin. The step names both lists in its own comment.
   #
@@ -142,14 +141,10 @@ jobs:
           #    the negative control for this gate, a file carrying
           #    `import "../../nonexistent-dir"`, exits 0 and is reported as a
           #    Warning;
-          # 3. `[incompatible-type]` — a literal or binding of the wrong type —
-          #    minus the one pattern this tree carries on purpose:
-          #    components/TzClock.qml's `environment: ({ TZ: ... })`, five
-          #    warnings reading "Cannot assign binding of type QVariantMap to
-          #    QVariantHash". Quickshell's Process.environment is a hash and QML
-          #    builds one from that object literal at runtime; qmllint cannot
-          #    model the coercion. They are exempt BY MESSAGE (not by file or by
-          #    count), so every other wrong-typed binding still fails.
+          # 3. `[incompatible-type]` — a literal or binding of the wrong type.
+          #    There is no exemption: TzClock used to need one for its
+          #    Process.environment object literal and now passes TZ through
+          #    `env` instead.
           #
           # Everything else the log carries is recorded and NOT gated, because
           # it is this job's own shape rather than a defect: `[unqualified]`
@@ -165,12 +160,7 @@ jobs:
             exit "$status"
           fi
 
-          env_literal='Cannot assign binding of type QVariantMap to QVariantHash \[incompatible-type\]'
-          exempt="$(grep -cE "$env_literal" /tmp/qmllint.log || true)"
-          echo "qmllint [incompatible-type] warnings exempted (TzClock's Process.environment object literals): $exempt"
-
-          unresolved="$(grep -nE '\[(import|incompatible-type)\]' /tmp/qmllint.log |
-            grep -vE "$env_literal" || true)"
+          unresolved="$(grep -nE '\[(import|incompatible-type)\]' /tmp/qmllint.log || true)"
           if [[ -n $unresolved ]]; then
             echo "::error::qmllint could not resolve an import or a type, or a binding is of the wrong type (its exit status was 0):"
             printf '%s\n' "$unresolved" | head -n 60
@@ -290,7 +280,7 @@ jobs:
             "OK: option still writes a real setting to both places"
             "OK: set takes only real per-instance settings, and a refusal writes nothing"
             "OK: set, move and resize still write, with geometry clamped"
-            "OK: the store and the options file are mode 0600 after a write"
+            "OK: the store and the options file are mode 0600 after a write, also when recreated"
             "OK: an options file or shell.json past 4 MiB is not parsed"
             "OK: an unparsable store refuses writes and preserves its original and backup"
             "OK: options migration is durable when the retired filename already exists"

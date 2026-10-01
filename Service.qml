@@ -206,6 +206,8 @@ Item {
       else if (value !== "" && !isNaN(Number(value))) v = Number(value)
       var checked = surface.checkPluginSetting(k, v)
       if (checked.error !== undefined) return "error: " + checked.error
+      if (surface.options._corrupt)
+        return "error: " + surface.options.path + " is unreadable or larger than 4 MiB; repair or remove it, then reload"
       return surface.setPluginSetting(k, checked.value)
         ? ("set " + k + " = " + JSON.stringify(checked.value))
         : ("error: could not write " + k + " - is the shell config reachable?")

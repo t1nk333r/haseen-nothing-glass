@@ -41,6 +41,9 @@ Item {
   property var widgets: []
   property bool loaded: false
   property bool _corrupt: false
+  // The document holds more rows than maxWidgets: only the first maxWidgets
+  // are drawn, and nothing is written, so the file keeps every row.
+  property bool _overCap: false
 
   // --- bounds --------------------------------------------------------------
   //
@@ -51,7 +54,9 @@ Item {
   // desktop is a few dozen tiles of a few hundred pixels with settings of a
   // few dozen bytes - so a legitimate layout passes through untouched; only
   // the impossible is clamped (a non-finite or absurd coordinate, a negative
-  // size) and nothing is ever dropped from a document that parsed.
+  // size). A document with more than maxWidgets rows draws the first
+  // maxWidgets and is left alone on disk: writes are refused until it is
+  // trimmed by hand, so no row is ever dropped from the file.
   readonly property int maxWidgets: 256
   readonly property int maxSize: 16384
   readonly property int maxCoord: 32768
@@ -142,6 +147,7 @@ Item {
       store.widgets = []
       store._absorbedFiles = []
       store._corrupt = false
+      store._overCap = false
       store.loaded = true
       return
     }
@@ -158,7 +164,14 @@ Item {
     }
     store._absorbedFiles = store._readAbsorbed(parsed.absorbed)
     store._corrupt = false
-    store.widgets = store._adoptLegacyTypes(store._normaliseRows(parsed.widgets))
+    var rows = parsed.widgets
+    store._overCap = rows.length > store.maxWidgets
+    if (store._overCap) {
+      console.warn("nothing-glass.json: " + rows.length + " widgets, more than the " + store.maxWidgets +
+                   " drawn - drawing the first " + store.maxWidgets + " and leaving the file untouched")
+      rows = rows.slice(0, store.maxWidgets)
+    }
+    store.widgets = store._adoptLegacyTypes(store._normaliseRows(rows))
     store.loaded = true
     if (parsed.widgets.length > 0) store._lastNonEmpty = t
     store._absorbLegacyStore()
@@ -403,7 +416,7 @@ Item {
   // second plugin's rows were all Nothing; this plugin's own older files
   // already recorded a style per row and keep it.
   function _absorbLegacy(view, name, pinStyle) {
-    if (!store.loaded || store._corrupt || !store._mayAbsorb) return
+    if (!store.loaded || store._corrupt || store._overCap || !store._mayAbsorb) return
     if (store._absorbedFiles.indexOf(name) !== -1) { store._markLegacyDone(name); return }
     var text = ""
     try { text = view.text() } catch (e) { return }
@@ -544,7 +557,7 @@ Item {
   property string _lastNonEmpty: ""
 
   function _flush() {
-    if (store._corrupt) return
+    if (store._corrupt || store._overCap) return
     store._selfWrite = true
     store._lastWriteAt = Date.now()
     store._writtenRevision = store._revision
@@ -655,6 +668,8 @@ Item {
   function _writable(op) {
     store.lastError = ""
     if (store._corrupt) return store._refuse("store is unreadable; repair it and reload before editing")
+    if (store._overCap)
+      return store._refuse("store holds more than " + store.maxWidgets + " widgets; remove some by hand and reload before editing")
     if (store.loaded) return true
     console.warn("nothing-glass.json: " + op + " refused — store not loaded yet")
     store.lastError = "store not loaded yet, retry"

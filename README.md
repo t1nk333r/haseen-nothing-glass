@@ -177,7 +177,8 @@ Most tiles read only your own machine. These are the ones that can go online:
   the host, not this plugin. Downloads are HTTPS only, including redirects (at
   most three). They are capped at 4 MiB and 10 seconds, and plain `http://`
   and other schemes are refused. The copy lives in a private directory under
-  `$XDG_RUNTIME_DIR` and is deleted when the tile goes away.
+  `$XDG_RUNTIME_DIR` and is deleted when the tile goes away. If the shell is
+  killed instead, the copy stays there until you log out.
 
 The hosts named above are fixed. The others are chosen by you or your
 software, not this plugin: cover-art addresses come from the player, tailnet
@@ -202,9 +203,14 @@ under *Settings → Bar*. Your widgets keep working without it, and
 longer connected. Add it again on the screen you're using:
 `omarchy-shell t1nk33r.nothing-glass add <type> ''`.
 
-**Your widgets vanished after an edit.** If the widget file stops parsing, the
-plugin keeps the old one as `~/.config/omarchy/nothing-glass.json.bak`. Copy
-back the entries you need.
+**Your widgets vanished after an edit.** If the widget file stops parsing, or
+grows past 4 MiB, the plugin draws nothing from it and keeps a copy as
+`~/.config/omarchy/nothing-glass.json.bak`. Edits are refused until the file
+parses again, so they can't overwrite it: repair it, or move it aside, then run
+`omarchy-shell t1nk33r.nothing-glass reload`. The same goes for
+`nothing-glass-options.json`: while it is unreadable, appearance changes are
+refused. A widget file holding more than 256 widgets draws the first 256 and
+refuses edits until you trim it.
 
 **A tile has no glass effect.** The shader failed to load. The log names the
 file.

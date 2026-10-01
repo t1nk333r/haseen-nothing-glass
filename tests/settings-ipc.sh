@@ -63,6 +63,10 @@ QML
 # A headless gamescope per start: it does not survive its last client going
 # away, so a second start cannot reuse the first one's.
 runtime=""
+# Only the first start may be skipped for want of a compositor: once one has
+# come up, a later one that does not is a failure, so a partial run can never
+# pass as the known CI skip.
+compositor_seen=0
 start_compositor() {
   runtime="$1"
   mkdir -p "$runtime"
@@ -75,10 +79,14 @@ start_compositor() {
     >"$runtime/compositor.log" 2>&1 &
   gpid=$!
   for _ in $(seq 200); do
-    [[ -S $runtime/gamescope-0 ]] && return 0
+    [[ -S $runtime/gamescope-0 ]] && { compositor_seen=1; return 0; }
     kill -0 "$gpid" 2>/dev/null || break
     sleep 0.1
   done
+  if (( compositor_seen )); then
+    echo "FAIL settings IPC: a headless compositor came up earlier in this run but not now"
+    exit 1
+  fi
   echo "SKIP: settings IPC (headless compositor did not come up)"
   exit 0
 }
@@ -242,7 +250,15 @@ group_ok "set, move and resize still write, with geometry clamped"
 
 mode_is "$cfg/$name.json" 600 || fail "the store is mode $(stat -c %a "$cfg/$name.json"), not 600"
 mode_is "$cfg/$name-options.json" 600 || fail "the options file is mode $(stat -c %a "$cfg/$name-options.json"), not 600"
-group_ok "the store and the options file are mode 0600 after a write"
+# A file removed while the shell runs comes back with the umask's mode; the
+# next write must make it private again, not trust an earlier chmod.
+rm -f "$cfg/$name-options.json"
+sleep 0.5
+expect_reply "set styleMode = 1" option styleMode 1
+for _ in $(seq 50); do [[ -e $cfg/$name-options.json ]] && break; sleep 0.1; done
+mode_is "$cfg/$name-options.json" 600 \
+  || fail "an options file recreated mid-session is mode $(stat -c %a "$cfg/$name-options.json" 2>/dev/null || echo missing), not 600"
+group_ok "the store and the options file are mode 0600 after a write, also when recreated"
 stop_shell
 
 # ── Parse caps ──────────────────────────────────────────────────────────────

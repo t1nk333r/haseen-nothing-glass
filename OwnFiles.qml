@@ -8,12 +8,15 @@ import Quickshell.Io
 //                     (folders, locations, player names) and a file created
 //                     through FileView gets whatever the umask allows - 0644,
 //                     readable by every account on the machine. FileView has
-//                     no mode knob, but an atomic save (QSaveFile) keeps the
-//                     mode of the file it replaces, so the chmod only has to
-//                     land once per file: a path is remembered as done once a
-//                     chmod has succeeded with no second request queued
-//                     behind it (a write that landed while the chmod was
-//                     running may have replaced the inode it changed).
+//                     no mode knob. An atomic save (QSaveFile) keeps the mode
+//                     of the file it replaces, but a file deleted while the
+//                     shell runs comes back with the umask's mode, so the
+//                     chmod runs after every save and every load rather than
+//                     once per path. Saves are coalesced and a request already
+//                     queued for the path absorbs a second one, so this is at
+//                     most one short child per write. The moment between a
+//                     file's first creation and its chmod stays open: closing
+//                     it would need control of the shell's umask.
 //   retire(from, to)  `mv -n` of a retired file to its `.migrated` name, and
 //                     the CHECK that it actually went: `mv -n` exits 0 when
 //                     the target already exists and the source stays where it
@@ -37,12 +40,10 @@ Item {
   property var _queue: []
   // The job `proc` is running, or null.
   property var _job: null
-  // path -> true once `chmod 600` has landed for it.
-  property var _restricted: ({})
 
   function restrict(path) {
     var p = String(path || "")
-    if (p === "" || chores._restricted[p] === true) return
+    if (p === "") return
     chores._enqueue({ kind: "restrict", path: p, argv: ["chmod", "600", "--", p] })
   }
 
@@ -84,14 +85,7 @@ Item {
     if (job === null) return
     chores._job = null
     if (job.kind === "restrict") {
-      if (ok && !chores._queued("restrict", job.path)) {
-        var done = {}
-        for (var k in chores._restricted) done[k] = chores._restricted[k]
-        done[job.path] = true
-        chores._restricted = done
-      } else if (!ok) {
-        console.warn("nothing-glass: could not make " + job.path + " private (chmod 600)")
-      }
+      if (!ok) console.warn("nothing-glass: could not make " + job.path + " private (chmod 600)")
     } else if (!ok) {
       console.warn("nothing-glass: " + job.path + " was not renamed to " + job.to +
                    " (the target exists, or the move failed); it stays where it is")

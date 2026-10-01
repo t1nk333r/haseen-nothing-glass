@@ -44,7 +44,7 @@ ShellRoot {
     Store { id: hostileStore; path: host.home + "/scratch/hostile.json" }
     // A well-formed document past the parse cap: the corrupt-file path.
     Store { id: hugeStore; path: host.home + "/scratch/huge.json" }
-    // 300 ordinary rows: all load, and no further add is accepted.
+    // 300 ordinary rows: the first 256 are drawn, nothing is written.
     Store { id: crowdStore; path: host.home + "/scratch/crowd.json" }
     // Starts empty; filled by add() until the row cap refuses.
     Store { id: limitStore; path: host.home + "/scratch/limit.json" }
@@ -66,6 +66,7 @@ ShellRoot {
     FileView { id: legitFile; path: legitStore.path; printErrors: false }
     FileView { id: hugeOriginal; path: hugeStore.path; printErrors: false }
     FileView { id: hugeBackup; path: hugeStore.path + ".bak"; printErrors: false }
+    FileView { id: crowdFile; path: crowdStore.path; printErrors: false }
 
     // The mode of the files a store wrote, read with stat(1).
     Process {
@@ -531,11 +532,16 @@ ShellRoot {
       host.check("a document past the parse cap is not loaded",
                  hugeStore.widgets.length === 0, "widgets=" + hugeStore.widgets.length)
 
-      host.check("a store holding more rows than the cap keeps every one of them",
-                 crowdStore.widgets.length === 300, "widgets=" + crowdStore.widgets.length)
-      host.check("and accepts no further add()",
-                 crowdStore.add("perf", "TEST-1") === "" && crowdStore.widgets.length === 300 &&
-                 crowdStore.lastError !== "", "error=" + JSON.stringify(crowdStore.lastError))
+      host.check("a store holding more rows than the cap draws the first " + crowdStore.maxWidgets,
+                 crowdStore.widgets.length === crowdStore.maxWidgets &&
+                 crowdStore.widgets[0].id === "perf-1" && crowdStore.widgets[crowdStore.maxWidgets - 1].id === "perf-256",
+                 "widgets=" + crowdStore.widgets.length)
+      host.check("and refuses every write",
+                 crowdStore.add("perf", "TEST-1") === "" && crowdStore.lastError !== "" &&
+                 !crowdStore.set("perf-1", "refreshMinutes", 45) &&
+                 !crowdStore.move("perf-1", 40, 40) &&
+                 crowdStore.widgets.length === crowdStore.maxWidgets,
+                 "error=" + JSON.stringify(crowdStore.lastError))
 
       // The one mutation the next phase reads back from disk.
       legitStore.set("weather-1", "refreshMinutes", 45)
@@ -561,6 +567,14 @@ ShellRoot {
                  backup.length > hugeStore.maxFileChars &&
                  backup === String(hugeOriginal.text() || ""),
                  "backup=" + backup.length + " original=" + String(hugeOriginal.text() || "").length)
+
+      // The refused writes of the over-cap store never reached its file.
+      crowdFile.reload()
+      var crowd = null
+      try { crowd = JSON.parse(String(crowdFile.text() || "")) } catch (e) {}
+      host.check("an over-cap store's file keeps all 300 rows",
+                 !!crowd && crowd.widgets.length === 300 && crowd.widgets[0].x === 1,
+                 "rows=" + (crowd ? crowd.widgets.length : "unreadable"))
 
       // A write of the 37-widget layout changes the one value it was asked to
       // and carries every other row through byte for byte.
