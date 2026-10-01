@@ -201,7 +201,7 @@ jobs:
     container: archlinux:latest
     steps:
       - name: Install packages
-        run: pacman -Syu --noconfirm --needed git jq diffutils quickshell gamescope imagemagick mesa vulkan-swrast curl python procps-ng openssl
+        run: pacman -Syu --noconfirm --needed git jq diffutils quickshell gamescope imagemagick mesa vulkan-swrast curl python procps-ng openssl which
 
       - name: Checkout
         uses: actions/checkout@v4
@@ -265,17 +265,7 @@ jobs:
             "OK: prayer-zone.sh still prints the timezone window" \
             "OK: a wallpaper path holding # ? % loads" \
             "OK: the wallpaper link poll pauses while the screen is not drawn, and resumes with a read" \
-            "OK: every sweeping analog clock hand pauses hidden and resumes visible" \
-            "OK: the options file loads without prototype keys" \
-            "OK: option refuses structural, prototype and malformed keys and values, and writes nothing" \
-            "OK: option still writes a real setting to both places" \
-            "OK: set takes only real per-instance settings, and a refusal writes nothing" \
-            "OK: set, move and resize still write, with geometry clamped" \
-            "OK: the store and the options file are mode 0600 after a write" \
-            "OK: an options file or shell.json past 4 MiB is not parsed" \
-            "OK: an unparsable store refuses writes and preserves its original and backup" \
-            "OK: options migration is durable when the retired filename already exists" \
-            "OK: a store and options file left 0644 become 0600 on load, unchanged"; do
+            "OK: every sweeping analog clock hand pauses hidden and resumes visible"; do
             grep -qF "$marker" /tmp/run.log || missing+="  - $marker"$'\n'
           done
           # The settings-merge test drives a real Wayland compositor, and a GitHub runner
@@ -291,8 +281,31 @@ jobs:
           else
             missing+="  - OK: settings merge and style resolution (absent, and not for the known compositor reason)"$'\n'
           fi
+          # settings-ipc.sh hosts the real service on the same kind of compositor,
+          # so it has the same exemption and nothing more: if it ran, every one
+          # of its markers is required.
+          ipc_markers=(
+            "OK: the options file loads without prototype keys"
+            "OK: option refuses structural, prototype and malformed keys and values, and writes nothing"
+            "OK: option still writes a real setting to both places"
+            "OK: set takes only real per-instance settings, and a refusal writes nothing"
+            "OK: set, move and resize still write, with geometry clamped"
+            "OK: the store and the options file are mode 0600 after a write"
+            "OK: an options file or shell.json past 4 MiB is not parsed"
+            "OK: an unparsable store refuses writes and preserves its original and backup"
+            "OK: options migration is durable when the retired filename already exists"
+            "OK: a store and options file left 0644 become 0600 on load, unchanged"
+          )
+          if grep -qF 'SKIP: settings IPC (headless compositor did not come up)' /tmp/run.log; then
+            echo "::warning::the settings-IPC test skipped - this runner cannot host a compositor, so it runs only where one exists"
+          else
+            for marker in "${ipc_markers[@]}"; do
+              grep -qF "$marker" /tmp/run.log || missing+="  - $marker"$'\n'
+            done
+          fi
           other_skips="$(grep -n '^SKIP' /tmp/run.log |
-            grep -vF 'SKIP: runtime-settings-merge.qml (headless compositor did not come up)' || true)"
+            grep -vF 'SKIP: runtime-settings-merge.qml (headless compositor did not come up)' |
+            grep -vF 'SKIP: settings IPC (headless compositor did not come up)' || true)"
           if [[ -n $other_skips ]]; then
             missing+="unexpected SKIP lines:"$'\n'"$other_skips"$'\n'
           fi
