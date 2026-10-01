@@ -156,6 +156,13 @@ expect_error() {
   [[ $reply == error:* ]] || fail "$what was accepted: $reply"
 }
 
+# expect_added <description>: an `add weather TEST-1` that returns a new id.
+expect_added() {
+  local reply
+  reply=$(call add weather TEST-1)
+  [[ -n $reply && $reply != error:* ]] || fail "$1 was refused: $reply"
+}
+
 # expect_reply <prefix> <verb> [args...]
 expect_reply() {
   local want="$1" reply
@@ -291,10 +298,56 @@ printf '%s\n' '{"widgets":[' >"$cfg/$name.json"
 cp "$cfg/$name.json" "$scratch/corrupt.before"
 start_shell "$home"
 expect_error "add on an unparsable store" add weather TEST-1
-stop_shell
 cmp -s "$scratch/corrupt.before" "$cfg/$name.json" || fail "a corrupt store was overwritten"
+for _ in $(seq 50); do [[ -e $cfg/$name.json.bak ]] && break; sleep 0.1; done
 cmp -s "$scratch/corrupt.before" "$cfg/$name.json.bak" || fail "a corrupt store was not backed up unchanged"
 group_ok "an unparsable store refuses writes and preserves its original and backup"
+
+# The recovery the README gives: move the file aside and reload. Edits must
+# work again without restarting the shell.
+mv "$cfg/$name.json" "$scratch/corrupt.aside"
+sleep 0.3
+call reload >/dev/null
+sleep 0.3
+expect_added "add after the unparsable store was moved aside"
+stop_shell
+
+# Same for a store over the widget limit: it draws the first 256, refuses
+# edits, and accepts them again once the file is moved aside.
+home=$(new_home over-cap)
+cfg="$home/.config/omarchy"
+{ printf '%s' '{"version":1,"widgets":['
+  for ((i = 1; i <= 300; i++)); do
+    ((i > 1)) && printf ','
+    printf '{"id":"perf-%d","type":"perf","screen":"TEST-1","x":%d,"y":16,"w":192,"h":192,"settings":{}}' "$i" "$i"
+  done
+  printf '%s\n' ']}'; } >"$cfg/$name.json"
+start_shell "$home"
+expect_error "add on a store over the widget limit" add perf TEST-1
+mv "$cfg/$name.json" "$scratch/over-cap.aside"
+sleep 0.3
+call reload >/dev/null
+sleep 0.3
+expect_added "add after the over-limit store was moved aside"
+stop_shell
+
+# And for an unreadable options file: the watch reloads it once it is gone.
+home=$(new_home corrupt-options)
+cfg="$home/.config/omarchy"
+printf '%s\n' '{"plugins":[]}' >"$cfg/shell.json"
+printf '%s\n' '{"options":' >"$cfg/$name-options.json"
+start_shell "$home"
+expect_error "option on an unreadable options file" option styleMode 2
+mv "$cfg/$name-options.json" "$scratch/options.aside"
+reply=""
+for _ in $(seq 30); do
+  reply=$(call option styleMode 2)
+  [[ $reply == set* ]] && break
+  sleep 0.2
+done
+[[ $reply == set* ]] || fail "option after the unreadable options file was moved aside answered '$reply'"
+stop_shell
+group_ok "moving an unreadable or over-limit file aside makes edits work again without a restart"
 
 # The options file itself is the durable migration marker even when mv -n
 # cannot retire the legacy source. A subsequent user choice must survive.

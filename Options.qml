@@ -216,6 +216,16 @@ Item {
         options.loaded = true
         return
       }
+      // Gone: a first run, or a corrupt file moved aside mid-session. Either
+      // way there is nothing to refuse writes over any more.
+      options._corrupt = false
+      if (options._legacyDone) {
+        // The legacy file was consulted at the first absence; it is never
+        // adopted twice, so a later absence is simply an empty file.
+        options.values = {}
+        options.loaded = true
+        return
+      }
       options._legacyWanted = true
       options._migrate()
     }

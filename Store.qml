@@ -96,7 +96,14 @@ Item {
     }
     onLoadFailed: function (error) {
       // Missing file (first run, or the plugin has never persisted a
-      // layout yet) is not corruption — start with an empty list.
+      // layout yet) is not corruption — start with an empty list. It is
+      // also how a corrupt or over-cap file that was moved aside reads, and
+      // edits must work again then, so both refusals are cleared here. Any
+      // other read error leaves them as they were.
+      if (error === FileViewError.FileNotFound) {
+        store._corrupt = false
+        store._overCap = false
+      }
       store.widgets = []
       store._absorbedFiles = []
       store.loaded = true

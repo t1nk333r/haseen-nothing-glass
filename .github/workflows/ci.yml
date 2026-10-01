@@ -283,6 +283,7 @@ jobs:
             "OK: the store and the options file are mode 0600 after a write, also when recreated"
             "OK: an options file or shell.json past 4 MiB is not parsed"
             "OK: an unparsable store refuses writes and preserves its original and backup"
+            "OK: moving an unreadable or over-limit file aside makes edits work again without a restart"
             "OK: options migration is durable when the retired filename already exists"
             "OK: a store, its backup and the options file left 0644 become 0600 on load, unchanged"
           )
