@@ -201,7 +201,7 @@ jobs:
     container: archlinux:latest
     steps:
       - name: Install packages
-        run: pacman -Syu --noconfirm --needed git jq diffutils quickshell gamescope imagemagick mesa vulkan-swrast
+        run: pacman -Syu --noconfirm --needed git jq diffutils quickshell gamescope imagemagick mesa vulkan-swrast curl python procps-ng
 
       - name: Checkout
         uses: actions/checkout@v4
@@ -234,7 +234,8 @@ jobs:
             "OK: nothing primitives" \
             "OK: store round-trip and migration" \
             "OK: the calendar never draws an account path" \
-            "OK: GeoClue stays off by default and an opt-out holds"; do
+            "OK: GeoClue stays off by default and an opt-out holds" \
+            "OK: weather requests are bounded in time and size"; do
             grep -qF "$marker" /tmp/run.log || missing+="  - $marker"$'\n'
           done
           # The settings-merge test drives a real Wayland compositor, and a GitHub runner

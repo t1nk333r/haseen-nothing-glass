@@ -39,14 +39,15 @@ import Quickshell.Io
 // Quickshell-specific fixes carried over from the original port (plan 008's
 // execution log - each was observed live, not theorised):
 //
-//   1. Every property write inside an `xhr.onreadystatechange` closure is
-//      qualified with `wd.`. An unqualified write from a nested JS closure
-//      does not resolve to the QML object's scope: Qt logs `Invalid write to
-//      global property` and DISCARDS it, so the state never reached the UI.
-//   2. `_reqSeq` drops stale responses. The bar injects `settings` one step
+//   1. Every property write inside a request callback is qualified with
+//      `wd.`. An unqualified write from a nested JS closure does not resolve
+//      to the QML object's scope: Qt logs `Invalid write to global property`
+//      and DISCARDS it, so the state never reached the UI.
+//   2. Only the newest request counts. The bar injects `settings` one step
 //      after construction, so a default-config request and a real-config
-//      request are routinely in flight together and the display used to show
-//      whichever LANDED last.
+//      request used to be in flight together and the display showed
+//      whichever LANDED last; now a new request kills the previous one (see
+//      Network below) and `_reqSeq` drops anything it had already written.
 //   3. Config changes all funnel through `Qt.callLater(_refreshFromConfig)`,
 //      collapsing that injection burst into one refresh.
 
@@ -190,8 +191,8 @@ QtObject {
         onTriggered: Qt.callLater(wd._refreshFromConfig)
     }
 
-    // Monotonic request id. Any in-flight XHR whose id no longer matches
-    // _reqSeq is a stale response and is dropped.
+    // Monotonic request id: a response whose id no longer matches is stale
+    // and is dropped.
     property int _reqSeq: 0
 
     // Flat retry, capped per refresh cycle, matching Panel.qml:367-390. The
@@ -274,10 +275,12 @@ QtObject {
     // ── IP auto-detect ──────────────────────────────────────────────────
     // A Process, not an XMLHttpRequest: this is the shell's own idiom for
     // shelling out (Panel.qml:456-467, and TailscaleData.qml here), and
-    // `curl -fsS` gives the same 4-second deadline Omarchy uses.
+    // `curl` gives the same 4-second deadline Omarchy uses. The answer is one
+    // short line, so 4 KB is a generous cap.
     property Process _detectProc: Process {
         id: detectProc
-        command: ["curl", "-fsS", "--max-time", "4", "https://wttr.in/?format=%l"]
+        command: ["curl", "-fsS", "--proto", "=https", "--max-time", "4",
+                  "--max-filesize", "4096", "https://wttr.in/?format=%l"]
         stdout: StdioCollector {
             waitForEnd: true
             onStreamFinished: {
@@ -384,26 +387,114 @@ QtObject {
     }
 
     // ── Network ─────────────────────────────────────────────────────────
+    // Every request is a `curl` child, never an in-shell XMLHttpRequest. QML's
+    // XMLHttpRequest has no deadline and no size limit: it buffers whatever the
+    // server sends, for as long as it takes, inside the desktop shell. curl
+    // enforces both before a byte reaches us - `--max-time` ends a stalled
+    // transfer and `--max-filesize` aborts one that grows past the cap, with
+    // or without a Content-Length (curl >= 8.4) - so the most a response can
+    // cost the shell is `_httpMaxBytes`.
+    //
+    // At most one request is ever in flight: starting one kills the previous,
+    // so a stalled transfer cannot pile up behind later refreshes. Its output,
+    // if any arrives, is dropped by the `seq` check, and the object is
+    // destroyed rather than left to finish.
+    //
+    // The endpoints and limits are properties so tests/weather-http.sh can
+    // point them at a local server; nothing in the plugin sets them.
+    property string _geocodeEndpoint: "https://geocoding-api.open-meteo.com/v1/search"
+    property string _forecastEndpoint: "https://api.open-meteo.com/v1/forecast"
+    property string _httpProtocols: "=https"
+    property int _httpTimeoutSec: 10
+    // A seven-day forecast is ~15 KB and a geocode under 2 KB.
+    property int _httpMaxBytes: 1048576
+
+    property Process _http: null
+
+    property Component _httpComponent: Component {
+        Process {
+            id: req
+            property int seq: 0
+            property var handler: null
+            property string body: ""
+            property bool _streamDone: false
+            property bool _exited: false
+            property int _exitCode: -1
+            stdout: StdioCollector {
+                waitForEnd: true
+                onStreamFinished: {
+                    req.body = String(this.text || "")
+                    req._streamDone = true
+                    req._settle()
+                }
+            }
+            onExited: function (exitCode) {
+                req._exitCode = exitCode
+                req._exited = true
+                req._settle()
+            }
+            // Both halves, in whichever order they arrive: the exit code says
+            // whether curl finished, the stream holds what it got.
+            function _settle() {
+                if (!req._streamDone || !req._exited) return
+                wd._httpSettled(req)
+            }
+        }
+    }
+
+    // GET `url`; `handler(status, body)` runs only if this is still the newest
+    // request. `status` is the HTTP status, or 0 when curl gave up (network
+    // error, deadline, size cap).
+    function _httpGet(url, handler) {
+        wd._cancelHttp()
+        wd._reqSeq = wd._reqSeq + 1
+        var p = wd._httpComponent.createObject(wd, {
+            seq: wd._reqSeq,
+            handler: handler,
+            command: ["curl", "-sS",
+                      "--proto", wd._httpProtocols,
+                      "--max-time", String(wd._httpTimeoutSec),
+                      "--max-filesize", String(wd._httpMaxBytes),
+                      "-w", "\n%{http_code}",
+                      url]
+        })
+        wd._http = p
+        p.running = true
+    }
+
+    function _cancelHttp() {
+        var p = wd._http
+        wd._http = null
+        if (!p) return
+        if (p.running) p.running = false
+        p.destroy()
+    }
+
+    function _httpSettled(p) {
+        // Superseded or cancelled: nothing it says is current.
+        if (!wd || p !== wd._http || p.seq !== wd._reqSeq) return
+        wd._http = null
+        var text = p.body
+        var cut = text.lastIndexOf("\n")
+        // `-w` writes the status after the body; a curl that gave up still
+        // writes it, as 000, and its exit code says it gave up.
+        var status = p._exitCode === 0 && cut >= 0 ? (parseInt(text.slice(cut + 1), 10) || 0) : 0
+        var body = cut >= 0 ? text.slice(0, cut) : ""
+        var handler = p.handler
+        p.destroy()
+        handler(status, body)
+    }
+
     function _geocode(name) {
         wd.isLoading = true
-
-        wd._reqSeq = wd._reqSeq + 1
-        var seq = wd._reqSeq
-        var xhr = new XMLHttpRequest()
-        var url = "https://geocoding-api.open-meteo.com/v1/search?name=" +
+        var url = wd._geocodeEndpoint + "?name=" +
                   encodeURIComponent(name) + "&count=1&language=en&format=json"
 
-        xhr.onreadystatechange = function() {
-            if (xhr.readyState !== XMLHttpRequest.DONE) return
-            // `wd` is null once this object has been destroyed with a request
-            // still in flight -- routine here, because both the bar slot and
-            // the WidgetHost Repeater re-create their item on a settings or
-            // store change. Also drops stale responses (see _reqSeq).
-            if (!wd || seq !== wd._reqSeq) return
+        wd._httpGet(url, function (status, body) {
             var hit = null
-            if (xhr.status === 200) {
+            if (status === 200) {
                 try {
-                    var resp = JSON.parse(xhr.responseText)
+                    var resp = JSON.parse(body)
                     if (resp.results && resp.results.length > 0) hit = resp.results[0]
                 } catch (e) {
                     hit = null
@@ -429,7 +520,7 @@ QtObject {
             }
 
             wd.isLoading = false
-            if (xhr.status === 200) {
+            if (status === 200) {
                 // The city does not exist. Retrying cannot change that, so the
                 // budget is spent on transient faults instead.
                 wd.errorMessage = "Location not found"
@@ -438,9 +529,7 @@ QtObject {
                 wd.errorMessage = "Network error"
                 wd._scheduleRetry()
             }
-        }
-        xhr.open("GET", url)
-        xhr.send()
+        })
     }
 
     function _fetchWeather() {
@@ -451,12 +540,9 @@ QtObject {
             return
         }
 
-        wd._reqSeq = wd._reqSeq + 1
-        var seq = wd._reqSeq
-        var xhr = new XMLHttpRequest()
         // Always metric, like Omarchy: °F and mph are computed here, so the
         // unit setting is a render-time decision and never a refetch.
-        var url = "https://api.open-meteo.com/v1/forecast?" +
+        var url = wd._forecastEndpoint + "?" +
                   "latitude=" + lat +
                   "&longitude=" + lon +
                   "&current=temperature_2m,weather_code,wind_speed_10m,wind_direction_10m" +
@@ -466,12 +552,10 @@ QtObject {
                   "&timezone=auto" +
                   "&forecast_days=7"
 
-        xhr.onreadystatechange = function() {
-            if (xhr.readyState !== XMLHttpRequest.DONE) return
-            if (!wd || seq !== wd._reqSeq) return
-            if (xhr.status === 200) {
+        wd._httpGet(url, function (status, body) {
+            if (status === 200) {
                 try {
-                    wd._report = JSON.parse(xhr.responseText)
+                    wd._report = JSON.parse(body)
                     wd._render()
                     wd.isLoading = false
                     wd.errorMessage = ""
@@ -487,10 +571,11 @@ QtObject {
             // is no reason to throw away this morning's temperature.
             wd.isLoading = false
             wd._scheduleRetry()
-        }
-        xhr.open("GET", url)
-        xhr.send()
+        })
     }
+
+    // A tile torn down mid-request takes its request with it.
+    Component.onDestruction: wd._cancelHttp()
 
     // ── Rendering ───────────────────────────────────────────────────────
     // The last good response, in metric, so a unit flip re-renders offline.

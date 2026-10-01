@@ -226,6 +226,10 @@ came from a real bug:
    (`tests/eventsource-home-relative.sh`).
 8. GeoClue stays off by default and an opt-out holds even mid-lookup
    (`tests/geolocation-optin.sh`, with the helper stubbed).
+9. Weather requests are bounded: real `curl` against a local server must
+   fail a stalled forecast at the deadline, cut an endless body off at the
+   byte cap, keep one request in flight across refreshes, and leave none
+   behind a torn-down tile (`tests/weather-http.sh`).
 
 Checks 2 and 5 read a scan rather than a file, so both refuse an EMPTY one: a
 `plugin.settings.<key>` grep or a `WidgetFields.qml` key table that comes back

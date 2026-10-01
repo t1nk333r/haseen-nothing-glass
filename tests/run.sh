@@ -853,4 +853,9 @@ bash "$SCRIPT_DIR/eventsource-home-relative.sh"
 # Replaces the helper with a stub, so it needs its own scratch copy.
 bash "$SCRIPT_DIR/geolocation-optin.sh"
 
+# ── 9. Weather requests are bounded ────────────────────────────────────────
+#
+# Real curl against a local server: a deadline, a byte cap, one at a time.
+bash "$SCRIPT_DIR/weather-http.sh"
+
 exit 0
