@@ -70,7 +70,7 @@ Item {
         id: sweepTimer
         interval: 16
         repeat: true
-        running: full._sweep
+        running: full._sweep && full.visible
         onTriggered: {
             const d = new Date()
             full._sweepSecond = d.getSeconds() + d.getMilliseconds() / 1000

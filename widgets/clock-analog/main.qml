@@ -46,7 +46,7 @@ Item {
         id: frameTimer
         interval: 16
         repeat: true
-        running: !full._tick
+        running: !full._tick && full.visible
         onTriggered: {
             const now = Date.now()
             const d = new Date(now)

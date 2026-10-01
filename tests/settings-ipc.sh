@@ -67,6 +67,9 @@ start_compositor() {
   runtime="$1"
   mkdir -p "$runtime"
   chmod 700 "$runtime"
+  # A previous start in this runtime leaves its socket file behind, and waiting
+  # on that would hand the host a socket nothing listens on yet.
+  rm -f "$runtime"/gamescope-0*
   env -u WAYLAND_DISPLAY -u DISPLAY XDG_RUNTIME_DIR="$runtime" setsid \
     gamescope --backend headless --expose-wayland -W 1280 -H 720 -- sleep 300 \
     >"$runtime/compositor.log" 2>&1 &
@@ -292,5 +295,22 @@ start_shell "$home"
 [[ $ready == *"styleMode=2"* ]] || fail "legacy options were adopted again after restart"
 stop_shell
 group_ok "options migration is durable when the retired filename already exists"
+
+# Files an earlier build left 0644 turn owner-only on load, with no write:
+# the store is written only on a change, so waiting for one leaves them open.
+home=$(new_home mode-on-load)
+cfg="$home/.config/omarchy"
+printf '%s\n' '{"plugins":[]}' >"$cfg/shell.json"
+printf '%s\n' '{"version":1,"options":{"styleMode":1}}' >"$cfg/$name-options.json"
+printf '%s\n' '{"version":1,"widgets":[{"id":"weather-1","type":"weather","screen":"TEST-1","x":16,"y":16,"w":192,"h":192,"settings":{}}]}' \
+  >"$cfg/$name.json"
+chmod 644 "$cfg/$name-options.json" "$cfg/$name.json"
+cp "$cfg/$name.json" "$scratch/load-mode.before"
+start_shell "$home"
+mode_is "$cfg/$name.json" 600 || fail "a loaded store stayed mode $(stat -c %a "$cfg/$name.json")"
+mode_is "$cfg/$name-options.json" 600 || fail "a loaded options file stayed mode $(stat -c %a "$cfg/$name-options.json")"
+stop_shell
+cmp -s "$scratch/load-mode.before" "$cfg/$name.json" || fail "making the store private rewrote it"
+group_ok "a store and options file left 0644 become 0600 on load, unchanged"
 
 (( failed == 0 )) || exit 1

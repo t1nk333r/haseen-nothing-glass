@@ -83,7 +83,12 @@ Item {
     atomicWrites: true
     printErrors: false
 
-    onLoaded: store._applyText(file.text())
+    // A file written 0644 by an earlier build is made owner-only on load,
+    // not only after the next write (OwnFiles.qml remembers it once done).
+    onLoaded: {
+      chores.restrict(store.path)
+      store._applyText(file.text())
+    }
     onLoadFailed: function (error) {
       // Missing file (first run, or the plugin has never persisted a
       // layout yet) is not corruption — start with an empty list.

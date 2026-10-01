@@ -277,8 +277,9 @@ came from a real bug:
 15. File-backed JSON is refused past a per-source UTF-8 byte cap before
     `JSON.parse` (`components/JsonRead.js`, `tests/json-caps.sh`).
 16. Wallpaper paths holding `#`, `?` or `%` load. The wallpaper poll pauses
-    while the screen is not drawn, and the 16 ms analog hands stop while
-    hidden (`tests/wallpaper.sh`, `tests/clock-visibility.sh`).
+    while the screen is not drawn, and the 16 ms second-hand sweep of every
+    analog clock, in both drawings, stops while hidden (`tests/wallpaper.sh`,
+    `tests/clock-visibility.sh`).
 17. The IPC `option` and `set` verbs write only declared settings with finite,
     bounded values (`tests/settings-ipc.sh`). The store's own guards are in
     `tests/runtime-store.qml`:
@@ -287,7 +288,7 @@ came from a real bug:
     - 16 KiB per-row settings and 256 rows;
     - a 4 MiB parse cap;
     - no writes while unreadable;
-    - 0600 files;
+    - 0600 files, after a write and on load;
     - durable legacy absorption;
     - a 37-row layout loaded unchanged.
 

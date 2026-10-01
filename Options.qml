@@ -199,6 +199,8 @@ Item {
         }
       }
       options.loaded = true
+      // Owner-only on load as well, for a file an earlier build left 0644.
+      chores.restrict(options.path)
     }
     // Plugin settings: owner-only (OwnFiles.qml).
     onSaved: chores.restrict(options.path)
