@@ -121,6 +121,7 @@ Item {
                 font.weight: Font.Medium
             }
             Text {
+                textFormat: Text.PlainText
                 text: weatherData.precipitationSummary
                 color: colors.weatherForeground
                 opacity: 0.55

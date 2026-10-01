@@ -64,6 +64,10 @@ Item {
         Text {
             width: Math.min(implicitWidth, hdr.cityRoom)
             elide: Text.ElideRight
+            // The name comes from a web service (the geocoder, or wttr.in for
+            // the IP's city). Plain text, so markup in it is shown, never
+            // obeyed - AutoText would load an <img> it named.
+            textFormat: Text.PlainText
             text: hdr.weatherData.cityName
             color: hdr.colors.weatherForeground
             font.family: hdr.fontFamily
@@ -120,6 +124,7 @@ Item {
         Text {
             visible: !hdr.compact
             anchors.right: parent.right
+            textFormat: Text.PlainText
             text: hdr.weatherData.condition
             color: hdr.colors.weatherForeground
             font.family: hdr.fontFamily

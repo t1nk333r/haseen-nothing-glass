@@ -235,7 +235,8 @@ jobs:
             "OK: store round-trip and migration" \
             "OK: the calendar never draws an account path" \
             "OK: GeoClue stays off by default and an opt-out holds" \
-            "OK: weather requests are bounded in time and size"; do
+            "OK: weather requests are bounded in time and size" \
+            "OK: the weather header draws service-supplied names as plain text"; do
             grep -qF "$marker" /tmp/run.log || missing+="  - $marker"$'\n'
           done
           # The settings-merge test drives a real Wayland compositor, and a GitHub runner

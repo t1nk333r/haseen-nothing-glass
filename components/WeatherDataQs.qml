@@ -287,7 +287,7 @@ QtObject {
                 // "Riyadh, Saudi Arabia" - the city is the first field.
                 var raw = String(this.text || "").replace(/^\s+|\s+$/g, "")
                 if (raw === "") return
-                wd._detectedName = raw.split(",")[0].replace(/^\s+|\s+$/g, "")
+                wd._detectedName = wd._placeName(raw.split(",")[0], "")
             }
         }
         onExited: function (exitCode) {
@@ -366,8 +366,18 @@ QtObject {
 
     function _compassDirection(degrees) {
         var dirs = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"]
-        var idx = Math.round(degrees / 45) % 8
-        return dirs[idx]
+        var n = Number(degrees)
+        if (!isFinite(n)) return ""
+        // Wrapped twice so a negative bearing lands on a real direction.
+        return dirs[((Math.round(n / 45) % 8) + 8) % 8]
+    }
+
+    // A place name from a web service, made safe to keep: a string, trimmed,
+    // and short. The views draw it as plain text; this keeps the length sane.
+    function _placeName(value, fallback) {
+        if (typeof value !== "string") return fallback
+        var s = value.replace(/^\s+|\s+$/g, "").slice(0, 128)
+        return s !== "" ? s : fallback
     }
 
     function _formatHour(date) {
@@ -528,9 +538,10 @@ QtObject {
             if (hit) {
                 wd._geoLatitude = Number(hit.latitude)
                 wd._geoLongitude = Number(hit.longitude)
-                wd._countryCode = String(hit.country_code || "")
+                wd._countryCode = typeof hit.country_code === "string"
+                    ? hit.country_code.slice(0, 8) : ""
                 wd._geocodedFor = name
-                wd.cityName = hit.name || name
+                wd.cityName = wd._placeName(hit.name, name)
                 wd.errorMessage = ""
                 wd._fetchWeather()
                 return
@@ -581,8 +592,18 @@ QtObject {
                 try {
                     var report = JSON.parse(body)
                     if (!wd._reportUsable(report)) throw new Error("unexpected shape")
+                    // Applied whole or not at all: a report that throws half
+                    // way through rendering hands the tile back to the last
+                    // good one rather than leaving it half-drawn.
+                    var previous = wd._report
                     wd._report = report
-                    wd._render()
+                    try {
+                        wd._render()
+                    } catch (renderError) {
+                        wd._report = previous
+                        if (previous) wd._render()
+                        throw renderError
+                    }
                     wd.isLoading = false
                     wd.errorMessage = ""
                     wd._clearRetry()

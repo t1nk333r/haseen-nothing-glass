@@ -858,4 +858,9 @@ bash "$SCRIPT_DIR/geolocation-optin.sh"
 # Real curl against a local server: a deadline, a byte cap, one at a time.
 bash "$SCRIPT_DIR/weather-http.sh"
 
+# ── 10. Names from a web service are drawn, never obeyed ───────────────────
+#
+# The real Liquid Glass header with an <img> as the city name: no fetch.
+bash "$SCRIPT_DIR/weather-header-plaintext.sh"
+
 exit 0

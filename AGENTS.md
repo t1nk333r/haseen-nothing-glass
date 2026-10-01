@@ -233,6 +233,11 @@ came from a real bug:
    treat a 0,0 geocode as not found, keep one request in flight across
    refreshes, and leave none behind a destroyed tile
    (`tests/weather-http.sh`).
+10. A city name from the geocoder or wttr.in is drawn as plain text: the
+    real Liquid Glass header given `<img src="http://…">` as the name must
+    not fetch it (`tests/weather-header-plaintext.sh`). Any new `Text` that
+    shows a service-supplied string needs `textFormat: Text.PlainText`; the
+    Nothing primitives already set it.
 
 Checks 2 and 5 read a scan rather than a file, so both refuse an EMPTY one: a
 `plugin.settings.<key>` grep or a `WidgetFields.qml` key table that comes back
