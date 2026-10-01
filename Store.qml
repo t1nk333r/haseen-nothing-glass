@@ -89,7 +89,8 @@ Item {
     printErrors: false
 
     // A file written 0644 by an earlier build is made owner-only on load,
-    // not only after the next write (OwnFiles.qml remembers it once done).
+    // not only after the next write. A file that is 600 already is left
+    // alone, so this load does not trigger another (OwnFiles.qml).
     onLoaded: {
       chores.restrict(store.path)
       store._applyText(file.text())

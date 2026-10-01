@@ -293,7 +293,8 @@ came from a real bug:
     - no writes while unreadable or over the limit, and writes again once the
       file is moved aside (no restart);
     - 0600 files after every write and on load, including the `.bak`, and
-      after a file is recreated mid-session;
+      after a file is recreated mid-session; an already-private file is not
+      touched, so an idle shell does not reload its own files in a loop;
     - durable legacy absorption;
     - a 37-row layout loaded unchanged.
 

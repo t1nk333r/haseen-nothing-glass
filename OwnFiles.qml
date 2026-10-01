@@ -4,19 +4,20 @@ import Quickshell.Io
 // Two chores on the files this plugin owns - the widget store, its .bak and
 // the options file - each one a short child process, run one at a time:
 //
-//   restrict(path)    `chmod 600`. The store holds every widget's settings
-//                     (folders, locations, player names) and a file created
-//                     through FileView gets whatever the umask allows - 0644,
-//                     readable by every account on the machine. FileView has
-//                     no mode knob. An atomic save (QSaveFile) keeps the mode
-//                     of the file it replaces, but a file deleted while the
-//                     shell runs comes back with the umask's mode, so the
-//                     chmod runs after every save and every load rather than
-//                     once per path. Saves are coalesced and a request already
-//                     queued for the path absorbs a second one, so this is at
-//                     most one short child per write. The moment between a
-//                     file's first creation and its chmod stays open: closing
-//                     it would need control of the shell's umask.
+//   restrict(path)    `chmod 600` unless the file is 600 already. The store
+//                     holds every widget's settings (folders, locations,
+//                     player names) and a file created through FileView gets
+//                     whatever the umask allows - 0644, readable by every
+//                     account on the machine. FileView has no mode knob. An
+//                     atomic save (QSaveFile) keeps the mode of the file it
+//                     replaces, but a file deleted while the shell runs comes
+//                     back with the umask's mode, so the check runs after
+//                     every save and every load rather than once per path.
+//                     Saves are coalesced and a request already queued for the
+//                     path absorbs a second one, so this is at most one short
+//                     child per write or load. The moment between a file's
+//                     first creation and its chmod stays open: closing it
+//                     would need control of the shell's umask.
 //   retire(from, to)  `mv -n` of a retired file to its `.migrated` name, and
 //                     the CHECK that it actually went: `mv -n` exits 0 when
 //                     the target already exists and the source stays where it
@@ -44,7 +45,13 @@ Item {
   function restrict(path) {
     var p = String(path || "")
     if (p === "") return
-    chores._enqueue({ kind: "restrict", path: p, argv: ["chmod", "600", "--", p] })
+    // Only when the mode is not 600 already. A chmod changes the file's ctime
+    // even when the mode stays the same, and the store and options views
+    // watch their files and reload on that and restrict again on load, so an
+    // unconditional chmod would chase its own event forever. The path is a
+    // positional parameter, never part of the script.
+    chores._enqueue({ kind: "restrict", path: p,
+                      argv: ["sh", "-c", 'test "$(stat -c %a -- "$1")" = 600 || chmod 600 -- "$1"', "sh", p] })
   }
 
   function retire(from, to) {

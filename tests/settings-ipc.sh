@@ -380,9 +380,30 @@ start_shell "$home"
 mode_is "$cfg/$name.json" 600 || fail "a loaded store stayed mode $(stat -c %a "$cfg/$name.json")"
 mode_is "$cfg/$name-options.json" 600 || fail "a loaded options file stayed mode $(stat -c %a "$cfg/$name-options.json")"
 mode_is "$cfg/$name.json.bak" 600 || fail "an existing store backup stayed mode $(stat -c %a "$cfg/$name.json.bak")"
-stop_shell
 cmp -s "$scratch/load-mode.before" "$cfg/$name.json" || fail "making the store private rewrote it"
 cmp -s "$scratch/load-mode.before" "$cfg/$name.json.bak" || fail "making the backup private rewrote it"
 group_ok "a store, its backup and the options file left 0644 become 0600 on load, unchanged"
+
+# Making a file private must not chase itself: a chmod changes the ctime,
+# the views watch their files and restrict again on load. Once settled, an
+# idle shell leaves both files alone.
+sleep 1
+ctimes_before=$(stat -c %z "$cfg/$name.json" "$cfg/$name-options.json")
+sleep 2
+ctimes_after=$(stat -c %z "$cfg/$name.json" "$cfg/$name-options.json")
+[[ $ctimes_before == "$ctimes_after" ]] || fail "an idle shell keeps touching its files (ctime moved)"
+stop_shell
+
+# Nor for a file it cannot read: the warning is said once, not in a loop.
+home=$(new_home idle-corrupt)
+cfg="$home/.config/omarchy"
+printf '%s\n' '{"plugins":[]}' >"$cfg/shell.json"
+printf '%s\n' '{"options":' >"$cfg/$name-options.json"
+start_shell "$home"
+sleep 3
+warned=$(grep -c 'unreadable, ignoring it' "$home/qs.log" || true)
+(( warned <= 2 )) || fail "an unreadable options file was reported $warned times in 3 s"
+stop_shell
+group_ok "an idle shell leaves its files alone once they are private"
 
 (( failed == 0 )) || exit 1
