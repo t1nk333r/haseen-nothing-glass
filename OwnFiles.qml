@@ -48,10 +48,12 @@ Item {
     // Only when the mode is not 600 already. A chmod changes the file's ctime
     // even when the mode stays the same, and the store and options views
     // watch their files and reload on that and restrict again on load, so an
-    // unconditional chmod would chase its own event forever. The path is a
-    // positional parameter, never part of the script.
+    // unconditional chmod would chase its own event forever. `-L` reads the
+    // mode of the file a symlink points at (a dotfile manager's link is 777
+    // itself), which is also what chmod changes. The path is a positional
+    // parameter, never part of the script.
     chores._enqueue({ kind: "restrict", path: p,
-                      argv: ["sh", "-c", 'test "$(stat -c %a -- "$1")" = 600 || chmod 600 -- "$1"', "sh", p] })
+                      argv: ["sh", "-c", 'test "$(stat -L -c %a -- "$1")" = 600 || chmod 600 -- "$1"', "sh", p] })
   }
 
   function retire(from, to) {

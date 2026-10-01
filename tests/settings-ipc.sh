@@ -394,6 +394,28 @@ ctimes_after=$(stat -c %z "$cfg/$name.json" "$cfg/$name-options.json")
 [[ $ctimes_before == "$ctimes_after" ]] || fail "an idle shell keeps touching its files (ctime moved)"
 stop_shell
 
+# The same when both files are symlinks, as a dotfile manager leaves them: the
+# mode that counts is the target's, not the link's own 777.
+home=$(new_home idle-symlinks)
+cfg="$home/.config/omarchy"
+dots="$scratch/idle-symlinks/dotfiles"
+mkdir -p "$dots"
+printf '%s\n' '{"plugins":[]}' >"$cfg/shell.json"
+printf '%s\n' '{"version":1,"options":{"styleMode":1}}' >"$dots/options.json"
+printf '%s\n' '{"version":1,"widgets":[{"id":"weather-1","type":"weather","screen":"TEST-1","x":16,"y":16,"w":192,"h":192,"settings":{}}]}' \
+  >"$dots/store.json"
+chmod 600 "$dots/options.json" "$dots/store.json"
+ln -s "$dots/store.json" "$cfg/$name.json"
+ln -s "$dots/options.json" "$cfg/$name-options.json"
+start_shell "$home"
+sleep 1
+ctimes_before=$(stat -L -c %z "$cfg/$name.json" "$cfg/$name-options.json")
+sleep 2
+ctimes_after=$(stat -L -c %z "$cfg/$name.json" "$cfg/$name-options.json")
+[[ $ctimes_before == "$ctimes_after" ]] || fail "an idle shell keeps touching symlinked files (target ctime moved)"
+[[ -L $cfg/$name.json && -L $cfg/$name-options.json ]] || fail "a symlinked store or options file was replaced"
+stop_shell
+
 # Nor for a file it cannot read: the warning is said once, not in a loop.
 home=$(new_home idle-corrupt)
 cfg="$home/.config/omarchy"
