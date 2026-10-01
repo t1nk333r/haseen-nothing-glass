@@ -3,27 +3,28 @@ import Quickshell
 import Quickshell.Io
 import "JsonRead.js" as JsonRead
 
-// DeepSeek credit and spend, read out of the DeepSpend plugin's own ledger.
+// DeepSeek credit and spend, read out of the DeepSpend ledger.
 //
 // Where the number comes from
 // ---------------------------
-// `t1nk33r.deepseek` (display name "DeepSeek", the plugin the operator calls
-// DeepSpend) is installed and running on this machine as a bar widget. Its
-// manifest declares `kinds: ["bar-widget"]` only - no service entry point - so
-// `shell.serviceFor("t1nk33r.deepseek")` is null and its parsed balance lives
-// in private properties of its own BarWidget.qml. Same shape, and the same
-// answer, as the weather / prayer / tailscale / codeburn components
-// (PORTING.md items 17 and 25): go to the source that plugin reads and writes,
-// and depend on nothing of it being installed, enabled or running.
+// DeepSpend - the DeepSeek balance poller the operator calls by that name -
+// now lives inside `t1nk33r.agents` (its DeepSeekService.qml), which replaced
+// the standalone `t1nk33r.deepseek` plugin and moved its state with it. Same
+// shape, and the same answer, as the weather / prayer / tailscale / codeburn
+// components (PORTING.md items 17 and 25): go to the source that plugin reads
+// and writes, and depend on nothing of it being installed, enabled or running.
 //
 // That source is the ledger it already writes:
 //
-//   $XDG_STATE_HOME/t1nk33r.deepseek/usage.state
-//   -> ~/.local/state/t1nk33r.deepseek/usage.state
+//   $XDG_STATE_HOME/omarchy/t1nk33r.agents/deepseek/usage.state
+//   -> ~/.local/state/omarchy/t1nk33r.agents/deepseek/usage.state
+//
+// (Before the merge it was $XDG_STATE_HOME/t1nk33r.deepseek/usage.state; the
+// move carried the file across, so there is nothing left to read there.)
 //
 // one JSON line, mode 0600, written atomically (a same-directory temp file and
 // a rename, so a reader sees the old ledger or the new one, never half of
-// either). Its own header in Model.js/BarWidget.qml describes it, and this is
+// either). DeepSeekService.qml in `t1nk33r.agents` describes it, and this is
 // the body verbatim - the field names below are read from it, not guessed:
 //
 //   {"version":2,"currency":"USD","firstSeenAt":1789144294532,
@@ -87,7 +88,7 @@ QtObject {
   readonly property string stateDir: {
     var base = Quickshell.env("XDG_STATE_HOME")
     if (!base || base === "") base = (Quickshell.env("HOME") || "") + "/.local/state"
-    return base + "/t1nk33r.deepseek"
+    return base + "/omarchy/t1nk33r.agents/deepseek"
   }
   readonly property string ledgerPath: ds.stateDir + "/usage.state"
   readonly property string configPath: {

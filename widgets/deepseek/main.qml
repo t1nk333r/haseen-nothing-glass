@@ -5,7 +5,7 @@ import "../../components"
 //
 // The Liquid Glass twin of widgets-nothing/deepseek/main.qml, carrying the
 // same facts out of the same component: DeepSeekData reads the ledger the
-// DeepSpend plugin (`t1nk33r.deepseek`) already writes on this machine. No
+// DeepSpend poller in `t1nk33r.agents` already writes on this machine. No
 // API call, no key, no webhook - see that component's header for the file, the
 // fields and why.
 //

@@ -43,7 +43,7 @@ def put(rel, doc, cap_mib):
 put(".local/state/omarchy/calendar-events.json", {"events": []}, 4)
 put(".local/state/omarchy/omarr/feed.json", {"version": 1}, 4)
 put(".local/state/omarchy/agents/usage/claude.json", {"limits": []}, 1)
-put(".local/state/t1nk33r.deepseek/usage.state", {"version": 2, "lastTotal": 5}, 4)
+put(".local/state/omarchy/t1nk33r.agents/deepseek/usage.state", {"version": 2, "lastTotal": 5}, 4)
 put(".local/state/omarchy/settings/weather.json", {"name": "Padville", "latitude": 1.5, "longitude": 2.5}, 1)
 put(".config/omarchy/shell.json", {"plugins": [{"id": "t1nk33r.omaprayers", "latitude": 10.5,
     "longitude": 20.5, "timezone": "UTC", "calculationMethod": 4}]}, 4)

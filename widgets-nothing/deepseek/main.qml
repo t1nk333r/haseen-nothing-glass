@@ -5,8 +5,8 @@ import "../../components/nothing"
 // DeepSeek credit and spend, Nothing style.
 //
 // The Nothing twin of widgets/deepseek/main.qml: one data source
-// (DeepSeekData, which reads the ledger the DeepSpend plugin
-// `t1nk33r.deepseek` already writes on this machine) and no timer of its own -
+// (DeepSeekData, which reads the ledger the DeepSpend poller in
+// `t1nk33r.agents` already writes on this machine) and no timer of its own -
 // the freshness rule, the row list and the wording live in the component, so
 // the two drawings cannot disagree about what the account holds.
 //
