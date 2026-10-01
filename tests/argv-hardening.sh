@@ -13,7 +13,7 @@
 #              shown as the unknown zone; a real zone still resolves
 set -euo pipefail
 root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
-for tool in qs which; do
+for tool in qs which timeout; do
   command -v "$tool" >/dev/null || { echo "SKIP: argv hardening ($tool not on PATH)"; exit 0; }
 done
 real_date=$(command -v date)

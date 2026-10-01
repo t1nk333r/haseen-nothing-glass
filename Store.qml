@@ -484,12 +484,14 @@ Item {
     backupFile.setText(text)
   }
 
-  // Write-only sink for the corrupt-file backup. Never read. It holds the
-  // same settings the store does, so it is made private the same way.
+  // Write-only sink for the corrupt-file backup; its text is never used. It
+  // holds the same settings the store does, so it is made private the same
+  // way, on load as well, for a .bak an earlier build left 0644.
   FileView {
     id: backupFile
     path: store._backupPath
     printErrors: false
+    onLoaded: chores.restrict(store._backupPath)
     onSaved: chores.restrict(store._backupPath)
   }
 

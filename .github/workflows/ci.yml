@@ -294,7 +294,7 @@ jobs:
             "OK: an options file or shell.json past 4 MiB is not parsed"
             "OK: an unparsable store refuses writes and preserves its original and backup"
             "OK: options migration is durable when the retired filename already exists"
-            "OK: a store and options file left 0644 become 0600 on load, unchanged"
+            "OK: a store, its backup and the options file left 0644 become 0600 on load, unchanged"
           )
           if grep -qF 'SKIP: settings IPC (headless compositor did not come up)' /tmp/run.log; then
             echo "::warning::the settings-IPC test skipped - this runner cannot host a compositor, so it runs only where one exists"

@@ -304,13 +304,16 @@ printf '%s\n' '{"plugins":[]}' >"$cfg/shell.json"
 printf '%s\n' '{"version":1,"options":{"styleMode":1}}' >"$cfg/$name-options.json"
 printf '%s\n' '{"version":1,"widgets":[{"id":"weather-1","type":"weather","screen":"TEST-1","x":16,"y":16,"w":192,"h":192,"settings":{}}]}' \
   >"$cfg/$name.json"
-chmod 644 "$cfg/$name-options.json" "$cfg/$name.json"
+cp "$cfg/$name.json" "$cfg/$name.json.bak"
+chmod 644 "$cfg/$name-options.json" "$cfg/$name.json" "$cfg/$name.json.bak"
 cp "$cfg/$name.json" "$scratch/load-mode.before"
 start_shell "$home"
 mode_is "$cfg/$name.json" 600 || fail "a loaded store stayed mode $(stat -c %a "$cfg/$name.json")"
 mode_is "$cfg/$name-options.json" 600 || fail "a loaded options file stayed mode $(stat -c %a "$cfg/$name-options.json")"
+mode_is "$cfg/$name.json.bak" 600 || fail "an existing store backup stayed mode $(stat -c %a "$cfg/$name.json.bak")"
 stop_shell
 cmp -s "$scratch/load-mode.before" "$cfg/$name.json" || fail "making the store private rewrote it"
-group_ok "a store and options file left 0644 become 0600 on load, unchanged"
+cmp -s "$scratch/load-mode.before" "$cfg/$name.json.bak" || fail "making the backup private rewrote it"
+group_ok "a store, its backup and the options file left 0644 become 0600 on load, unchanged"
 
 (( failed == 0 )) || exit 1
