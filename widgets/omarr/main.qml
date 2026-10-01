@@ -151,6 +151,7 @@ Item {
         // to the same one.
         Text {
             id: header
+            textFormat: Text.PlainText
             text: "omARR"
             color: colors.foreground
             opacity: 0.75
@@ -175,6 +176,7 @@ Item {
         // for the ink on a red fill does not exist here.
         Text {
             id: badge
+            textFormat: Text.PlainText
             visible: om.ready && om.badgeVisible
             text: String(om.badgeNumber)
             color: om.badgeUrgent ? colors.accentRed : colors.foreground
@@ -204,6 +206,7 @@ Item {
             // of that the tile says so instead of passing them off as current.
             Text {
                 id: readout
+                textFormat: Text.PlainText
                 text: om.freshnessText
                 color: om.stale ? colors.accentAmber : colors.foreground
                 opacity: om.stale ? 1.0 : colors.textQuiet
@@ -218,6 +221,7 @@ Item {
             // local source, named.
             Text {
                 id: source
+                textFormat: Text.PlainText
                 visible: full.isBig
                 text: om.sourceLabel
                 color: colors.foreground
@@ -399,6 +403,7 @@ Item {
 
             Text {
                 id: hero
+                textFormat: Text.PlainText
                 visible: om.ready
                 text: om.heroLabel
                 color: om.alert ? colors.accentRed : colors.foreground
@@ -425,6 +430,7 @@ Item {
             // `statusLines`).
             Text {
                 id: statusLine
+                textFormat: Text.PlainText
                 visible: om.ready && text !== "" && stage.statusLines > 0
                 text: stage.captionText
                 color: om.alert ? colors.accentRed : colors.foreground
@@ -472,6 +478,7 @@ Item {
 
                 Text {
                     id: leadTitle
+                    textFormat: Text.PlainText
                     // `om.lead` is null on the frame the feed arrives with an
                     // empty queue; the binding must not read through it.
                     text: om.lead ? om.lead.title : ""
@@ -488,6 +495,7 @@ Item {
 
                 Text {
                     id: leadPercent
+                    textFormat: Text.PlainText
                     text: om.lead ? om.lead.percentLabel : ""
                     color: colors.foreground
                     font.family: colors.uiFont
@@ -526,6 +534,7 @@ Item {
                 // room for a line. Never invented: empty fields draw nothing.
                 Text {
                     id: leadMeta
+                    textFormat: Text.PlainText
                     visible: stage.metaWanted
                     text: {
                         var parts = []
@@ -558,6 +567,7 @@ Item {
 
                 Text {
                     id: noticeHeadline
+                    textFormat: Text.PlainText
                     text: om.noticeHeadline
                     color: colors.foreground
                     font.family: colors.uiFont
@@ -569,6 +579,7 @@ Item {
 
                 Text {
                     id: noticeDetail
+                    textFormat: Text.PlainText
                     text: om.noticeDetail
                     color: colors.foreground
                     opacity: 0.7
@@ -621,6 +632,7 @@ Item {
 
                             Text {
                                 id: rowName
+                                textFormat: Text.PlainText
                                 text: boardRow.modelData.label
                                 color: colors.foreground
                                 opacity: 0.9
@@ -662,6 +674,7 @@ Item {
                             // OmarrData (`activity`).
                             Text {
                                 id: rowActivity
+                                textFormat: Text.PlainText
                                 visible: boardRow.modelData.activity > 0
                                 text: String(boardRow.modelData.activity)
                                 color: colors.foreground
@@ -689,6 +702,7 @@ Item {
                             // status.
                             Text {
                                 id: rowStatus
+                                textFormat: Text.PlainText
                                 text: boardRow.modelData.status
                                 color: boardRow.modelData.alert
                                     ? colors.accentRed : colors.foreground
@@ -717,6 +731,7 @@ Item {
                 // capped list reads the same wherever it appears in this tree.
                 Text {
                     id: boardFoot
+                    textFormat: Text.PlainText
                     visible: board.rows.length > 0
                     text: board.rows.length < om.serviceCount
                         ? board.rows.length + " of " + om.serviceCount + " services"

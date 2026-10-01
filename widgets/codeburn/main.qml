@@ -190,6 +190,7 @@ Item {
         // ── Header: the period, named ──────────────────────────────────
         Text {
             id: header
+            textFormat: Text.PlainText
             text: full.periodText
             color: colors.foreground
             opacity: 0.75
@@ -207,6 +208,7 @@ Item {
         // already. The chart's newest bar is the same fact, drawn once more.
         Text {
             id: spike
+            textFormat: Text.PlainText
             visible: full.ready && cb.spike
             text: "SPIKE"
             color: colors.accentRed
@@ -248,12 +250,14 @@ Item {
 
                 Text {
                     id: callsNum
+                    textFormat: Text.PlainText
                     text: full.ready ? String(cb.calls) : "--"
                     color: colors.foreground
                     font.family: colors.uiFont
                     font.pixelSize: gscale.body
                 }
                 Text {
+                    textFormat: Text.PlainText
                     text: "calls"
                     color: colors.foreground
                     opacity: 0.5
@@ -265,12 +269,14 @@ Item {
                 Item { width: Math.round(gscale.tight * 0.6); height: 1 }
                 Text {
                     id: sessNum
+                    textFormat: Text.PlainText
                     text: full.ready ? String(cb.sessions) : "--"
                     color: colors.foreground
                     font.family: colors.uiFont
                     font.pixelSize: gscale.body
                 }
                 Text {
+                    textFormat: Text.PlainText
                     text: "sess"
                     color: colors.foreground
                     opacity: 0.5
@@ -286,6 +292,7 @@ Item {
             // red, which means something else here.
             Text {
                 id: ageSmall
+                textFormat: Text.PlainText
                 visible: !full.isBig && full.ready && cb.ageLabel !== ""
                 text: cb.ageLabel
                 color: colors.foreground
@@ -298,6 +305,7 @@ Item {
 
             Text {
                 id: sourceBig
+                textFormat: Text.PlainText
                 visible: full.isBig && full.ready
                 text: cb.sourceKind === "daily" ? "Daily cache"
                     : (cb.sourceKind === "live" ? "Recomputed" : "Snapshot")
@@ -310,6 +318,7 @@ Item {
             }
             Text {
                 id: ageBig
+                textFormat: Text.PlainText
                 visible: full.isBig && full.ready && cb.ageLabel !== ""
                 text: cb.ageLabel
                 color: colors.foreground
@@ -343,6 +352,7 @@ Item {
                 }
                 Text {
                     id: syncLabel
+                    textFormat: Text.PlainText
                     text: cb.recomputing ? "Syncing" : "Sync"
                     color: colors.foreground
                     opacity: cb.recomputing ? 0.5 : 0.9
@@ -398,6 +408,7 @@ Item {
 
                         Text {
                             id: mark
+                            textFormat: Text.PlainText
                             text: full.heroMark
                             color: colors.foreground
                             opacity: 0.7
@@ -408,6 +419,7 @@ Item {
                         }
                         Text {
                             id: amount
+                            textFormat: Text.PlainText
                             text: full.heroAmount
                             color: colors.foreground
                             font.family: colors.uiFont
@@ -425,6 +437,7 @@ Item {
                     // screen.
                     Text {
                         id: exact
+                        textFormat: Text.PlainText
                         visible: cb.costExactLabel !== cb.costLabel
                         text: cb.costExactLabel
                         color: colors.foreground
@@ -475,6 +488,7 @@ Item {
 
                             Text {
                                 id: modelName
+                                textFormat: Text.PlainText
                                 text: modelRow.modelData.name
                                 color: colors.foreground
                                 font.family: colors.uiFont
@@ -487,6 +501,7 @@ Item {
                             }
                             Text {
                                 id: modelCost
+                                textFormat: Text.PlainText
                                 text: modelRow.modelData.costLabel
                                 color: colors.foreground
                                 opacity: 0.7
@@ -651,6 +666,7 @@ Item {
                         anchors.bottom: parent.bottom
 
                         Text {
+                            textFormat: Text.PlainText
                             visible: chart.count > 0
                             text: chart.count > 0 ? cb.days[0].label : ""
                             color: colors.foreground
@@ -661,6 +677,7 @@ Item {
                             anchors.verticalCenter: parent.verticalCenter
                         }
                         Text {
+                            textFormat: Text.PlainText
                             visible: chart.count > 1
                             text: chart.count > 1 ? cb.days[chart.count - 1].label : ""
                             color: colors.foreground
@@ -686,6 +703,7 @@ Item {
                     readonly property real total: cb.totalTokens > 0 ? cb.totalTokens : 1
 
                     Text {
+                        textFormat: Text.PlainText
                         text: "Tokens"
                         color: colors.foreground
                         opacity: 0.55
@@ -695,6 +713,7 @@ Item {
                         anchors.left: parent.left
                     }
                     Text {
+                        textFormat: Text.PlainText
                         text: cb.tokenLabel + "  ·  " + cb.cacheLabel + " cached"
                         color: colors.foreground
                         opacity: 0.9
@@ -765,6 +784,7 @@ Item {
 
                                 Text {
                                     id: legendKey
+                                    textFormat: Text.PlainText
                                     text: legend.modelData.k
                                     color: colors.foreground
                                     opacity: 0.5
@@ -778,6 +798,7 @@ Item {
                                 }
                                 Text {
                                     id: legendValue
+                                    textFormat: Text.PlainText
                                     text: cb.formatTokens(legend.modelData.v)
                                     color: colors.foreground
                                     // The bar under this legend keeps the full
@@ -827,6 +848,7 @@ Item {
                                 + (bigRow.showKind ? bigStack.headerH : 0)
 
                             Text {
+                                textFormat: Text.PlainText
                                 visible: bigRow.showKind
                                 text: bigRow.modelData.kind === "project"
                                     ? "Projects" : "Models"
@@ -849,6 +871,7 @@ Item {
 
                                 Text {
                                     id: bigName
+                                    textFormat: Text.PlainText
                                     text: bigRow.modelData.k
                                     color: colors.foreground
                                     font.family: colors.uiFont
@@ -863,6 +886,7 @@ Item {
                                 }
                                 Text {
                                     id: bigCost
+                                    textFormat: Text.PlainText
                                     text: bigRow.modelData.v
                                     color: colors.foreground
                                     opacity: 0.7
@@ -907,6 +931,7 @@ Item {
                 anchors.centerIn: parent
 
                 Text {
+                    textFormat: Text.PlainText
                     width: parent.width
                     text: "--"
                     color: colors.foreground
@@ -916,6 +941,7 @@ Item {
                     horizontalAlignment: Text.AlignHCenter
                 }
                 Text {
+                    textFormat: Text.PlainText
                     width: parent.width
                     text: !cb.loaded ? "Reading cache" : cb.errorMessage
                     color: colors.foreground
@@ -927,6 +953,7 @@ Item {
                 }
                 // Room to say where it looked, on the tiles that have it.
                 Text {
+                    textFormat: Text.PlainText
                     visible: (full.isWide || full.isBig) && cb.errorMessage !== ""
                     width: parent.width
                     text: cb.cacheDir

@@ -95,6 +95,7 @@ Item {
             model: [{ num: 12, pos: 0 }, { num: 3, pos: 3 }, { num: 6, pos: 6 }, { num: 9, pos: 9 }]
 
             delegate: Text {
+                textFormat: Text.PlainText
                 required property var modelData
                 readonly property int num: modelData.num
                 readonly property int pos: modelData.pos

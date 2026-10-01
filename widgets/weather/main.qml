@@ -114,6 +114,7 @@ Item {
             spacing: 0
 
             Text {
+                textFormat: Text.PlainText
                 text: "Precipitation"
                 color: colors.weatherForeground
                 font.family: colors.uiFont
@@ -136,6 +137,7 @@ Item {
             Item { width: 1; height: scale.gap }
 
             Text {
+                textFormat: Text.PlainText
                 text: "Wind"
                 color: colors.weatherForeground
                 font.family: colors.uiFont
@@ -143,6 +145,7 @@ Item {
                 font.weight: Font.Medium
             }
             Text {
+                textFormat: Text.PlainText
                 text: weatherData.windSpeed + " " + weatherData.windUnit + " " + weatherData.windDirection
                 color: colors.weatherForeground
                 opacity: 0.55

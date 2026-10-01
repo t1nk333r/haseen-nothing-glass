@@ -30,6 +30,7 @@ Item {
             spacing: Math.round(hf.height * 0.04)
 
             Text {
+                textFormat: Text.PlainText
                 anchors.horizontalCenter: parent.horizontalCenter
                 text: slot ? slot.displayTime : "--"
                 color: hf.secondaryTextColor
@@ -47,6 +48,7 @@ Item {
             }
 
             Text {
+                textFormat: Text.PlainText
                 anchors.horizontalCenter: parent.horizontalCenter
                 text: {
                     if (!slot) return "--"

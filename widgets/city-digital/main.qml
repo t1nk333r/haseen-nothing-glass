@@ -132,6 +132,7 @@ Item {
     readonly property real _annoOpacity: colors.textQuiet
 
     Text {
+        textFormat: Text.PlainText
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.top: parent.top
         anchors.topMargin: full._annoMargin
@@ -143,6 +144,7 @@ Item {
         opacity: full._annoOpacity
     }
     Text {
+        textFormat: Text.PlainText
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.bottom: parent.bottom
         anchors.bottomMargin: full._annoMargin

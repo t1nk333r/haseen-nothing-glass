@@ -491,6 +491,60 @@ if [[ -n $drift ]]; then
 fi
 echo "OK: the weather header is one component per style, not one per preset"
 
+# ── 4e. Every Text draws plain text ────────────────────────────────────────
+#
+# A Text left on Qt's default AutoText obeys any markup in its string: an
+# <img src="http://…"> in a calendar title, a track name, a peer's hostname
+# or a city from a web service made the shell fetch that URL just by drawing
+# it. Nothing in the plugin draws rich text on purpose, so every Text and
+# Label says `textFormat: Text.PlainText` at its own level - a new one that
+# forgets fails here, not in a security review.
+autotext="$(cd "$PLUGIN_DIR" && find . -name '*.qml' -not -path './.git/*' -print0 |
+  xargs -0 awk '
+    FNR == 1 { open = 0 }
+    open == 0 && /^[[:space:]]*([A-Za-z_.]+[[:space:]]*:[[:space:]]*)?(Text|Label)[[:space:]]*\{[[:space:]]*$/ {
+      open = 1; depth = 1; ok = 0; at = FNR; next
+    }
+    open == 1 {
+      if (depth == 1 && $0 ~ /^[[:space:]]*textFormat[[:space:]]*:[[:space:]]*Text\.PlainText/) ok = 1
+      depth += gsub(/\{/, "{") - gsub(/\}/, "}")
+      if (depth <= 0) { if (!ok) print FILENAME ":" at; open = 0 }
+    }
+  ' || true)"
+if [[ -n $autotext ]]; then
+  {
+    echo "Text/Label elements without 'textFormat: Text.PlainText' (they obey markup in their string):"
+    printf '  %s\n' $autotext
+  } >&2
+  exit 1
+fi
+echo "OK: every Text and Label draws plain text"
+
+# ── 4f. A weather report is rolled back whole ──────────────────────────────
+#
+# WeatherDataQs._applyReport restores every property in `_renderOutputs` when
+# a report throws half way through drawing. A property _render (or a helper
+# it calls) writes but the list omits would silently survive that rollback,
+# leaving half a rejected report on screen - so the two must name the same
+# set. The render path is everything from `function _render()` to the end.
+weather_qs="$PLUGIN_DIR/components/WeatherDataQs.qml"
+render_writes="$(sed -n '/function _render()/,$p' "$weather_qs" |
+  grep -oE 'wd\.[A-Za-z_][A-Za-z0-9_]* = ' | sed -E 's/^wd\.| = $//g' | sort -u || true)"
+render_listed="$(sed -n '/_renderOutputs: \[/,/\]/p' "$weather_qs" |
+  grep -oE '"[A-Za-z_][A-Za-z0-9_]*"' | tr -d '"' | sort -u || true)"
+if [[ -z $render_writes || -z $render_listed ]]; then
+  echo "could not read _render's writes or _renderOutputs from $weather_qs" >&2
+  exit 1
+fi
+if [[ $render_writes != "$render_listed" ]]; then
+  {
+    echo "WeatherDataQs: _renderOutputs does not match what _render writes:"
+    diff <(echo "$render_listed") <(echo "$render_writes") | sed -n 's/^</  listed, never written:/p; s/^>/  written, not rolled back:/p'
+  } >&2
+  exit 1
+fi
+echo "OK: a weather report that throws mid-render is rolled back whole"
+
 # ── The behavioural-test harness ──────────────────────────────────────────
 #
 # Everything above reads the plugin's files; from here on the plugin is run.
@@ -858,9 +912,10 @@ bash "$SCRIPT_DIR/geolocation-optin.sh"
 # Real curl against a local server: a deadline, a byte cap, one at a time.
 bash "$SCRIPT_DIR/weather-http.sh"
 
-# ── 10. Names from a web service are drawn, never obeyed ───────────────────
+# ── 10. Text from outside is drawn, never obeyed ───────────────────────────
 #
-# The real Liquid Glass header with an <img> as the city name: no fetch.
-bash "$SCRIPT_DIR/weather-header-plaintext.sh"
+# The real weather header and calendar event card given <img> markup: no
+# fetch, against an AutoText control that must fetch.
+bash "$SCRIPT_DIR/untrusted-text.sh"
 
 exit 0

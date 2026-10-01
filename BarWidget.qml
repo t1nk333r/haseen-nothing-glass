@@ -547,6 +547,7 @@ BarWidget {
         width: parent.width
         spacing: Style.space(2)
         Text {
+          textFormat: Text.PlainText
           text: identity.label
           color: root.popupFg
           font.family: root.family
@@ -554,6 +555,7 @@ BarWidget {
           font.weight: Font.DemiBold
         }
         Text {
+          textFormat: Text.PlainText
           // Both sources say the same thing: un-placed the count is the
           // store's, placed it is the IPC read's. Zero (and not-read-yet)
           // say nothing rather than "service not running", which reads as a
@@ -638,6 +640,7 @@ BarWidget {
       // this line is now only the honest end of the road: the command that
       // opens the browser, printed when the IPC did not answer either.
       Text {
+        textFormat: Text.PlainText
         width: parent.width
         visible: root.service === null && root.ipcError !== ""
         text: "omarchy-shell " + root.moduleName + " launcher ''"
@@ -696,6 +699,7 @@ BarWidget {
                            visible: root.service !== null || root.ipcWidgets.length > 0 }
 
       Text {
+        textFormat: Text.PlainText
         // The empty state, speaking for whichever source is live.
         visible: root.service ? root.widgets.length === 0
                               : root.ipcWidgets.length === 0
@@ -758,6 +762,7 @@ BarWidget {
               spacing: Style.space(1)
 
               Text {
+                textFormat: Text.PlainText
                 width: parent.width
                 elide: Text.ElideRight
                 text: modelData.type + "  ·  " + modelData.id
@@ -767,6 +772,7 @@ BarWidget {
                 font.weight: instanceRow.editing ? Font.DemiBold : Font.Normal
               }
               Text {
+                textFormat: Text.PlainText
                 width: parent.width
                 elide: Text.ElideRight
                 text: modelData.screen + (offScreen ? " (not connected)" : "")
@@ -826,6 +832,7 @@ BarWidget {
                 visible: instanceRow.editing && root.service !== null
 
                 Text {
+                  textFormat: Text.PlainText
                   width: Style.space(76)
                   anchors.verticalCenter: parent.verticalCenter
                   text: "Size"
@@ -870,6 +877,7 @@ BarWidget {
                   spacing: Style.space(6)
 
                   Text {
+                    textFormat: Text.PlainText
                     width: Style.space(76)
                     anchors.verticalCenter: parent.verticalCenter
                     text: geomRow.spec.label
@@ -934,6 +942,7 @@ BarWidget {
               }
 
               Text {
+                textFormat: Text.PlainText
                 visible: root.service !== null
                 width: parent.width
                 text: {
@@ -967,6 +976,7 @@ BarWidget {
                     width: parent.width
                     spacing: Style.space(6)
                     Text {
+                      textFormat: Text.PlainText
                       width: Style.space(76)
                       anchors.verticalCenter: parent.verticalCenter
                       text: fieldRow.field.label
@@ -1010,6 +1020,7 @@ BarWidget {
                     }
                   }
                   Text {
+                    textFormat: Text.PlainText
                     width: parent.width
                     text: fieldRow.overridden
                       ? "Set for this widget only. Clear the field and Save to follow the plugin-wide value again."

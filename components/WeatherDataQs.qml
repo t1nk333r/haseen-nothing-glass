@@ -276,11 +276,14 @@ QtObject {
     // A Process, not an XMLHttpRequest: this is the shell's own idiom for
     // shelling out (Panel.qml:456-467, and TailscaleData.qml here), and
     // `curl` gives the same 4-second deadline Omarchy uses. The answer is one
-    // short line, so 4 KB is a generous cap.
+    // short line, so 4 KB is a generous cap. `-q` first, as on every request
+    // here: a personal ~/.curlrc must not add redirects or lift these limits.
+    property string _detectEndpoint: "https://wttr.in/?format=%l"
     property Process _detectProc: Process {
         id: detectProc
-        command: ["curl", "-fsS", "--proto", "=https", "--max-time", "4",
-                  "--max-filesize", "4096", "https://wttr.in/?format=%l"]
+        property bool started: false
+        command: ["curl", "-q", "-fsS", "--proto", wd._httpProtocols, "--max-time", "4",
+                  "--max-filesize", "4096", wd._detectEndpoint]
         stdout: StdioCollector {
             waitForEnd: true
             onStreamFinished: {
@@ -291,12 +294,23 @@ QtObject {
             }
         }
         onExited: function (exitCode) {
-            if (exitCode !== 0 && wd._detectedName === "") {
-                wd.errorMessage = "Network error"
-                wd.isLoading = false
-                wd._scheduleRetry()
-            }
+            if (exitCode !== 0) wd._detectFailed()
         }
+        // A curl that could not be started never exits: without this the tile
+        // would wait on it forever, on "Loading...". Same test as a request.
+        onStarted: detectProc.started = true
+        onRunningChanged: {
+            if (detectProc.running) return
+            if (!detectProc.started) wd._detectFailed()
+            detectProc.started = false
+        }
+    }
+
+    function _detectFailed() {
+        if (wd._detectedName !== "") return
+        wd.errorMessage = "Network error"
+        wd.isLoading = false
+        wd._scheduleRetry()
     }
 
     // ── Icons, conditions, gradients: this widget's own vocabulary ──────
@@ -400,10 +414,13 @@ QtObject {
     // Every request is a `curl` child, never an in-shell XMLHttpRequest. QML's
     // XMLHttpRequest has no deadline and no size limit: it buffers whatever the
     // server sends, for as long as it takes, inside the desktop shell. curl
-    // enforces both before a byte reaches us - `--max-time` ends a stalled
+    // enforces both before the body reaches us - `--max-time` ends a stalled
     // transfer and `--max-filesize` aborts one that grows past the cap, with
-    // or without a Content-Length (curl >= 8.4) - so the most a response can
-    // cost the shell is `_httpMaxBytes`.
+    // or without a Content-Length (curl >= 8.4). So the shell never receives
+    // more than `_httpMaxBytes` of body (plus the status line `-w` appends);
+    // parsing that body costs a small multiple of it, never an open-ended
+    // amount. `-q` comes first so a personal ~/.curlrc cannot add redirects,
+    // retries or anything else these arguments do not ask for.
     //
     // At most one request is ever in flight: starting one kills the previous,
     // so a stalled transfer cannot pile up behind later refreshes. Its output,
@@ -477,7 +494,7 @@ QtObject {
         var p = wd._httpComponent.createObject(wd, {
             seq: wd._reqSeq,
             handler: handler,
-            command: ["curl", "-sS",
+            command: ["curl", "-q", "-sS",
                       "--proto", wd._httpProtocols,
                       "--max-time", String(wd._httpTimeoutSec),
                       "--max-filesize", String(wd._httpMaxBytes),

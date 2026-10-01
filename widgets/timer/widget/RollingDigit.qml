@@ -67,6 +67,7 @@ Item {
 
     Text {
         id: restDigit
+        textFormat: Text.PlainText
         anchors.centerIn: parent
         visible: !root._transitioning
         text: root._restValue
@@ -82,6 +83,7 @@ Item {
 
     Text {
         id: outgoingDigit
+        textFormat: Text.PlainText
         width: root.width
         height: root._glyphHeight
         x: 0
@@ -115,6 +117,7 @@ Item {
 
     Text {
         id: incomingDigit
+        textFormat: Text.PlainText
         width: root.width
         height: root._glyphHeight
         x: 0

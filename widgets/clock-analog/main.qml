@@ -226,6 +226,7 @@ Item {
 
             delegate: Text {
                 id: numLabel
+                textFormat: Text.PlainText
                 required property int index
                 readonly property int num: index === 0 ? 12 : index
                 readonly property real dist: face.r * 0.72

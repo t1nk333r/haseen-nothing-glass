@@ -456,6 +456,7 @@ Item {
             spacing: Math.round(full._label * 0.5)
 
             Text {
+                textFormat: Text.PlainText
                 text: "TAILSCALE"
                 color: colors.foreground
                 opacity: 0.6
@@ -500,6 +501,7 @@ Item {
             spacing: 0
 
             Text {
+                textFormat: Text.PlainText
                 width: parent.width
                 text: ts.stateLabel
                 color: full.faulted ? colors.accentRed : colors.foreground
@@ -517,6 +519,7 @@ Item {
             // hostname is the part that identifies the node, the suffix is
             // the same on every node in the tailnet.
             Text {
+                textFormat: Text.PlainText
                 width: parent.width
                 text: full.isBig
                     ? (full.identity !== "" ? full.identity : full.reason)
@@ -568,6 +571,7 @@ Item {
             }
 
             Text {
+                textFormat: Text.PlainText
                 visible: peerStrip.extra > 0
                 text: "+" + peerStrip.extra
                 color: colors.foreground
@@ -588,6 +592,7 @@ Item {
 
             Text {
                 id: countText
+                textFormat: Text.PlainText
                 anchors.right: parent.right
                 text: ts.loaded ? ts.onlineCount + "/" + ts.peerCount : "--"
                 color: colors.foreground
@@ -597,6 +602,7 @@ Item {
             }
             Text {
                 id: countLabel
+                textFormat: Text.PlainText
                 anchors.right: parent.right
                 text: "peers online"
                 color: colors.foreground
@@ -613,6 +619,7 @@ Item {
         // mostly suffix, so the small tile keeps the short name).
         Text {
             id: peerFooter
+            textFormat: Text.PlainText
             visible: !full.isBig
             anchors.bottom: parent.bottom
             anchors.left: parent.left
@@ -1381,6 +1388,7 @@ Item {
         // logged out, stopped, unreachable, or a tailnet of one.
         Text {
             id: webEmpty
+            textFormat: Text.PlainText
             visible: full.isBig && !full.webReady && full.webMessage !== ""
             anchors.left: parent.left
             anchors.right: parent.right
@@ -1496,6 +1504,7 @@ Item {
 
                         Text {
                             id: rowLabel
+                            textFormat: Text.PlainText
                             visible: !pingRow
                             anchors.verticalCenter: parent.verticalCenter
                             anchors.left: pill.right
@@ -1508,6 +1517,7 @@ Item {
                         }
 
                         Text {
+                            textFormat: Text.PlainText
                             visible: !pingRow
                             anchors.verticalCenter: parent.verticalCenter
                             anchors.right: parent.right
@@ -1551,6 +1561,7 @@ Item {
                         // shrink into the row first, elide only past a floor
                         // that never drops below the row's own text.
                         Text {
+                            textFormat: Text.PlainText
                             visible: pingRow
                             anchors.verticalCenter: parent.verticalCenter
                             anchors.left: rowLabel.left

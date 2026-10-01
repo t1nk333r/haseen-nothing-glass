@@ -357,6 +357,7 @@ Item {
                         ? "last sync " + eventSource.stateDetail : "")
 
                 Text {
+                    textFormat: Text.PlainText
                     width: parent.width
                     text: emptyState.headline
                     color: colors.foreground
@@ -369,6 +370,7 @@ Item {
                 }
 
                 Text {
+                    textFormat: Text.PlainText
                     width: parent.width
                     visible: emptyState.detail !== ""
                     text: emptyState.detail
@@ -429,6 +431,7 @@ Item {
             Component {
                 id: sectionHeaderComponent
                 Text {
+                    textFormat: Text.PlainText
                     property string headerTitle: ""
                     property bool isFirstHeader: false
 
@@ -495,6 +498,7 @@ Item {
                 }
 
                 Text {
+                    textFormat: Text.PlainText
                     x: parent.width / 7 / 2 - sMetrics.width / 2
                     anchors.verticalCenter: parent.verticalCenter
                     text: root.monthNames[root.viewMonth].toUpperCase()
@@ -519,6 +523,7 @@ Item {
                             width: parent.width / 7
                             height: parent.height
                             Text {
+                                textFormat: Text.PlainText
                                 anchors.centerIn: parent
                                 text: root.weekdayShort[index]
                                 color: colors.foreground
@@ -570,6 +575,7 @@ Item {
                             readonly property bool isWeekend: root.isWeekendCol(index % 7)
 
                             Text {
+                                textFormat: Text.PlainText
                                 anchors.centerIn: parent
                                 visible: !empty && !isCurrent
                                 text: day

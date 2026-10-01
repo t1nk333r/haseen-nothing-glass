@@ -33,6 +33,7 @@ Item {
 
     // --- single (1x1) ---
     Text {
+        textFormat: Text.PlainText
         visible: root.mode === "single"
         anchors.horizontalCenter: parent.horizontalCenter
         y: parent.height / 2 - root.centerInset - height / 2
@@ -44,6 +45,7 @@ Item {
         opacity: root.primaryOpacity
     }
     Text {
+        textFormat: Text.PlainText
         visible: root.mode === "single"
         anchors.horizontalCenter: parent.horizontalCenter
         y: parent.height / 2 + root.centerInset - height / 2
@@ -57,6 +59,7 @@ Item {
 
     // --- code (2x2) ---
     Text {
+        textFormat: Text.PlainText
         visible: root.mode === "code"
         anchors.centerIn: parent
         text: root.code
@@ -84,6 +87,7 @@ Item {
         width: parent.width
 
         Text {
+            textFormat: Text.PlainText
             width: parent.width
             horizontalAlignment: Text.AlignHCenter
             text: root.name
@@ -95,6 +99,7 @@ Item {
             elide: Text.ElideRight
         }
         Text {
+            textFormat: Text.PlainText
             width: parent.width
             horizontalAlignment: Text.AlignHCenter
             text: root.dayWord
@@ -105,6 +110,7 @@ Item {
             opacity: root.secondaryOpacity
         }
         Text {
+            textFormat: Text.PlainText
             width: parent.width
             horizontalAlignment: Text.AlignHCenter
             text: root.offsetLabel

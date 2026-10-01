@@ -70,6 +70,7 @@ Item {
 
         Text {
             id: hourText
+            textFormat: Text.PlainText
             anchors.verticalCenter: parent.verticalCenter
             text: root.hour12
             color: root.textColor
@@ -115,6 +116,7 @@ Item {
 
         Text {
             id: minText
+            textFormat: Text.PlainText
             anchors.verticalCenter: parent.verticalCenter
             text: root.minute < 10 ? "0" + root.minute : root.minute
             color: root.textColor

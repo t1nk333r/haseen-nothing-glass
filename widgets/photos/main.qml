@@ -279,6 +279,7 @@ Item {
             visible: !picture.visible
 
             Text {
+                textFormat: Text.PlainText
                 width: parent.width
                 horizontalAlignment: Text.AlignHCenter
                 text: photos.loaded
@@ -293,6 +294,7 @@ Item {
             // Which folder came up empty - worth the two lines, since the fix
             // is always "point it somewhere else".
             Text {
+                textFormat: Text.PlainText
                 width: parent.width
                 horizontalAlignment: Text.AlignHCenter
                 visible: (full.isWide || full.isBig) && photos.errorMessage !== ""
@@ -342,6 +344,7 @@ Item {
                     // that says where you are in the folder.
                     Text {
                         id: nameText
+                        textFormat: Text.PlainText
                         visible: full.isWide || full.isBig
                         anchors.left: parent.left
                         anchors.right: counterText.left
@@ -357,6 +360,7 @@ Item {
 
                     Text {
                         id: counterText
+                        textFormat: Text.PlainText
                         anchors.right: parent.right
                         anchors.verticalCenter: parent.verticalCenter
                         text: (photos.index + 1) + "/" + photos.count

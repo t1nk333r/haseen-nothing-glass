@@ -607,6 +607,7 @@ Item {
         // widget stays exactly as big as it was, so the moment a player
         // appears the card materialises in place without the desktop moving.
         Text {
+            textFormat: Text.PlainText
             anchors.centerIn: parent
             width: parent.width - Math.round(Math.min(parent.width, parent.height) * 0.16)
             visible: root.idle

@@ -135,6 +135,7 @@ Item {
                 spacing: 0
 
                 Text {
+                    textFormat: Text.PlainText
                     width: parent.width
                     elide: Text.ElideRight
                     horizontalAlignment: prayers.isArabic ? Text.AlignRight : Text.AlignLeft
@@ -148,6 +149,7 @@ Item {
                     font.pixelSize: Math.round(listPanel.rowFont * 1.05)
                 }
                 Text {
+                    textFormat: Text.PlainText
                     width: parent.width
                     elide: Text.ElideRight
                     horizontalAlignment: prayers.isArabic ? Text.AlignRight : Text.AlignLeft
@@ -182,6 +184,7 @@ Item {
                     }
 
                     Text {
+                        textFormat: Text.PlainText
                         anchors.verticalCenter: parent.verticalCenter
                         anchors.left: parent.left
                         anchors.leftMargin: Math.round(listPanel.rowFont * 0.5)
@@ -202,6 +205,7 @@ Item {
                     }
 
                     Text {
+                        textFormat: Text.PlainText
                         anchors.verticalCenter: parent.verticalCenter
                         anchors.right: parent.right
                         text: modelData.timeText
@@ -217,6 +221,7 @@ Item {
             // Never an empty panel: if the schedule failed, say why here
             // rather than leaving six blank rows.
             Text {
+                textFormat: Text.PlainText
                 width: parent.width
                 visible: !prayers.ok
                 text: prayers.error

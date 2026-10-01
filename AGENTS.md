@@ -235,11 +235,18 @@ came from a real bug:
    cleanly with no `curl` installed, treat a 0,0 geocode as not found, keep
    one request in flight across refreshes, and leave none behind a destroyed
    tile (`tests/weather-http.sh`).
-10. A city name from the geocoder or wttr.in is drawn as plain text: the
-    real Liquid Glass header given `<img src="http://…">` as the name must
-    not fetch it (`tests/weather-header-plaintext.sh`). Any new `Text` that
-    shows a service-supplied string needs `textFormat: Text.PlainText`; the
-    Nothing primitives already set it.
+10. Text from outside is drawn, never obeyed: the real weather header and
+    calendar event card given `<img src="http://…">` in their strings must
+    not fetch it, while an AutoText control in the same window must
+    (`tests/untrusted-text.sh`).
+11. Every `Text` and `Label` in the tree declares
+    `textFormat: Text.PlainText` (static, section 4e). Qt's default,
+    AutoText, obeys markup - and a calendar title, a track name, a peer's
+    hostname or a city from a web service is markup someone else wrote. The
+    Nothing primitives set it too.
+12. `WeatherDataQs._renderOutputs` names exactly the properties the render
+    path writes (static, section 4f), so a report that throws mid-render is
+    rolled back whole.
 
 Checks 2 and 5 read a scan rather than a file, so both refuse an EMPTY one: a
 `plugin.settings.<key>` grep or a `WidgetFields.qml` key table that comes back

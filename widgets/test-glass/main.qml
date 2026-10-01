@@ -39,6 +39,7 @@ Item {
         spacing: 4
 
         Text {
+            textFormat: Text.PlainText
             Layout.alignment: Qt.AlignHCenter
             text: "Liquid glASS"
             color: colors.foreground

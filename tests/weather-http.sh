@@ -9,7 +9,9 @@
 #   hostile    a tiny report whose "array" claims a trillion entries is
 #              rejected, and the shell's event loop keeps running
 #   no curl    with curl missing the fetch fails and says so, instead of
-#              waiting on a process that never started
+#              waiting on a process that never started - both when a city is
+#              set and when none is, which goes through the IP lookup
+#   detect     with no city set, the IP lookup's answer is geocoded and drawn
 #   rollback   a report that throws half way through drawing leaves the tile
 #              exactly as it was: empty on a first fetch, the last good
 #              reading after one
@@ -77,6 +79,12 @@ class H(BaseHTTPRequestHandler):
         path = self.path.split("?")[0]
         if path == "/geozero":
             self.send_json({"results": [{"name": "Nowhere", "latitude": 0, "longitude": 0, "country_code": ""}]})
+        elif path == "/detect":
+            body = b"Testville, Testland\n"
+            self.send_response(200)
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
         elif path == "/geo":
             self.send_json({"results": [{"name": "Testville", "latitude": 10.5, "longitude": 20.5, "country_code": "DE"}]})
         elif path == "/ok":
@@ -139,7 +147,8 @@ Scope {
         id: tile
         active: true
         C.WeatherDataQs {
-            location: "Testville"
+            location: Quickshell.env("PROBE_LOCATION") || ""
+            _detectEndpoint: probe.base + "/detect"
             _geocodeEndpoint: probe.base + "/" + (Quickshell.env("PROBE_GEO") || "geo")
             _forecastEndpoint: probe.base + "/" + Quickshell.env("PROBE_MODE")
             _httpProtocols: "=http"
@@ -211,6 +220,7 @@ EOF
 run() {
   timeout 40 env -i PATH="${5:-$PATH}" HOME="$scratch/home" XDG_RUNTIME_DIR="$scratch/runtime" QT_QPA_PLATFORM=offscreen \
     PROBE_PORT="$port" PROBE_SCENARIO="$1" PROBE_MODE="$2" PROBE_TIMEOUT="$3" PROBE_MAXBYTES="$4" PROBE_GEO="${PROBE_GEO:-geo}" \
+    PROBE_LOCATION="${PROBE_LOCATION-Testville}" \
     qs -n -p "$scratch/probe.qml" 2>&1 | sed -n 's/.*RESULT|//p' | head -1 || true
 }
 
@@ -233,7 +243,10 @@ r=$(run ok ok 10 1048576)
 expect_fail "deadline (2s)" "$(run deadline stall 2 1048576)" "Failed to fetch weather" 6
 expect_fail "size cap (deadline 30s)" "$(run size huge 30 65536)" "Failed to fetch weather" 10
 expect_fail "hostile report" "$(run hostile hostile 10 1048576)" "Error parsing weather" 6
-expect_fail "no curl" "$(run nocurl ok 10 1048576 "$scratch/nocurl")" "Network error" 6
+expect_fail "no curl (city set)" "$(run nocurl ok 10 1048576 "$scratch/nocurl")" "Network error" 6
+expect_fail "no curl (no city: IP lookup)" "$(PROBE_LOCATION='' run nocurl-detect ok 10 1048576 "$scratch/nocurl")" "Network error" 6
+r=$(PROBE_LOCATION='' run detect ok 10 1048576)
+[[ $r == rendered\|*\|\|23 ]] || fail "detect: expected the IP-located forecast to render 23, got '${r:-<nothing>}'"
 expect_fail "0,0 city" "$(PROBE_GEO=geozero run zero ok 10 1048576)" "Location not found" 6
 r=$(run throwdeep throwdeep 10 1048576)
 [[ $r == failed\|*\|"Error parsing weather"\|-- ]] || fail "rollback (first report): expected the empty state kept, got '${r:-<nothing>}'"
@@ -249,4 +262,4 @@ r=$(run teardown stall 30 1048576)
 [[ $r == "inflight|0" ]] || fail "teardown: expected no request left after the tile was destroyed, got '${r:-<nothing>}'"
 
 (( failed == 0 )) || exit 1
-echo "OK: weather requests are bounded in time and size, one at a time (11 cases)"
+echo "OK: weather requests are bounded in time and size, one at a time (13 cases)"

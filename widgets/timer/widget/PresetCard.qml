@@ -35,6 +35,7 @@ Item {
     }
 
     Text {
+        textFormat: Text.PlainText
         anchors.left: parent.left
         anchors.leftMargin: card._pad + 3 + 6
         anchors.verticalCenter: parent.verticalCenter

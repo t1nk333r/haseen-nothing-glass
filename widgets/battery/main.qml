@@ -164,6 +164,7 @@ Item {
         // ── Header ───────────────────────────────────────────────────────
         Text {
             id: header
+            textFormat: Text.PlainText
             text: "Battery"
             color: colors.foreground
             opacity: 0.75
@@ -195,6 +196,7 @@ Item {
             }
             Text {
                 id: badgeLabel
+                textFormat: Text.PlainText
                 text: full.low ? "Low" : "Chg"
                 color: full.low ? colors.accentRed : colors.foreground
                 opacity: full.low ? 1.0 : 0.75
@@ -218,6 +220,7 @@ Item {
 
             Text {
                 id: stateLine
+                textFormat: Text.PlainText
                 text: bat.present ? bat.stateLabel : "AC power"
                 color: colors.foreground
                 opacity: bat.present && bat.charging ? 1.0 : 0.75
@@ -233,6 +236,7 @@ Item {
 
             Text {
                 id: readout
+                textFormat: Text.PlainText
                 visible: text !== ""
                 text: body.footText
                 color: colors.foreground
@@ -310,6 +314,7 @@ Item {
                         height: body.rowH
 
                         Text {
+                            textFormat: Text.PlainText
                             text: row.modelData.k
                             color: colors.foreground
                             opacity: colors.textQuiet
@@ -323,6 +328,7 @@ Item {
                         }
                         Text {
                             id: rowValue
+                            textFormat: Text.PlainText
                             text: row.modelData.v
                             color: colors.foreground
                             opacity: 0.85
@@ -391,6 +397,7 @@ Item {
 
                     Text {
                         id: heroAmount
+                        textFormat: Text.PlainText
                         text: full.pctText
                         color: full.low ? colors.accentRed : colors.foreground
                         opacity: bat.present ? 1.0 : 0.4
@@ -403,6 +410,7 @@ Item {
                     }
                     Text {
                         id: heroMark
+                        textFormat: Text.PlainText
                         visible: bat.present
                         text: "%"
                         color: heroAmount.color
@@ -418,6 +426,7 @@ Item {
                 // The state this desktop will actually show. Named, not blank
                 // - "--" alone would look like a stalled reading.
                 Text {
+                    textFormat: Text.PlainText
                     visible: !bat.present
                     text: "No battery"
                     color: colors.foreground

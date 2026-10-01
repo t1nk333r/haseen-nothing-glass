@@ -254,6 +254,7 @@ Item {
         // ── Header: the tile, and which window resets next ───────────────
         Text {
             id: header
+            textFormat: Text.PlainText
             text: "Claude"
             color: colors.foreground
             opacity: 0.75
@@ -264,6 +265,7 @@ Item {
 
         Text {
             id: lead
+            textFormat: Text.PlainText
             text: cu.resetLine
             color: colors.foreground
             opacity: colors.textQuiet
@@ -303,6 +305,7 @@ Item {
 
                     Text {
                         id: rLabel
+                        textFormat: Text.PlainText
                         x: 0
                         y: full.isBig ? 0 : Math.round((parent.height - implicitHeight) / 2)
                         width: full.labelW
@@ -318,6 +321,7 @@ Item {
 
                     Text {
                         id: rPct
+                        textFormat: Text.PlainText
                         // Wide and small rows read name, bar, figure - the
                         // figure right-aligned in a measured column; the big
                         // tile's first line is name and figure.
@@ -371,6 +375,7 @@ Item {
                     // the big preset buys.
                     Text {
                         id: rReset
+                        textFormat: Text.PlainText
                         visible: full.isBig && modelData.resetIn !== ""
                         x: 0
                         y: full.isBig
@@ -387,6 +392,7 @@ Item {
                     }
                     Text {
                         id: rAt
+                        textFormat: Text.PlainText
                         visible: full.isBig && modelData.resetsAt !== ""
                         x: parent.width - full.atW
                         y: rReset.y
@@ -406,6 +412,7 @@ Item {
         // ── The freshness line, and the provenance under it ──────────────
         Text {
             id: footer
+            textFormat: Text.PlainText
             visible: full.ready && (full.isWide || full.isBig)
             text: cu.footerText
             color: colors.foreground
@@ -420,6 +427,7 @@ Item {
 
         Text {
             id: freshness
+            textFormat: Text.PlainText
             visible: full.ready && cu.freshnessText !== ""
             text: cu.freshnessText
             color: full.freshnessInk
@@ -453,6 +461,7 @@ Item {
                 spacing: Math.round(gscale.tight * 0.8)
 
                 Text {
+                    textFormat: Text.PlainText
                     width: parent.width
                     text: cu.headline
                     color: cu.state === "loading" ? colors.foreground : colors.accentRed
@@ -464,6 +473,7 @@ Item {
                 }
 
                 Text {
+                    textFormat: Text.PlainText
                     width: parent.width
                     visible: text !== ""
                     text: cu.detail

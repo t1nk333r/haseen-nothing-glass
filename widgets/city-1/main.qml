@@ -110,6 +110,7 @@ Item {
         readonly property real _annoOpacity: colors.annotationOpacity
 
         Text {
+            textFormat: Text.PlainText
             anchors.horizontalCenter: parent.horizontalCenter
             y: parent.height / 2 - singleView._annoInset - height / 2
             text: singleView.e ? singleView.e.code : ""
@@ -120,6 +121,7 @@ Item {
             opacity: singleView._annoOpacity
         }
         Text {
+            textFormat: Text.PlainText
             anchors.horizontalCenter: parent.horizontalCenter
             y: parent.height / 2 + singleView._annoInset - height / 2
             // Number only, no "HRS".
@@ -212,6 +214,7 @@ Item {
                     // ((isGlass ? 0.55 : 1.0) * 0.55 = 0.30 as glass), which
                     // is below MacOSColors.textQuiet and rendered as a ghost.
                     Text {
+                        textFormat: Text.PlainText
                         anchors.horizontalCenter: gridFace.horizontalCenter
                         y: gridFace.y + cell.faceSize * 0.30 - height / 2
                         text: cell.modelData.code

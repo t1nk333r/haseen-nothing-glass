@@ -181,6 +181,7 @@ Item {
                 }
 
                 Text {
+                    textFormat: Text.PlainText
                     anchors.centerIn: parent
                     text: index < 10 ? "0" + index : String(index)
                     color: root.textColor
@@ -217,6 +218,7 @@ Item {
     // Label outside the clipped drum area so it's always visible
     Text {
         id: labelText
+        textFormat: Text.PlainText
         anchors {
             left: drumArea.right
             leftMargin: 6

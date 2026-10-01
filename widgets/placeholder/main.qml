@@ -45,6 +45,7 @@ Item {
     }
 
     Text {
+        textFormat: Text.PlainText
         anchors.centerIn: parent
         text: "placeholder"
         color: colors.foreground

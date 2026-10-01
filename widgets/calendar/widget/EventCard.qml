@@ -34,6 +34,7 @@ Item {
     }
 
     Text {
+        textFormat: Text.PlainText
         anchors.left: pill.right
         anchors.leftMargin: 6
         anchors.right: timeText.left
@@ -48,6 +49,7 @@ Item {
 
     Text {
         id: timeText
+        textFormat: Text.PlainText
         anchors.right: parent.right
         anchors.rightMargin: card._pad
         anchors.verticalCenter: parent.verticalCenter

@@ -84,6 +84,7 @@ Item {
         onWidthChanged: requestPaint()
 
         Text {
+            textFormat: Text.PlainText
             anchors.centerIn: parent
             text: card.mosqueGlyph
             color: card.colors.foreground
@@ -104,6 +105,7 @@ Item {
         spacing: 0
 
         Text {
+            textFormat: Text.PlainText
             width: parent.width
             text: card.prayers.next ? card.prayers.next.timeText : "--:--"
             color: card.colors.foreground
@@ -114,6 +116,7 @@ Item {
             horizontalAlignment: Text.AlignRight
         }
         Text {
+            textFormat: Text.PlainText
             width: parent.width
             visible: card.prayers.remainingText !== ""
             text: card.prayers.remainingText
@@ -139,6 +142,7 @@ Item {
         // the card rather than the left - matching how the omaprayers panels
         // set the same strings.
         Text {
+            textFormat: Text.PlainText
             width: parent.width
             elide: Text.ElideRight
             horizontalAlignment: card.prayers.isArabic ? Text.AlignRight : Text.AlignLeft
@@ -148,6 +152,7 @@ Item {
             font.pixelSize: Math.round(card.side * 0.19)
         }
         Text {
+            textFormat: Text.PlainText
             width: parent.width
             elide: Text.ElideRight
             // Falls back to the engine's own error text rather than going

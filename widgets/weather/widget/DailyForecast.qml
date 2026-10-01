@@ -46,6 +46,7 @@ Item {
 
                 Text {
                     id: dayLabel
+                    textFormat: Text.PlainText
                     anchors.left: parent.left
                     anchors.verticalCenter: parent.verticalCenter
                     width: parent.width * 0.13
@@ -68,6 +69,7 @@ Item {
 
                 Text {
                     id: lowLabel
+                    textFormat: Text.PlainText
                     anchors.left: dayIcon.right
                     anchors.leftMargin: parent.width * 0.03
                     anchors.verticalCenter: parent.verticalCenter
@@ -113,6 +115,7 @@ Item {
 
                 Text {
                     id: highLabel
+                    textFormat: Text.PlainText
                     anchors.right: parent.right
                     anchors.verticalCenter: parent.verticalCenter
                     width: parent.width * 0.08

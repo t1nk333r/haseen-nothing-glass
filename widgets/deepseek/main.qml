@@ -117,6 +117,7 @@ Item {
         // ── Header ───────────────────────────────────────────────────────
         Text {
             id: header
+            textFormat: Text.PlainText
             text: "DeepSeek"
             color: colors.foreground
             opacity: 0.75
@@ -137,6 +138,7 @@ Item {
         // know ("is_available" is not in it). Loud only for the threshold.
         Text {
             id: verdict
+            textFormat: Text.PlainText
             visible: text !== ""
             text: ds.verdict
             color: ds.alert ? colors.accentRed : colors.foreground
@@ -170,6 +172,7 @@ Item {
             // own schedule, and the tile says how old that reading is.
             Text {
                 id: readout
+                textFormat: Text.PlainText
                 text: ds.footnote
                 color: colors.foreground
                 opacity: 0.8
@@ -185,6 +188,7 @@ Item {
             // the large tile has room for it.
             Text {
                 id: source
+                textFormat: Text.PlainText
                 visible: full.isBig
                 text: ds.sourceLabel
                 color: colors.foreground
@@ -228,6 +232,7 @@ Item {
                         height: body.rowH
 
                         Text {
+                            textFormat: Text.PlainText
                             text: row.modelData.k
                             color: colors.foreground
                             opacity: colors.textQuiet
@@ -241,6 +246,7 @@ Item {
                         }
                         Text {
                             id: rowValue
+                            textFormat: Text.PlainText
                             text: row.modelData.v
                             color: colors.foreground
                             opacity: 0.85
@@ -309,6 +315,7 @@ Item {
             // ellipsis in a balance reads as a different balance.
             Text {
                 id: hero
+                textFormat: Text.PlainText
                 visible: ds.hasBalance
                 text: ds.figureLabel
                 color: ds.alert ? colors.accentRed : colors.foreground
@@ -331,6 +338,7 @@ Item {
 
                 Text {
                     id: noticeHeadline
+                    textFormat: Text.PlainText
                     text: ds.noticeHeadline
                     color: colors.accentRed
                     font.family: colors.uiFont
@@ -342,6 +350,7 @@ Item {
 
                 Text {
                     id: noticeDetail
+                    textFormat: Text.PlainText
                     visible: text !== ""
                     text: ds.noticeDetail
                     color: colors.foreground

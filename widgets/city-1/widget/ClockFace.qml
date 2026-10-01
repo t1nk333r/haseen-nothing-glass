@@ -123,6 +123,7 @@ Item {
     Repeater {
         model: 12
         delegate: Text {
+            textFormat: Text.PlainText
             required property int index
             readonly property int num: index === 0 ? 12 : index
             readonly property real dist: face.r * (face._perimeter ? 0.72 : 0.80)

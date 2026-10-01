@@ -86,6 +86,7 @@ Item {
 
         Text {
             id: currentLabel
+            textFormat: Text.PlainText
             anchors.left: parent.left
             text: slider.formatTime(slider.position)
             color: slider.timeLabelColor
@@ -96,6 +97,7 @@ Item {
 
         Text {
             id: totalLabel
+            textFormat: Text.PlainText
             anchors.right: parent.right
             text: slider.formatTime(slider.length)
             color: slider.timeLabelColor

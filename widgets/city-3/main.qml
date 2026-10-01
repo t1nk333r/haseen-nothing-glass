@@ -86,6 +86,7 @@ Item {
             model: [{ num: 12, pos: 0 }, { num: 3, pos: 3 }, { num: 6, pos: 6 }, { num: 9, pos: 9 }]
 
             delegate: Text {
+                textFormat: Text.PlainText
                 required property var modelData
                 readonly property int num: modelData.num
                 readonly property int pos: modelData.pos
@@ -290,6 +291,7 @@ Item {
     readonly property real _annoOpacity: colors.textQuiet
 
     Text {
+        textFormat: Text.PlainText
         anchors.horizontalCenter: parent.horizontalCenter
         y: parent.height / 2 - full._annoInset - height / 2
         text: full._e ? full._e.code : ""
@@ -300,6 +302,7 @@ Item {
         opacity: full._annoOpacity
     }
     Text {
+        textFormat: Text.PlainText
         anchors.horizontalCenter: parent.horizontalCenter
         y: parent.height / 2 + full._annoInset - height / 2
         text: full._e ? full._e.offsetLabel : ""

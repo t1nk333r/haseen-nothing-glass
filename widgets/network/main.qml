@@ -148,6 +148,7 @@ Item {
             spacing: Math.round(gscale.label * 0.5)
 
             Text {
+                textFormat: Text.PlainText
                 text: net.kind
                 color: full.offline ? colors.accentRed : colors.foreground
                 opacity: full.offline ? 1.0 : 0.6
@@ -170,6 +171,7 @@ Item {
 
         Text {
             id: noLink
+            textFormat: Text.PlainText
             visible: full.offline
             anchors.right: parent.right
             anchors.verticalCenter: header.verticalCenter
@@ -185,6 +187,7 @@ Item {
         // ── Hero: the connection, named ──────────────────────────────────
         Text {
             id: heroName
+            textFormat: Text.PlainText
             anchors.top: header.bottom
             anchors.topMargin: Math.round(gscale.label * 0.35)
             anchors.left: parent.left
@@ -247,6 +250,7 @@ Item {
 
             Text {
                 id: pct
+                textFormat: Text.PlainText
                 anchors.verticalCenter: parent.verticalCenter
                 anchors.left: bars.right
                 anchors.leftMargin: Math.round(gscale.label * 0.7)
@@ -355,6 +359,7 @@ Item {
 
                 Text {
                     id: rxText
+                    textFormat: Text.PlainText
                     text: "↓ " + (full.isBig ? net.rxLabel : net.rxShort)
                     color: colors.foreground
                     opacity: 0.85
@@ -364,6 +369,7 @@ Item {
 
                 Text {
                     id: txText
+                    textFormat: Text.PlainText
                     text: "↑ " + (full.isBig ? net.txLabel : net.txShort)
                     color: colors.foreground
                     opacity: 0.85
@@ -374,6 +380,7 @@ Item {
 
             Text {
                 id: latencyText
+                textFormat: Text.PlainText
                 text: net.latencyLabel
                 // The one figure here that can go stale, so the one that
                 // admits it: it sits at the quiet floor, and the pointer over
@@ -416,6 +423,7 @@ Item {
 
             Text {
                 id: addr
+                textFormat: Text.PlainText
                 anchors.left: parent.left
                 anchors.right: rate.visible ? rate.left : parent.right
                 anchors.rightMargin: rate.visible ? Math.round(gscale.label * 0.6) : 0
@@ -438,6 +446,7 @@ Item {
             // On the square tiles there is no fact column to carry it.
             Text {
                 id: rate
+                textFormat: Text.PlainText
                 visible: net.connected && !net.isWifi && net.linkSpeed > 0
                 anchors.right: parent.right
                 anchors.verticalCenter: parent.verticalCenter
@@ -497,6 +506,7 @@ Item {
 
                         Text {
                             id: rowLabel
+                            textFormat: Text.PlainText
                             anchors.verticalCenter: parent.verticalCenter
                             anchors.left: parent.left
                             anchors.leftMargin: Math.round(gscale.label * 0.35)
@@ -508,6 +518,7 @@ Item {
                         }
 
                         Text {
+                            textFormat: Text.PlainText
                             anchors.verticalCenter: parent.verticalCenter
                             anchors.right: parent.right
                             anchors.rightMargin: Math.round(gscale.label * 0.35)

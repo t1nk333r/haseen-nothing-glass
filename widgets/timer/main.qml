@@ -179,6 +179,7 @@ Item {
 
             Text {
                 id: presetsTitle
+                textFormat: Text.PlainText
                 anchors {
                     top: parent.top
                     left: parent.left

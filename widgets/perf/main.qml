@@ -127,6 +127,7 @@ Item {
         // ── Header ──────────────────────────────────────────────────────
         Text {
             id: header
+            textFormat: Text.PlainText
             text: "System"
             color: colors.foreground
             opacity: 0.75
@@ -145,6 +146,7 @@ Item {
         // once more - never a second meaning.
         Text {
             id: badge
+            textFormat: Text.PlainText
             visible: full.high
             text: "HIGH"
             color: colors.accentRed
@@ -193,6 +195,7 @@ Item {
 
                 // Names the figure under it, the way the header names the tile.
                 Text {
+                    textFormat: Text.PlainText
                     text: "CPU"
                     color: colors.foreground
                     opacity: 0.6
@@ -212,6 +215,7 @@ Item {
 
                     Text {
                         id: heroAmount
+                        textFormat: Text.PlainText
                         text: full.cpuText
                         color: full.high ? colors.accentRed : colors.foreground
                         opacity: perf.cpuReady ? 1.0 : 0.4
@@ -222,6 +226,7 @@ Item {
                     }
                     Text {
                         id: heroMark
+                        textFormat: Text.PlainText
                         visible: perf.cpuReady
                         text: "%"
                         color: heroAmount.color
@@ -278,6 +283,7 @@ Item {
 
             Text {
                 id: memLabel
+                textFormat: Text.PlainText
                 text: "Mem"
                 color: colors.foreground
                 opacity: colors.textQuiet
@@ -291,6 +297,7 @@ Item {
             }
             Text {
                 id: memValue
+                textFormat: Text.PlainText
                 text: perf.memText
                 color: colors.foreground
                 opacity: 0.85
@@ -380,6 +387,7 @@ Item {
                         height: body.rowH
 
                         Text {
+                            textFormat: Text.PlainText
                             text: row.modelData.name
                             color: colors.foreground
                             opacity: colors.textQuiet
@@ -393,6 +401,7 @@ Item {
                         }
                         Text {
                             id: rowValue
+                            textFormat: Text.PlainText
                             text: row.modelData.text
                             color: colors.foreground
                             opacity: 0.85
@@ -439,6 +448,7 @@ Item {
 
             Text {
                 id: footMem
+                textFormat: Text.PlainText
                 text: "MEM " + full.memPctText
                 color: colors.foreground
                 opacity: colors.textQuiet
@@ -453,6 +463,7 @@ Item {
             }
             Text {
                 id: footTemp
+                textFormat: Text.PlainText
                 text: full.footTempText
                 color: colors.foreground
                 opacity: colors.textQuiet

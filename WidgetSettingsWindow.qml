@@ -284,6 +284,7 @@ PanelWindow {
           spacing: 1
 
           Text {
+            textFormat: Text.PlainText
             width: parent.width
             elide: Text.ElideRight
             text: sheet.entry ? String(sheet.entry.type) : ""
@@ -292,6 +293,7 @@ PanelWindow {
             font.weight: Font.DemiBold
           }
           Text {
+            textFormat: Text.PlainText
             width: parent.width
             elide: Text.ElideRight
             text: sheet.entry
@@ -448,6 +450,7 @@ PanelWindow {
         visible: styleRow.count > 0
 
         Text {
+          textFormat: Text.PlainText
           text: "Style"
           color: Qt.rgba(colors.foreground.r, colors.foreground.g, colors.foreground.b, 0.45)
           font.pixelSize: 10
@@ -482,6 +485,7 @@ PanelWindow {
                 spacing: 0
 
                 Text {
+                  textFormat: Text.PlainText
                   width: parent.width
                   horizontalAlignment: Text.AlignHCenter
                   elide: Text.ElideRight
@@ -493,6 +497,7 @@ PanelWindow {
                   font.weight: styleOption.current ? Font.DemiBold : Font.Normal
                 }
                 Text {
+                  textFormat: Text.PlainText
                   width: parent.width
                   horizontalAlignment: Text.AlignHCenter
                   elide: Text.ElideRight
@@ -543,6 +548,7 @@ PanelWindow {
               anchors.centerIn: parent
               spacing: 0
               Text {
+                textFormat: Text.PlainText
                 anchors.horizontalCenter: parent.horizontalCenter
                 text: modelData.label
                 color: colors.foreground
@@ -550,6 +556,7 @@ PanelWindow {
                 font.weight: parent.parent.current ? Font.DemiBold : Font.Normal
               }
               Text {
+                textFormat: Text.PlainText
                 anchors.horizontalCenter: parent.horizontalCenter
                 text: modelData.width + "×" + modelData.height
                 color: Qt.rgba(colors.foreground.r, colors.foreground.g, colors.foreground.b, 0.5)
@@ -588,6 +595,7 @@ PanelWindow {
             spacing: 8
 
             Text {
+              textFormat: Text.PlainText
               width: 74
               anchors.verticalCenter: parent.verticalCenter
               text: fieldRow.field.label
@@ -678,6 +686,7 @@ PanelWindow {
           }
 
           Text {
+            textFormat: Text.PlainText
             width: parent.width
             text: fieldModel.hintFor(sheet.entry, fieldRow.field)
             color: Qt.rgba(colors.foreground.r, colors.foreground.g, colors.foreground.b, 0.45)
@@ -712,6 +721,7 @@ PanelWindow {
               : Qt.rgba(colors.foreground.r, colors.foreground.g, colors.foreground.b, 0.07)
 
             Text {
+              textFormat: Text.PlainText
               anchors.centerIn: parent
               text: modelData.label
               color: danger ? colors.accentRed : colors.foreground
@@ -741,6 +751,7 @@ PanelWindow {
       }
 
       Text {
+        textFormat: Text.PlainText
         width: parent.width
         text: "Right-drag to move · corner grip to resize · the cog opens the browser, where categories and the plugin-wide appearance are set"
         color: Qt.rgba(colors.foreground.r, colors.foreground.g, colors.foreground.b, 0.4)

@@ -106,6 +106,7 @@ Item {
             spacing: Math.round(scale.label * 0.5)
 
             Text {
+                textFormat: Text.PlainText
                 text: full._heroLabel
                 color: colors.foreground
                 opacity: 0.6
@@ -124,6 +125,7 @@ Item {
 
         Text {
             id: heroTime
+            textFormat: Text.PlainText
             anchors.top: header.bottom
             anchors.topMargin: Math.round(scale.label * 0.3)
             anchors.left: parent.left
@@ -270,6 +272,7 @@ Item {
             spacing: scale.gap
 
             Text {
+                textFormat: Text.PlainText
                 width: parent.width
                 elide: Text.ElideRight
                 text: full._otherLabel + full._otherText
@@ -278,6 +281,7 @@ Item {
                 font.pixelSize: scale.body
             }
             Text {
+                textFormat: Text.PlainText
                 width: parent.width
                 elide: Text.ElideRight
                 // One rule, the same one the Nothing twin uses: the small

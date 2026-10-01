@@ -138,6 +138,7 @@ Item {
         // it belongs to exactly one filesystem.
         Text {
             id: header
+            textFormat: Text.PlainText
             text: (!full.isList && full.ready) ? store.primary.mount : "Storage"
             color: colors.foreground
             opacity: 0.75
@@ -155,6 +156,7 @@ Item {
         // more full. The list's worst meter is the same fact, drawn once more.
         Text {
             id: badge
+            textFormat: Text.PlainText
             visible: full.ready && (full.isList ? full.maxPercent >= 90 : full.primaryFull)
             text: "FULL"
             color: colors.accentRed
@@ -181,6 +183,7 @@ Item {
 
             Text {
                 id: sizes
+                textFormat: Text.PlainText
                 visible: !full.isList
                 text: full.ready
                     ? store.primary.usedLabel + " / " + store.primary.sizeLabel
@@ -230,6 +233,7 @@ Item {
 
             Text {
                 id: summary
+                textFormat: Text.PlainText
                 visible: full.isList
                 // Never hide a filesystem silently: if the tile cannot fit
                 // every row, it says how many it is showing.
@@ -250,6 +254,7 @@ Item {
 
             Text {
                 id: worst
+                textFormat: Text.PlainText
                 visible: full.isList
                 text: "max " + full.maxPercent + "%"
                 color: full.maxPercent >= 90 ? colors.accentRed : colors.foreground
@@ -283,6 +288,7 @@ Item {
 
                 Text {
                     id: heroAmount
+                    textFormat: Text.PlainText
                     text: String(full.primaryPercent)
                     color: colors.foreground
                     font.family: colors.uiFont
@@ -295,6 +301,7 @@ Item {
                 // what a percentage is.
                 Text {
                     id: heroMark
+                    textFormat: Text.PlainText
                     text: "%"
                     color: colors.foreground
                     opacity: 0.7
@@ -342,6 +349,7 @@ Item {
 
                         Text {
                             id: rowName
+                            textFormat: Text.PlainText
                             text: row.modelData.mount
                             color: colors.foreground
                             opacity: row.tight ? 1.0 : 0.9
@@ -359,6 +367,7 @@ Item {
 
                         Text {
                             id: rowSizes
+                            textFormat: Text.PlainText
                             text: row.modelData.usedLabel + " / " + row.modelData.sizeLabel
                             color: colors.foreground
                             opacity: colors.textQuiet
@@ -405,6 +414,7 @@ Item {
                 anchors.centerIn: parent
 
                 Text {
+                    textFormat: Text.PlainText
                     width: parent.width
                     text: "--"
                     color: colors.foreground
@@ -414,6 +424,7 @@ Item {
                     horizontalAlignment: Text.AlignHCenter
                 }
                 Text {
+                    textFormat: Text.PlainText
                     width: parent.width
                     text: !store.loaded ? "Reading df"
                         : full.mountMissing

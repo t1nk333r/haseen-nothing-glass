@@ -90,6 +90,7 @@ Item {
 
     Text {
         id: heroTemp
+        textFormat: Text.PlainText
         anchors.top: cityRow.bottom
         anchors.left: parent.left
         text: hdr.weatherData.currentTemp + hdr.weatherData.tempSymbol
@@ -133,6 +134,7 @@ Item {
         }
 
         Text {
+            textFormat: Text.PlainText
             visible: !hdr.compact
             anchors.right: parent.right
             text: "H:" + hdr.weatherData.highTemp + "°  L:" + hdr.weatherData.lowTemp + "°"
@@ -148,12 +150,14 @@ Item {
             spacing: Math.round(hdr.label * 0.15)
 
             Text {
+                textFormat: Text.PlainText
                 text: "↑"
                 color: hdr.colors.weatherForeground
                 font.family: hdr.fontFamily
                 font.pixelSize: hdr.label
             }
             Text {
+                textFormat: Text.PlainText
                 text: hdr.weatherData.highTemp + "°"
                 color: hdr.colors.weatherForeground
                 font.family: hdr.fontFamily
@@ -167,6 +171,7 @@ Item {
             spacing: Math.round(hdr.label * 0.15)
 
             Text {
+                textFormat: Text.PlainText
                 text: "↓"
                 color: hdr.colors.weatherForeground
                 opacity: 0.70
@@ -174,6 +179,7 @@ Item {
                 font.pixelSize: hdr.label
             }
             Text {
+                textFormat: Text.PlainText
                 text: hdr.weatherData.lowTemp + "°"
                 color: hdr.colors.weatherForeground
                 opacity: 0.70
