@@ -10,6 +10,11 @@
 #              rejected, and the shell's event loop keeps running
 #   no curl    with curl missing the fetch fails and says so, instead of
 #              waiting on a process that never started
+#   rollback   a report that throws half way through drawing leaves the tile
+#              exactly as it was: empty on a first fetch, the last good
+#              reading after one
+#   bad field  a first report with a non-numeric current field is rejected
+#              whole: no server-supplied temperature left beside the error
 #   0,0 city   a geocoder answering 0,0 for a city is "not found", not an
 #              endless geocode/forecast recursion
 #   supersede  refreshes during a stalled request leave exactly one in flight
@@ -76,6 +81,17 @@ class H(BaseHTTPRequestHandler):
             self.send_json({"results": [{"name": "Testville", "latitude": 10.5, "longitude": 20.5, "country_code": "DE"}]})
         elif path == "/ok":
             self.send_json(forecast())
+        elif path == "/badfield":
+            r = forecast()
+            r["current"]["temperature_2m"] = 998
+            r["current"]["weather_code"] = "zzz"
+            self.send_json(r)
+        elif path == "/throwdeep":
+            # Passes the shape check, then throws mid-render: ToPrimitive on
+            # {"toString": 1} has nothing callable to call.
+            r = forecast()
+            r["daily"]["temperature_2m_max"][0] = {"toString": 1}
+            self.send_json(r)
         elif path == "/hostile":
             self.send_json(HOSTILE)
         elif path == "/stall":
@@ -166,6 +182,16 @@ Scope {
                 if (ticks === 25) count.running = true
                 return
             }
+            if (probe.scenario === "rollback") {
+                // A good reading first, then a report that throws mid-render.
+                if (!probe.wd) return
+                if (probe.wd.currentTemp === "23" && probe.wd._forecastEndpoint.indexOf("/ok") >= 0) {
+                    probe.wd._forecastEndpoint = probe.base + "/throwdeep"
+                    probe.wd.forceRefresh()
+                } else if (probe.wd.errorMessage !== "") probe.report("kept")
+                else if (ticks > 250) probe.report("timeout")
+                return
+            }
             if (probe.scenario === "teardown") {
                 // Destroy the tile mid-stall; the shell keeps running.
                 if (ticks === 15) tile.active = false
@@ -209,6 +235,12 @@ expect_fail "size cap (deadline 30s)" "$(run size huge 30 65536)" "Failed to fet
 expect_fail "hostile report" "$(run hostile hostile 10 1048576)" "Error parsing weather" 6
 expect_fail "no curl" "$(run nocurl ok 10 1048576 "$scratch/nocurl")" "Network error" 6
 expect_fail "0,0 city" "$(PROBE_GEO=geozero run zero ok 10 1048576)" "Location not found" 6
+r=$(run throwdeep throwdeep 10 1048576)
+[[ $r == failed\|*\|"Error parsing weather"\|-- ]] || fail "rollback (first report): expected the empty state kept, got '${r:-<nothing>}'"
+r=$(run rollback ok 10 1048576)
+[[ $r == kept\|*\|"Error parsing weather"\|23 ]] || fail "rollback (after a good reading): expected 23 kept, got '${r:-<nothing>}'"
+r=$(run badfield badfield 10 1048576)
+[[ $r == failed\|*\|"Error parsing weather"\|-- ]] || fail "bad field: expected the report rejected with nothing drawn, got '${r:-<nothing>}'"
 
 r=$(run supersede stall 30 1048576)
 [[ $r == "inflight|1" ]] || fail "supersede: expected exactly 1 request in flight after two refreshes, got '${r:-<nothing>}'"
@@ -217,4 +249,4 @@ r=$(run teardown stall 30 1048576)
 [[ $r == "inflight|0" ]] || fail "teardown: expected no request left after the tile was destroyed, got '${r:-<nothing>}'"
 
 (( failed == 0 )) || exit 1
-echo "OK: weather requests are bounded in time and size, one at a time (8 cases)"
+echo "OK: weather requests are bounded in time and size, one at a time (11 cases)"

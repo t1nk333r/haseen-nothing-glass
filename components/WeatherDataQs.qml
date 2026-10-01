@@ -592,18 +592,7 @@ QtObject {
                 try {
                     var report = JSON.parse(body)
                     if (!wd._reportUsable(report)) throw new Error("unexpected shape")
-                    // Applied whole or not at all: a report that throws half
-                    // way through rendering hands the tile back to the last
-                    // good one rather than leaving it half-drawn.
-                    var previous = wd._report
-                    wd._report = report
-                    try {
-                        wd._render()
-                    } catch (renderError) {
-                        wd._report = previous
-                        if (previous) wd._render()
-                        throw renderError
-                    }
+                    wd._applyReport(report)
                     wd.isLoading = false
                     wd.errorMessage = ""
                     wd._clearRetry()
@@ -619,6 +608,33 @@ QtObject {
             wd.isLoading = false
             wd._scheduleRetry()
         })
+    }
+
+    // Everything _render() writes. A report is applied whole or not at all:
+    // a value deep in it can still throw half way through drawing (a
+    // {"toString": 1} where a number belongs makes parseFloat, String and
+    // new Date throw), and the tile must then show exactly what it showed
+    // before - the last good reading, or the empty state - never half of each.
+    readonly property var _renderOutputs: [
+        "isNight", "todaySunrise", "todaySunset",
+        "currentTemp", "weatherCode", "condition", "windSpeed", "windDirection",
+        "gradientCategory", "highTemp", "lowTemp", "precipitationSummary",
+        "dailyForecast", "overallLow", "overallHigh", "hourlySlots"
+    ]
+
+    function _applyReport(report) {
+        var saved = {}
+        for (var i = 0; i < wd._renderOutputs.length; i++)
+            saved[wd._renderOutputs[i]] = wd[wd._renderOutputs[i]]
+        var previous = wd._report
+        wd._report = report
+        try {
+            wd._render()
+        } catch (e) {
+            wd._report = previous
+            for (var k in saved) wd[k] = saved[k]
+            throw e
+        }
     }
 
     // A tile torn down mid-request takes its request with it.
@@ -646,6 +662,18 @@ QtObject {
             var hk = ["time", "temperature_2m", "weather_code"]
             for (var j = 0; j < hk.length; j++)
                 if (!wd._arrayOk(h[hk[j]], 16 * 24)) return false
+        }
+        // The current conditions are drawn as they come, so they must be what
+        // they claim: numbers (or absent - null included, which the renderer
+        // already falls back from). Checked here, before anything is drawn, so
+        // a bad one cannot leave half a reading on screen.
+        var c = r.current
+        if (c !== undefined) {
+            if (!c || typeof c !== "object" || Array.isArray(c)) return false
+            var ck = ["temperature_2m", "weather_code", "wind_speed_10m", "wind_direction_10m"]
+            for (var k = 0; k < ck.length; k++)
+                if (c[ck[k]] != null && !(typeof c[ck[k]] === "number" && isFinite(c[ck[k]])))
+                    return false
         }
         return true
     }

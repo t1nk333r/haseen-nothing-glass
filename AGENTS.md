@@ -229,10 +229,12 @@ came from a real bug:
 9. Weather requests are bounded and their answers cannot hang the shell:
    real `curl` against a local server must fail a stalled forecast at the
    deadline, cut an endless body off at the byte cap, reject a report whose
-   "array" claims a trillion entries, fail cleanly with no `curl` installed,
-   treat a 0,0 geocode as not found, keep one request in flight across
-   refreshes, and leave none behind a destroyed tile
-   (`tests/weather-http.sh`).
+   "array" claims a trillion entries or whose fields are not numbers, apply
+   a report that throws mid-render not at all (`_applyReport` restores every
+   field `_render` writes - keep `_renderOutputs` in step with it), fail
+   cleanly with no `curl` installed, treat a 0,0 geocode as not found, keep
+   one request in flight across refreshes, and leave none behind a destroyed
+   tile (`tests/weather-http.sh`).
 10. A city name from the geocoder or wttr.in is drawn as plain text: the
     real Liquid Glass header given `<img src="http://…">` as the name must
     not fetch it (`tests/weather-header-plaintext.sh`). Any new `Text` that
