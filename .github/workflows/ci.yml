@@ -255,7 +255,8 @@ jobs:
             "OK: prayer-zone.sh still prints the timezone window" \
             "OK: a wallpaper path holding # ? % loads" \
             "OK: the wallpaper link poll pauses while the screen is not drawn, and resumes with a read" \
-            "OK: every sweeping analog clock hand pauses hidden and resumes visible"; do
+            "OK: every sweeping analog clock hand pauses hidden and resumes visible" \
+            "OK: the DeepSeek balance stays the largest text and nothing on the tile overlaps, on every preset"; do
             grep -qF "$marker" /tmp/run.log || missing+="  - $marker"$'\n'
           done
           # The settings-merge test drives a real Wayland compositor, and a GitHub runner

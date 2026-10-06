@@ -66,9 +66,16 @@ Item {
             // The rows come from the component, so the two drawings cannot
             // word one differently. A short tile drops the tail of the list
             // (peak/off-peak, then added) rather than squeezing six rows in.
+            //
+            // Large: the rows sit along the bottom, under the balance and its
+            // footer, so they get what is left once those two have their
+            // room. Counting the whole tile below the header handed the rows
+            // everything at the larger scales, and the balance was drawn over
+            // the footer and the first row.
             readonly property var rows: {
                 var cap = full.isBig
-                    ? Math.max(1, Math.floor((body.height - body.headTop - nothing.gap) / body.rowH))
+                    ? Math.max(1, Math.floor((body.height - body.headTop - hero.height
+                        - nothing.gap - footer.height - nothing.gap) / body.rowH))
                     : Math.min(4, Math.max(1, Math.floor((body.height - body.headTop - nothing.gap) / body.rowH)))
                 return ds.rows.slice(0, cap)
             }

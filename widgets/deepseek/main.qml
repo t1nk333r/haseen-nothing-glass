@@ -109,8 +109,18 @@ Item {
         // A short tile drops the tail of the list (peak/off-peak, then added)
         // rather than squeezing six rows into it: the ledger's six figures are
         // ranked by how much they are worth at a glance.
+        //
+        // Large: the rows sit along the bottom, under the balance and its
+        // footer, so they get what is left once those two have their room -
+        // the stage at the height that draws the hero at gscale.hero (it is
+        // capped at 0.84 of the stage, below), and the footer. Counting the
+        // whole tile below the header handed the rows everything and the
+        // stage nothing, and the balance fell to its 12 px floor.
+        readonly property real heroStageH: Math.ceil(gscale.hero / 0.84)
+        readonly property real bigRowSpace: body.height - body.headH - gscale.gap
+            - body.heroStageH - gscale.gap - footer.height - gscale.gap
         readonly property int rowCap: full.isBig
-            ? Math.max(1, Math.floor((body.height - body.headH - gscale.gap) / body.rowH))
+            ? Math.max(1, Math.floor(body.bigRowSpace / body.rowH))
             : Math.min(4, Math.max(1, Math.floor((body.height - body.headH - gscale.gap) / body.rowH)))
         readonly property var rows: ds.rows.slice(0, body.rowCap)
 

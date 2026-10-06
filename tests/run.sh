@@ -1030,6 +1030,9 @@ bash "$SCRIPT_DIR/json-caps.sh"
 bash "$SCRIPT_DIR/wallpaper.sh"
 bash "$SCRIPT_DIR/clock-visibility.sh"
 
+# ── 16b. The DeepSeek tile with a full ledger ──────────────────────────────
+bash "$SCRIPT_DIR/deepseek-layout.sh"
+
 # ── 17. The IPC verbs only write real settings ─────────────────────────────
 bash "$SCRIPT_DIR/settings-ipc.sh"
 
