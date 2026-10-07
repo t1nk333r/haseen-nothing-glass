@@ -1,5 +1,7 @@
 # Nothing Glass
 
+A [haseen](https://github.com/t1nk333r/haseen) plugin (also runs on Omarchy).
+
 <p align="center">
   <a href="https://ko-fi.com/t1nk33r">
     <img src="https://img.shields.io/badge/Buy_me_a_Kofi-donate-blue?style=for-the-badge&logo=kofi&color=%23FF6433" alt="Support on Ko-fi">
@@ -26,8 +28,16 @@ nothing else.
 
 ## Install
 
+On [haseen](https://github.com/t1nk333r/haseen):
+
 ```bash
-omarchy plugin add https://github.com/t1nk333r/t1nk33r.nothing-glass.git --enable
+haseen plugin install https://github.com/t1nk333r/haseen-nothing-glass
+```
+
+Also runs on Omarchy:
+
+```bash
+omarchy plugin add https://github.com/t1nk333r/haseen-nothing-glass.git --enable
 omarchy-restart-shell
 ```
 
