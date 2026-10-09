@@ -995,6 +995,7 @@ run_qml_test "$SCRIPT_DIR/runtime-settings-merge.qml" \
 # The no-backend empty state prints the watched events path onto the desktop.
 # Its own runner varies HOME and XDG_STATE_HOME, which run_qml_test pins.
 bash "$SCRIPT_DIR/eventsource-home-relative.sh"
+bash "$SCRIPT_DIR/claude-record.sh"
 
 # ── 8. GeoClue is an opt-in, and an opt-out holds ──────────────────────────
 #

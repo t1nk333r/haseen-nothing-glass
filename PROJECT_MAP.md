@@ -47,6 +47,13 @@ shell startup → Service.qml (Item, shell/manifest injected)
     monitor the user is on, resolved when it opens), not which window to
     show — there is one.
 
+ClaudeUsageData → watches both `$XDG_STATE_HOME/{omarchy,haseen}/agents/usage/claude.json`
+  (HOME fallback). Follows the newest record's `updatedAt`, including signed-out
+  readings, so a namespace migration cannot pin the tile to an abandoned file.
+  Both styles share this reader; no extra provider probes or credentials.
+  `tests/claude-record.sh` covers legacy-only, fork-only, newest-record selection,
+  signed-out records and repeated atomic replacements while the reader is live.
+
 widget browser (manifest kinds: "service" + "bar-widget" + "panel")
   → Panel.qml — the `panel` entry point, loaded by the shell's panel loader on
     summon and destroyed on hide (no `keepLoaded`). Nothing visual comes from

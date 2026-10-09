@@ -15,7 +15,7 @@ import "JsonRead.js" as JsonRead
 // endpoint itself. Nothing here holds a credential, and no process is spawned
 // to get the numbers - the record appears when the collector writes it.
 //
-//   ~/.local/state/omarchy/agents/usage/claude.json
+//   ~/.local/state/{omarchy,haseen}/agents/usage/claude.json (newest record)
 //   {
 //     "schemaVersion": 1, "id": "claude", "name": "Claude Code",
 //     "updatedAt": "2026-09-13T19:58:41.321087+00:00",
@@ -82,10 +82,14 @@ QtObject {
     if (env && String(env) !== "") return String(env)
     return Quickshell.env("HOME") + "/.local/state"
   }
-  readonly property string path: cu.stateHome + "/omarchy/agents/usage/claude.json"
-  // The directory the tile names when there is no record at all: it is what to
-  // look at, and it contains no secret.
-  readonly property string dir: cu.stateHome + "/omarchy/agents/usage"
+  // Fork migrations can leave an old Omarchy record behind. Watch both
+  // namespaces and follow the newest reading, not merely the first file found.
+  property string _sourceDir: cu.stateHome + "/omarchy/agents/usage"
+  readonly property string path: cu.dir + "/claude.json"
+  // The selected directory contains no credential.
+  readonly property string dir: cu._sourceDir
+  property string _omarchyText: ""
+  property string _haseenText: ""
 
   // A tile on a screen that is off stops its clock (there is no network work
   // here to stop - the file watch is a handful of bytes on inotify).
@@ -225,16 +229,39 @@ QtObject {
     + (cu.tier !== "" ? "  ·  " + cu.tier : "")
 
   // ── The record ───────────────────────────────────────────────────────
-  // The same shape as t1nk33r.agents' own Agent.qml: a watched FileView, no
-  // process, no timer on the file.
+  // Watched FileViews, with no process or polling timer on the files.
   property FileView _view: FileView {
     id: view
-    path: cu.path
+    path: cu.stateHome + "/omarchy/agents/usage/claude.json"
     watchChanges: true
     printErrors: false
     onFileChanged: view.reload()
-    onLoaded: cu._apply(view.text())
-    onLoadFailed: cu._missing()
+    onLoaded: { cu._omarchyText = view.text(); cu._selectRecord() }
+    onLoadFailed: { cu._omarchyText = ""; cu._selectRecord() }
+  }
+
+  property FileView _haseenView: FileView {
+    id: haseenView
+    path: cu.stateHome + "/haseen/agents/usage/claude.json"
+    watchChanges: true
+    printErrors: false
+    onFileChanged: haseenView.reload()
+    onLoaded: { cu._haseenText = haseenView.text(); cu._selectRecord() }
+    onLoadFailed: { cu._haseenText = ""; cu._selectRecord() }
+  }
+
+  function _selectRecord() {
+    var legacy = JsonRead.tooLarge(cu._omarchyText, cu.maxDocumentBytes)
+      ? null : JsonRead.parseOrNull(cu._omarchyText)
+    var native = JsonRead.tooLarge(cu._haseenText, cu.maxDocumentBytes)
+      ? null : JsonRead.parseOrNull(cu._haseenText)
+    var useNative = native && (!legacy
+      || cu.parseIsoMs(JsonRead.str(native.updatedAt, "")) >= cu.parseIsoMs(JsonRead.str(legacy.updatedAt, "")))
+    cu._sourceDir = cu.stateHome + (useNative ? "/haseen/agents/usage" : "/omarchy/agents/usage")
+    var text = useNative ? cu._haseenText : cu._omarchyText
+    if (text !== "") cu._apply(text)
+    else if (cu._haseenText !== "") cu._apply(cu._haseenText)
+    else cu._missing()
   }
 
   // The clock: countdowns and the expiry flip. No file work happens here.
