@@ -2,6 +2,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 import qs.Commons
+import qs.Commons as Commons
 import qs.Ui
 
 // Bar-widget entry point (manifest.json `entryPoints.barWidget`): one bar
@@ -123,8 +124,8 @@ BarWidget {
   readonly property var registry: service ? service.widgetRegistry : null
   readonly property var widgets: store && store.widgets ? store.widgets : []
 
-  readonly property color fg: bar ? bar.barForeground : Color.foreground
-  readonly property color popupFg: bar ? bar.foreground : Color.foreground
+  readonly property color fg: bar ? bar.barForeground : Commons.Color.foreground
+  readonly property color popupFg: bar ? bar.foreground : Commons.Color.foreground
   readonly property color dim: Qt.rgba(popupFg.r, popupFg.g, popupFg.b, 0.55)
   readonly property string family: bar ? bar.fontFamily : Style.font.family
 
@@ -476,7 +477,7 @@ BarWidget {
           radius: width * 0.3
           color: "transparent"
           border.width: Math.max(1, Math.round(width * 0.11))
-          border.color: root.popupOpen ? (root.bar ? root.bar.urgent : Color.accent) : root.fg
+          border.color: root.popupOpen ? (root.bar ? root.bar.urgent : Commons.Color.accent) : root.fg
           Behavior on border.color { ColorAnimation { duration: 160 } }
         }
         Rectangle {
@@ -484,7 +485,7 @@ BarWidget {
           width: parent.width * 0.38
           height: width
           radius: width * 0.3
-          color: root.popupOpen ? (root.bar ? root.bar.urgent : Color.accent) : root.fg
+          color: root.popupOpen ? (root.bar ? root.bar.urgent : Commons.Color.accent) : root.fg
           Behavior on color { ColorAnimation { duration: 160 } }
         }
       }
@@ -777,7 +778,7 @@ BarWidget {
                 elide: Text.ElideRight
                 text: modelData.screen + (offScreen ? " (not connected)" : "")
                   + "  ·  " + modelData.x + "," + modelData.y + "  " + modelData.w + "×" + modelData.h
-                color: offScreen ? (root.bar ? root.bar.urgent : Color.urgent) : root.dim
+                color: offScreen ? (root.bar ? root.bar.urgent : Commons.Color.urgent) : root.dim
                 font.family: root.family
                 font.pixelSize: Style.font.caption
               }
@@ -809,7 +810,7 @@ BarWidget {
               Button {
                 text: "Remove"
                 bordered: true
-                foreground: root.bar ? root.bar.urgent : Color.urgent
+                foreground: root.bar ? root.bar.urgent : Commons.Color.urgent
                 fontFamily: root.family
                 fontSize: Style.font.caption
                 onClicked: root.removeWidget(modelData.id)

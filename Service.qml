@@ -3,6 +3,7 @@ import Quickshell
 import Quickshell.Hyprland
 import Quickshell.Io
 import qs.Commons
+import qs.Commons as Commons
 
 // Liquid Glass — desktop-layer service. Owns the widget instance store, the
 // widget type registry, the IPC surface below, and one GlassSurface (a
@@ -26,13 +27,13 @@ Item {
 
   Theme {
     id: liveTheme
-    systemBackground: Color.background
-    themeForeground: Color.foreground
-    themeAccent: Color.accent
-    themeUrgent: Color.urgent
+    systemBackground: Commons.Color.background
+    themeForeground: Commons.Color.foreground
+    themeAccent: Commons.Color.accent
+    themeUrgent: Commons.Color.urgent
     // Omarchy has no "surface" token; the bar's own background is the
     // nearest thing to one and moves with the theme.
-    themeSurface: Color.bar && Color.bar.background ? Color.bar.background : Color.background
+    themeSurface: Commons.Color.bar && Commons.Color.bar.background ? Commons.Color.bar.background : Commons.Color.background
   }
 
   // Single instance of each, shared by every screen's PanelWindow inside
