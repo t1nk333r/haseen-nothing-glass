@@ -40,7 +40,8 @@ jobs:
   # Proves: which jobs this change needs, and says why in the run summary.
   # code: anything but documentation -- static, runtime and sweep run.
   # qml:  a .qml, .js/.mjs or qmldir changed -- qmllint runs.
-  # The CI itself, its helper, or a failed diff selects everything.
+  # full: everything, over every file -- not a pull request, the CI itself or
+  #       its helper changed, or the diff failed; qmllint then lints all.
   scope:
     name: scope (what this change affects)
     runs-on: ubuntu-latest
@@ -48,6 +49,7 @@ jobs:
     outputs:
       code: ${{ steps.select.outputs.code }}
       qml: ${{ steps.select.outputs.qml }}
+      full: ${{ steps.select.outputs.full }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -64,17 +66,22 @@ jobs:
         run: |
           set -euo pipefail
           decide() { # <code> <qml> <reason>
-            printf 'code=%s\nqml=%s\n' "$1" "$2" >>"$GITHUB_OUTPUT"
+            printf 'code=%s\nqml=%s\nfull=false\n' "$1" "$2" >>"$GITHUB_OUTPUT"
             printf 'CI scope: code=%s qml=%s -- %s\n' "$1" "$2" "$3" | tee -a "$GITHUB_STEP_SUMMARY"
             exit 0
           }
-          [[ $EVENT == pull_request ]] || decide true true "a $EVENT event runs every job"
-          changed="$(git diff --name-only "$BASE_SHA" HEAD)" || decide true true "cannot diff against $BASE_SHA"
+          everything() { # <reason>
+            printf 'code=true\nqml=true\nfull=true\n' >>"$GITHUB_OUTPUT"
+            printf 'CI scope: everything, every file -- %s\n' "$1" | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 0
+          }
+          [[ $EVENT == pull_request ]] || everything "a $EVENT event runs every job"
+          changed="$(git diff --name-only "$BASE_SHA" HEAD)" || everything "cannot diff against $BASE_SHA"
           code=false qml=false
           while IFS= read -r f; do
             [[ -n $f ]] || continue
             case "$f" in
-              .github/workflows/* | .github/qml-affected.py) decide true true "$f: the CI itself changed" ;;
+              .github/workflows/* | .github/qml-affected.py) everything "$f: the CI itself changed" ;;
               *.md | LICENSE* | screenshots/* | preview.png | .github/*) ;;
               *.qml | *.js | *.mjs | qmldir | */qmldir) code=true qml=true ;;
               *) code=true ;;
@@ -166,14 +173,16 @@ jobs:
 
       # tests/*.qml are driven by tests/run.sh, which resolves their imports
       # through a scratch tree, so they are excluded here. A pull request
-      # lints what it affects; a push, or a helper that fails, lints all.
+      # lints what it affects; a full scope (see the scope job), or a helper
+      # that fails, lints all.
       - name: Lint
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          FULL: ${{ needs.scope.outputs.full }}
         run: |
           # The checkout belongs to another uid than the container's root.
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
-          if [[ $GITHUB_EVENT_NAME == pull_request ]] && selected="$(python3 .github/qml-affected.py "$BASE_SHA")"; then
+          if [[ $FULL != true ]] && selected="$(python3 .github/qml-affected.py "$BASE_SHA")"; then
             mapfile -t files < <(printf '%s' "$selected" | sed '/^$/d')
             echo "qmllint scope: the QML this pull request affects (changed files and their dependents)"
           else
