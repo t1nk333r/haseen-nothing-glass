@@ -31,7 +31,57 @@ on:
     tags: ['v*']
   pull_request:
 
+# A pull request runs the jobs its changes affect, and its qmllint covers only
+# the changed QML and the QML that depends on it (.github/qml-affected.py); a
+# push to master runs every job over every file, so anything the selection
+# misses fails there. A job a pull request does not need is skipped, not
+# failed: a docs-only pull request is green.
 jobs:
+  # Proves: which jobs this change needs, and says why in the run summary.
+  # code: anything but documentation -- static, runtime and sweep run.
+  # qml:  a .qml, .js/.mjs or qmldir changed -- qmllint runs.
+  # The CI itself, its helper, or a failed diff selects everything.
+  scope:
+    name: scope (what this change affects)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      code: ${{ steps.select.outputs.code }}
+      qml: ${{ steps.select.outputs.qml }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          # The pull request's base commit must be in the clone to diff against.
+          fetch-depth: 0
+
+      - name: Select the jobs this change affects
+        id: select
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+          decide() { # <code> <qml> <reason>
+            printf 'code=%s\nqml=%s\n' "$1" "$2" >>"$GITHUB_OUTPUT"
+            printf 'CI scope: code=%s qml=%s -- %s\n' "$1" "$2" "$3" | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 0
+          }
+          [[ $EVENT == pull_request ]] || decide true true "a $EVENT event runs every job"
+          changed="$(git diff --name-only "$BASE_SHA" HEAD)" || decide true true "cannot diff against $BASE_SHA"
+          code=false qml=false
+          while IFS= read -r f; do
+            [[ -n $f ]] || continue
+            case "$f" in
+              .github/workflows/* | .github/qml-affected.py) decide true true "$f: the CI itself changed" ;;
+              *.md | LICENSE* | screenshots/* | preview.png | .github/*) ;;
+              *.qml | *.js | *.mjs | qmldir | */qmldir) code=true qml=true ;;
+              *) code=true ;;
+            esac
+          done <<<"$changed"
+          decide "$code" "$qml" "selected from $(grep -c . <<<"$changed") changed path(s) since ${BASE_SHA:0:12}"
+
   # Proves: the manifest contract, symlink-freedom and the entry points (via
   # the pinned upstream validator run against this checkout), plus the static
   # suite's cross-checks — manifest vs GlassSurface defaults, every widget
@@ -40,7 +90,8 @@ jobs:
   # Cannot prove: that a single QML import resolves, or that anything renders.
   static:
     name: static (pinned validator + tests/run.sh)
-    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/master'
+    needs: scope
+    if: (github.event_name == 'pull_request' || github.ref == 'refs/heads/master') && needs.scope.outputs.code == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     container: archlinux:latest
@@ -82,19 +133,22 @@ jobs:
   #
   # Cannot prove: runtime binding failures.
   qmllint:
-    name: qmllint (every QML file the shell loads)
-    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/master'
+    name: qmllint (the QML files the shell loads)
+    needs: scope
+    if: (github.event_name == 'pull_request' || github.ref == 'refs/heads/master') && needs.scope.outputs.qml == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     container: archlinux:latest
     steps:
       - name: Install packages
-        run: pacman -Syu --noconfirm --needed git qt6-declarative quickshell hyprland-qt-support
+        run: pacman -Syu --noconfirm --needed git python qt6-declarative quickshell hyprland-qt-support
 
       - name: Checkout
         uses: actions/checkout@v4
         with:
           persist-credentials: false
+          # .github/qml-affected.py diffs a pull request against its base.
+          fetch-depth: 0
 
       # The shell tree at the pinned tag: v4.0.4 is commit c668141e9c42b1,
       # the same revision the validator above is pinned to.
@@ -111,10 +165,25 @@ jobs:
           ln -s /opt/omarchy/shell/Ui /opt/qsroot/qs/Ui
 
       # tests/*.qml are driven by tests/run.sh, which resolves their imports
-      # through a scratch tree, so they are excluded here.
+      # through a scratch tree, so they are excluded here. A pull request
+      # lints what it affects; a push, or a helper that fails, lints all.
       - name: Lint
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: |
-          mapfile -t files < <(find . -name '*.qml' -not -path './.git/*' -not -path './tests/*' | sort)
+          # The checkout belongs to another uid than the container's root.
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          if [[ $GITHUB_EVENT_NAME == pull_request ]] && selected="$(python3 .github/qml-affected.py "$BASE_SHA")"; then
+            mapfile -t files < <(printf '%s' "$selected" | sed '/^$/d')
+            echo "qmllint scope: the QML this pull request affects (changed files and their dependents)"
+          else
+            mapfile -t files < <(find . -name '*.qml' -not -path './.git/*' -not -path './tests/*' | sort)
+            echo "qmllint scope: every QML file"
+          fi
+          if [[ ${#files[@]} -eq 0 ]]; then
+            echo "qmllint: no QML file outside tests/ is affected"
+            exit 0
+          fi
           echo "qmllint: ${#files[@]} files"
           # Arch installs qmllint under /usr/lib/qt6/bin, which is not on the
           # PATH of this image.
@@ -185,7 +254,8 @@ jobs:
   # ~/.config/omarchy, its timezone, or its season.
   runtime:
     name: runtime (behavioural QML tests)
-    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/master'
+    needs: scope
+    if: (github.event_name == 'pull_request' || github.ref == 'refs/heads/master') && needs.scope.outputs.code == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     container: archlinux:latest
@@ -328,7 +398,8 @@ jobs:
   # exception is waiting for.
   sweep:
     name: sweep (every type x style on a headless compositor)
-    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/master'
+    needs: scope
+    if: (github.event_name == 'pull_request' || github.ref == 'refs/heads/master') && needs.scope.outputs.code == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     container: archlinux:latest

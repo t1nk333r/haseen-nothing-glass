@@ -12,7 +12,9 @@ tag — not a built artifact.
    `CHANGELOG.md`.
 2. `bash tests/run.sh` and `omarchy plugin validate .` — both must pass on the
    exact commit being released. (CI runs the same two, plus `qmllint` and the
-   widget sweep.)
+   widget sweep. A pull request runs only the jobs its diff affects and lints
+   only the QML it reaches; the push to `master` runs every job over every
+   file, and that full run is the one a release commit must have passed.)
 3. Tag it: `git tag v<manifest.version> && git push origin v<version>`.
 4. The tag-guard CI job enforces the rest: `jq -r .version manifest.json` must
    equal `${tag#v}`, and `CHANGELOG.md` must carry a `## <version>` section.
