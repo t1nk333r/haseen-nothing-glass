@@ -6,6 +6,9 @@
 #           percent-encoded into the file URL, not pasted into it)
 #   paused  with `active` false - its screen switched off - the 5 s link poll
 #           does not run; turning it back on re-reads the link at once
+#   host    under haseen's shell (HASEEN_PATH set) the backdrop is haseen's
+#           $XDG_STATE_HOME/haseen/current/background (or HASEEN_USER_STATE's),
+#           which is what haseen paints; under Omarchy's it stays Omarchy's link
 set -euo pipefail
 root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 for tool in qs python3 readlink; do
@@ -89,3 +92,42 @@ else
 fi
 (( failed == 0 )) || exit 1
 echo "OK: the wallpaper link poll pauses while the screen is not drawn, and resumes with a read"
+
+# The host decides which link is the wallpaper. Both links exist and point at
+# different files; the probe prints what the backdrop resolved to.
+mkdir -p "$scratch/state/haseen/current"
+cp "$scratch/wp/a#b?c%41d.png" "$scratch/wp/haseen.png"
+ln -s "$scratch/wp/haseen.png" "$scratch/state/haseen/current/background"
+cat > "$scratch/probe/host.qml" <<'EOF2'
+import QtQuick
+import Quickshell
+Scope {
+    Wallpaper { id: wp }
+    Timer {
+        interval: 100; repeat: true; running: true
+        property int ticks: 0
+        onTriggered: {
+            if (wp.resolvedPath !== "" || ++ticks > 50) {
+                console.log("RESOLVED|" + wp.resolvedPath)
+                Qt.quit()
+            }
+        }
+    }
+}
+EOF2
+host_run() {
+  env -i PATH="$PATH" HOME="$scratch/home" XDG_STATE_HOME="$scratch/state" XDG_RUNTIME_DIR="$scratch/runtime" \
+    QT_QPA_PLATFORM=offscreen "$@" timeout 20 qs -n -p "$scratch/probe/host.qml" 2>&1 | sed -n 's/.*RESOLVED|//p' | head -1
+}
+got=$(host_run HASEEN_PATH=/usr/share/haseen)
+[[ $got == "$scratch/wp/haseen.png" ]] || fail "wallpaper: under haseen the backdrop was '$got', expected haseen's current/background"
+got=$(host_run)
+[[ $got == "$scratch/wp/a#b?c%41d.png" ]] || fail "wallpaper: under Omarchy the backdrop was '$got', expected Omarchy's current/background"
+# haseen's own override of its state directory (lib/common.sh) wins.
+mkdir -p "$scratch/moved/current"
+cp "$scratch/wp/haseen.png" "$scratch/wp/moved.png"
+ln -s "$scratch/wp/moved.png" "$scratch/moved/current/background"
+got=$(host_run HASEEN_PATH=/usr/share/haseen HASEEN_USER_STATE="$scratch/moved")
+[[ $got == "$scratch/wp/moved.png" ]] || fail "wallpaper: with HASEEN_USER_STATE the backdrop was '$got', expected that directory's current/background"
+(( failed == 0 )) || exit 1
+echo "OK: the backdrop is the running shell's own wallpaper link, haseen's or Omarchy's"

@@ -14,13 +14,19 @@ import "JsonRead.js" as JsonRead
 // components (PORTING.md items 17 and 25): go to the source that plugin reads
 // and writes, and depend on nothing of it being installed, enabled or running.
 //
-// That source is the ledger it already writes:
+// That source is the ledger it already writes, in one of two places:
 //
-//   $XDG_STATE_HOME/omarchy/t1nk33r.agents/deepseek/usage.state
-//   -> ~/.local/state/omarchy/t1nk33r.agents/deepseek/usage.state
+//   $XDG_STATE_HOME/haseen/agents/deepseek/usage.state            (now)
+//   $XDG_STATE_HOME/omarchy/t1nk33r.agents/deepseek/usage.state   (before)
 //
-// (Before the merge it was $XDG_STATE_HOME/t1nk33r.deepseek/usage.state; the
-// move carried the file across, so there is nothing left to read there.)
+// `t1nk33r.agents` moved its state into the haseen namespace and stopped
+// writing the second file, which is left behind with its last sample. Both are
+// watched and the ledger with the newer `lastAt` is the one shown, the same
+// rule ClaudeUsageData applies to its two record paths: a namespace move then
+// cannot pin the tile to an abandoned file, and a machine still on the old
+// layout keeps working. (Before the merge it was
+// $XDG_STATE_HOME/t1nk33r.deepseek/usage.state; that move carried the file
+// across, so there is nothing left to read there.)
 //
 // one JSON line, mode 0600, written atomically (a same-directory temp file and
 // a rename, so a reader sees the old ledger or the new one, never half of
@@ -66,7 +72,7 @@ import "JsonRead.js" as JsonRead
 // it holds is never read, stored, logged or copied anywhere by this file.
 //
 // Nothing here calls the DeepSeek API, holds a key, runs the webhook, or
-// spawns a process: one file read, and a re-read on a slow clock.
+// spawns a process: two small file reads, and a re-read on a slow clock.
 QtObject {
   id: ds
 
@@ -78,19 +84,24 @@ QtObject {
   property int staleAfterSec: 600
   // How often the ledger is re-read while the tile is drawn. The plugin's own
   // writes arrive every few minutes at most, so this is the freshness clock
-  // rather than a poll - a 535-byte file read, no process, no network.
+  // rather than a poll - two small file reads, no process, no network.
   property int rereadMs: 60000
 
   // ── Paths ───────────────────────────────────────────────────────────
   // XDG-aware exactly as the plugin's own paths are (BarWidget.qml builds them
   // from XDG_STATE_HOME/XDG_CONFIG_HOME with a HOME fallback), so a machine
   // that moved its state directory still finds the same ledger.
-  readonly property string stateDir: {
+  readonly property string stateHome: {
     var base = Quickshell.env("XDG_STATE_HOME")
     if (!base || base === "") base = (Quickshell.env("HOME") || "") + "/.local/state"
-    return base + "/omarchy/t1nk33r.agents/deepseek"
+    return base
   }
-  readonly property string ledgerPath: ds.stateDir + "/usage.state"
+  readonly property string haseenLedgerPath: ds.stateHome + "/haseen/agents/deepseek/usage.state"
+  readonly property string legacyLedgerPath: ds.stateHome + "/omarchy/t1nk33r.agents/deepseek/usage.state"
+  // The file the figures on the tile come from: "" while there is no ledger
+  // to read (neither file, or the chosen one empty). A ledger too large to
+  // read keeps its path, and the tile says why it shows no figures.
+  property string ledgerPath: ""
   readonly property string configPath: {
     var base = Quickshell.env("XDG_CONFIG_HOME")
     if (!base || base === "") base = (Quickshell.env("HOME") || "") + "/.config"
@@ -250,25 +261,79 @@ QtObject {
   }
 
   // ── Reading ─────────────────────────────────────────────────────────
-  function refresh() { if (ds.active) ledgerView.reload() }
+  function refresh() {
+    if (!ds.active) return
+    haseenView.reload()
+    legacyView.reload()
+  }
 
-  // A QtObject root has no default property, so the two FileViews are
+  // What each path held at its last read: the text, and whether the file was
+  // there at all. Both views answer once at start; until both have, a missing
+  // file is not yet "no ledger" - the other one may still be on its way.
+  property string _haseenText: ""
+  property bool _haseenFound: false
+  property bool _haseenAnswered: false
+  property string _legacyText: ""
+  property bool _legacyFound: false
+  property bool _legacyAnswered: false
+
+  // A QtObject root has no default property, so the FileViews are
   // properties - the same shape StorageData/TailscaleData give their Process
   // and Timer children.
-  property FileView ledgerView: FileView {
-    id: ledgerView
-    path: ds.ledgerPath
+  property FileView haseenView: FileView {
+    id: haseenView
+    path: ds.haseenLedgerPath
     watchChanges: true
     atomicWrites: true
     printErrors: false
-    onLoaded: ds._applyLedger(text())
+    onLoaded: { ds._haseenText = text(); ds._haseenFound = true; ds._haseenAnswered = true; ds._selectLedger() }
     onFileChanged: reload()
-    onLoadFailed: {
-      ds.loaded = true
-      ds.ledgerFound = false
-      ds._clear()
-      ds.errorMessage = ""
+    onLoadFailed: { ds._haseenText = ""; ds._haseenFound = false; ds._haseenAnswered = true; ds._selectLedger() }
+  }
+
+  property FileView legacyView: FileView {
+    id: legacyView
+    path: ds.legacyLedgerPath
+    watchChanges: true
+    atomicWrites: true
+    printErrors: false
+    onLoaded: { ds._legacyText = text(); ds._legacyFound = true; ds._legacyAnswered = true; ds._selectLedger() }
+    onFileChanged: reload()
+    onLoadFailed: { ds._legacyText = ""; ds._legacyFound = false; ds._legacyAnswered = true; ds._selectLedger() }
+  }
+
+  // A ledger's `lastAt`, or -1 when it has none to compare: unreadable, too
+  // large, not an object. A broken new ledger therefore loses to a readable
+  // old one, whose own age then shows in the footnote.
+  function _lastAtOf(raw) {
+    if (JsonRead.tooLarge(raw, ds.maxLedgerBytes)) return -1
+    var parsed = JsonRead.parseOrNull(String(raw == null ? "" : raw).trim())
+    if (parsed === null || typeof parsed !== "object") return -1
+    return JsonRead.num(parsed.lastAt, 0)
+  }
+
+  // The newer of the two ledgers, by its own `lastAt`; a tie goes to the
+  // haseen one, which is where the plugin writes now. Nothing is chosen until
+  // both views have answered once: the abandoned ledger is readable, and
+  // applying it first would flash its weeks-old balance for a load cycle.
+  // Both views answer a missing file or directory with loadFailed; should one
+  // ever stay silent, the minute's reread re-arms both.
+  function _selectLedger() {
+    if (!ds._haseenAnswered || !ds._legacyAnswered) return
+    var useHaseen = ds._haseenFound && (!ds._legacyFound
+      || ds._lastAtOf(ds._haseenText) >= ds._lastAtOf(ds._legacyText))
+    if (useHaseen || ds._legacyFound) {
+      ds.ledgerPath = useHaseen ? ds.haseenLedgerPath : ds.legacyLedgerPath
+      ds._applyLedger(useHaseen ? ds._haseenText : ds._legacyText)
+      // An empty file is no ledger (_applyLedger says so); nothing was read.
+      if (!ds.ledgerFound) ds.ledgerPath = ""
+      return
     }
+    ds.ledgerPath = ""
+    ds.loaded = true
+    ds.ledgerFound = false
+    ds._clear()
+    ds.errorMessage = ""
   }
 
   // The plugin writes with `mv` over the same path, and a watcher on a path
