@@ -685,14 +685,15 @@ run_qml_test() {
   out="$(env "${env_vars[@]}" timeout 120 qs -n -p "$tmp/$name" 2>&1 || true)"
   if grep -q "$marker" <<<"$out"; then
     grep -o "$marker.*" <<<"$out" | head -1
-  elif [[ $mode == wayland ]] && grep -qF 'Failed to create wl_display' <<<"$out" \
+  elif [[ $mode == wayland ]] && ! grep -q 'FAIL' <<<"$out" \
+    && grep -qE 'Failed to create wl_display|The Wayland connection broke' <<<"$out" \
     && compositor_gone "$test_compositor_pid"; then
-    # gamescope can open its socket and then abort before it accepts a client:
-    # the CI container does ("Aborted (core dumped)"). Quickshell then never
-    # connected, so not one line of the test ran. That is the same skip as a
-    # compositor that never opened its socket, not a test failure. A test that
-    # connected and then failed, or a compositor that stays up and refuses
-    # clients, still fails below.
+    # gamescope can abort under the test ("Aborted (core dumped)"): the CI
+    # container's opens its socket and dies either before Quickshell connects
+    # or just after. With no marker and no FAIL line the test never reached a
+    # verdict, so that is the same skip as a compositor that never opened its
+    # socket, not a test failure. A test that printed a FAIL, or a compositor
+    # that stays up and refuses clients, still fails below.
     echo "SKIP: $name (headless compositor did not come up)"
   else
     { echo "$name failed:"; grep -E 'FAIL|ERROR' <<<"$out" | head -20; } >&2

@@ -161,11 +161,15 @@ env HOME="$tmp/home" XDG_CONFIG_HOME="$tmp/home/.config" TMPDIR="$tmp" \
   timeout 180 qs -n -p "$tmp/widget-sweep.qml" >"$out" 2>&1 || true
 
 if ! grep -q 'SWEEP done ' "$out"; then
-  # gamescope can open its socket and then abort before it accepts a client
-  # (the CI container does). Then the driver never connected and no tile was
-  # rendered: the same skip as a compositor that never came up. A sweep that
-  # connected and stopped part-way still fails below.
-  if grep -qF 'Failed to create wl_display' "$out" && compositor_gone "$compositor_pid"; then
+  # gamescope can abort under the driver: the CI container's opens its socket
+  # and dies either before the driver connects or just after. Until a tile is
+  # grabbed nothing has been measured, so that is the same skip as a
+  # compositor that never came up. A sweep that grabbed a tile, hit a fatal or
+  # counted a load error before it stopped still fails below: a partial sweep
+  # is never a skip.
+  if grep -qE 'Failed to create wl_display|The Wayland connection broke' "$out" \
+    && ! grep -qE 'SWEEP (grab|fatal) |SWEEP loaded [0-9]+ errors [1-9]' "$out" \
+    && compositor_gone "$compositor_pid"; then
     echo "SKIP: widget sweep (headless compositor did not come up)"
     exit 0
   fi

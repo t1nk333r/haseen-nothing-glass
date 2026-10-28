@@ -136,10 +136,11 @@ start_shell() {
     kill -0 "$qpid" 2>/dev/null || break
     sleep 0.1
   done
-  # gamescope can open its socket and then abort before it accepts a client
-  # (the CI container does). The host then never connected and no check ran:
-  # the same skip as a compositor that never came up, on the first start only.
-  if (( ! shell_seen )) && grep -qF 'Failed to create wl_display' "$home/qs.log" \
+  # gamescope can abort under the host: the CI container's opens its socket
+  # and dies either before the host connects or before it is READY. No check
+  # has run then, so that is the same skip as a compositor that never came up,
+  # on the first start only.
+  if (( ! shell_seen )) && grep -qE 'Failed to create wl_display|The Wayland connection broke' "$home/qs.log" \
     && compositor_gone "$gpid"; then
     echo "SKIP: settings IPC (headless compositor did not come up)"
     exit 0

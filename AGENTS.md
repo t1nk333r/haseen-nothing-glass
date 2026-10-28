@@ -328,11 +328,13 @@ before the verdict is printed.
 Run it after touching a widget body, a component, a `qmldir` or the registry.
 It needs `qs`, `gamescope` and ImageMagick (`magick`), starts its own headless
 compositor in its own `XDG_RUNTIME_DIR` and its own scratch `HOME`, and skips
-rather than fails when a tool is missing or the compositor never serves the
-driver: one that opens its socket and then dies before the driver connects
-(the CI container's gamescope aborts this way) skips like one that never came
-up. `tests/run.sh` and `tests/settings-ipc.sh` treat their Wayland cases the
-same way. It finishes in well under a minute
+rather than fails when a tool is missing or the compositor dies before anything
+is measured: one that opens its socket and then dies, before the driver
+connects or before the first tile is grabbed, skips like one that never came up
+(the CI container's gamescope aborts both ways). A sweep that grabbed a tile
+first still fails. `tests/run.sh` and `tests/settings-ipc.sh` treat their
+Wayland cases the same way: no verdict yet, or no READY yet, is a skip. It
+finishes in well under a minute
 and prints `PASS n / FAIL m` last, with each failure naming the tile, its size,
 its measurements and the captured error.
 
