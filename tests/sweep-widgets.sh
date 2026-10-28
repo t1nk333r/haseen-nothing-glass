@@ -140,6 +140,8 @@ done
 # look is not enough; `sleep` also lets bash reap the dead child.
 compositor_gone() {
   local _
+  # No pid is no proof the compositor died: fail closed.
+  [[ -n $1 ]] || return 1
   for _ in $(seq 100); do
     kill -0 "$1" 2>/dev/null || return 0
     sleep 0.1
@@ -170,7 +172,13 @@ if ! grep -q 'SWEEP done ' "$out"; then
   if grep -qE 'Failed to create wl_display|The Wayland connection broke' "$out" \
     && ! grep -qE 'SWEEP (grab|fatal) |SWEEP loaded [0-9]+ errors [1-9]' "$out" \
     && compositor_gone "$compositor_pid"; then
-    echo "SKIP: widget sweep (headless compositor did not come up)"
+    # Died after the driver connected: said after the CI's whitelisted text,
+    # since where gamescope works that skip means a tile may have crashed it.
+    if grep -qF 'The Wayland connection broke' "$out"; then
+      echo "SKIP: widget sweep (headless compositor did not come up): it died after the driver connected, before the first grab"
+    else
+      echo "SKIP: widget sweep (headless compositor did not come up)"
+    fi
     exit 0
   fi
   # Nothing else can show why: the scratch tree (and this log with it) is
