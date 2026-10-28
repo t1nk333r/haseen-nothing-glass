@@ -98,7 +98,8 @@ QtObject {
   }
   readonly property string haseenLedgerPath: ds.stateHome + "/haseen/agents/deepseek/usage.state"
   readonly property string legacyLedgerPath: ds.stateHome + "/omarchy/t1nk33r.agents/deepseek/usage.state"
-  // The file the figures on the tile were read from, "" while neither exists.
+  // The file the figures on the tile were read from, "" while there is no
+  // ledger to read (neither file, or the chosen one empty).
   property string ledgerPath: ""
   readonly property string configPath: {
     var base = Quickshell.env("XDG_CONFIG_HOME")
@@ -311,16 +312,20 @@ QtObject {
   }
 
   // The newer of the two ledgers, by its own `lastAt`; a tie goes to the
-  // haseen one, which is where the plugin writes now.
+  // haseen one, which is where the plugin writes now. Nothing is chosen until
+  // both views have answered once: the abandoned ledger is readable, and
+  // applying it first would flash its weeks-old balance for a load cycle.
   function _selectLedger() {
+    if (!ds._haseenAnswered || !ds._legacyAnswered) return
     var useHaseen = ds._haseenFound && (!ds._legacyFound
       || ds._lastAtOf(ds._haseenText) >= ds._lastAtOf(ds._legacyText))
     if (useHaseen || ds._legacyFound) {
       ds.ledgerPath = useHaseen ? ds.haseenLedgerPath : ds.legacyLedgerPath
       ds._applyLedger(useHaseen ? ds._haseenText : ds._legacyText)
+      // An empty file is no ledger (_applyLedger says so); nothing was read.
+      if (!ds.ledgerFound) ds.ledgerPath = ""
       return
     }
-    if (!ds._haseenAnswered || !ds._legacyAnswered) return
     ds.ledgerPath = ""
     ds.loaded = true
     ds.ledgerFound = false

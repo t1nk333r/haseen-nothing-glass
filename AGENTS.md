@@ -277,9 +277,14 @@ came from a real bug:
 15. File-backed JSON is refused past a per-source UTF-8 byte cap before
     `JSON.parse` (`components/JsonRead.js`, `tests/json-caps.sh`).
 16. Wallpaper paths holding `#`, `?` or `%` load. The wallpaper poll pauses
-    while the screen is not drawn, and the 16 ms second-hand sweep of every
-    analog clock, in both drawings, stops while hidden (`tests/wallpaper.sh`,
-    `tests/clock-visibility.sh`).
+    while the screen is not drawn, the backdrop is the running shell's own
+    wallpaper link (haseen's under `HASEEN_PATH`, else Omarchy's), and the
+    16 ms second-hand sweep of every analog clock, in both drawings, stops
+    while hidden (`tests/wallpaper.sh`, `tests/clock-visibility.sh`). The
+    DeepSeek tile shows the newer of the two DeepSpend ledgers
+    (`tests/deepseek-ledger.sh`), and on Qt's software scene graph - haseen's
+    default renderer, where no ShaderEffect draws - the frosted card keeps its
+    surface and LiquidGlass draws its fallback (`tests/software-renderer.sh`).
 17. The IPC `option` and `set` verbs write only declared settings with finite,
     bounded values (`tests/settings-ipc.sh`). The store's own guards are in
     `tests/runtime-store.qml`:
@@ -394,7 +399,8 @@ backdrop of every Liquid Glass widget. Read both before touching either.
 
 Pipeline:
 1. `wallpaperItem` — supplied by the host, here `backdrop.item`: a hidden
-   screen-sized `Image` of `~/.local/state/omarchy/current/background` living
+   screen-sized `Image` of the running shell's `current/background` link
+   (haseen's or Omarchy's, see `Wallpaper.qml`) living
    in the same layer surface as the widgets, so `mapToItem()` works. There is
    no compositor API for the live wallpaper and `ShaderEffectSource` cannot
    sample across windows, so each surface loads the same file the compositor
@@ -405,8 +411,10 @@ Pipeline:
 4. `liquidglass.frag` — Snell-on-a-dome edge refraction, chromatic dispersion,
    tint, corner specular, squircle silhouette mask.
 5. Fallback `Rectangle` (flat tinted rounded rect) whenever `wallpaperItem` is
-   null or zero-sized. `glass.active` switches between the two, so a flat
-   uniform tile in a screenshot means the capture failed.
+   null or zero-sized, and in both modes on Qt's software scene graph
+   (`glass.shadersRun` false), where no shader draws. `glass.active` switches
+   between the two, so a flat uniform tile in a screenshot means the capture
+   failed or no shader runs.
 
 Important nuances:
 - **`realtimeRefraction: false` by default.** `wallpaperTex.live` binds to it;

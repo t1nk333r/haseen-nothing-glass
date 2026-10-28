@@ -3,8 +3,9 @@
 # has a material. tests/software-renderer.qml checks the components' own
 # verdicts; with ImageMagick present this also measures the grabbed tiles,
 # because the defect was a tile that painted no pixels at all: a frosted
-# Nothing card's coverage must be its surface (81% opaque here), and both
-# LiquidGlass modes must cover their squircle.
+# Nothing card's coverage must be its surface (81% opaque here), both
+# LiquidGlass modes must cover their squircle, and a solid tile's
+# solidColor -> solidColorBottom blend must survive the fallback.
 set -euo pipefail
 root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 command -v qs >/dev/null || { echo 'SKIP: software renderer (qs unavailable)'; exit 0; }
@@ -35,5 +36,11 @@ for row in card:0.6 glass:0.3 solid:0.8; do
   c=$(coverage "$tile")
   awk -v c="$c" -v f="$floor" 'BEGIN { exit !(c > f) }' || { echo "FAIL: the $tile tile painted ${c} coverage, under ${floor}" >&2; failed=1; }
 done
+# The solid tile asks for a vertical blend; the fallback must keep it.
+if [[ -f $scratch/out/solid.png ]]; then
+  top=$(magick "$scratch/out/solid.png" -crop 1x1+96+24 -format '%[pixel:p]' info:)
+  bottom=$(magick "$scratch/out/solid.png" -crop 1x1+96+168 -format '%[pixel:p]' info:)
+  [[ $top != "$bottom" ]] || { echo "FAIL: the solid tile's gradient drew one flat colour ($top)" >&2; failed=1; }
+fi
 (( failed == 0 )) || exit 1
-echo 'OK: every tile paints its material under the software renderer'
+echo 'OK: every tile paints its material under the software renderer, gradient included'

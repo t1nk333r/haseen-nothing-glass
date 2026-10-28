@@ -41,7 +41,7 @@ ShellRoot {
       LiquidGlass { id: glassTile; x: 208; y: 8; width: 192; height: 192; radius: 40; wallpaperItem: wallpaper }
       LiquidGlass {
         id: solidTile; x: 408; y: 8; width: 192; height: 192; radius: 40
-        wallpaperItem: wallpaper; solidMode: true; solidColor: "#336699"
+        wallpaperItem: wallpaper; solidMode: true; solidColor: "#336699"; solidColorBottom: "#993366"
       }
 
       property int failures: 0

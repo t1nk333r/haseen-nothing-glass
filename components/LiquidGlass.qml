@@ -484,7 +484,16 @@ Item {
         anchors.fill: parent
         visible: !glass.shadersRun || (!glass.solidMode && !glass.active)
         color: glass.solidMode ? glass.solidColor : glass.tint
+        // The shader's vertical solidColor -> solidColorBottom blend, when a
+        // solid tile asks for one (weather, now playing).
+        gradient: glass.solidMode && glass.solidColorBottom.a > 0 ? fallbackGradient : null
         opacity: glass.solidMode ? 1.0 : glass.fallbackOpacity
         radius: glass.radius
+
+        Gradient {
+            id: fallbackGradient
+            GradientStop { position: 0; color: glass.solidColor }
+            GradientStop { position: 1; color: glass.solidColorBottom }
+        }
     }
 }

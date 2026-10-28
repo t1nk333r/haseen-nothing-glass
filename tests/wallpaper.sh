@@ -7,8 +7,8 @@
 #   paused  with `active` false - its screen switched off - the 5 s link poll
 #           does not run; turning it back on re-reads the link at once
 #   host    under haseen's shell (HASEEN_PATH set) the backdrop is haseen's
-#           $XDG_STATE_HOME/haseen/current/background, which is what haseen
-#           paints; under Omarchy's it stays Omarchy's link
+#           $XDG_STATE_HOME/haseen/current/background (or HASEEN_USER_STATE's),
+#           which is what haseen paints; under Omarchy's it stays Omarchy's link
 set -euo pipefail
 root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 for tool in qs python3 readlink; do
@@ -123,5 +123,11 @@ got=$(host_run HASEEN_PATH=/usr/share/haseen)
 [[ $got == "$scratch/wp/haseen.png" ]] || fail "wallpaper: under haseen the backdrop was '$got', expected haseen's current/background"
 got=$(host_run)
 [[ $got == "$scratch/wp/a#b?c%41d.png" ]] || fail "wallpaper: under Omarchy the backdrop was '$got', expected Omarchy's current/background"
+# haseen's own override of its state directory (lib/common.sh) wins.
+mkdir -p "$scratch/moved/current"
+cp "$scratch/wp/haseen.png" "$scratch/wp/moved.png"
+ln -s "$scratch/wp/moved.png" "$scratch/moved/current/background"
+got=$(host_run HASEEN_PATH=/usr/share/haseen HASEEN_USER_STATE="$scratch/moved")
+[[ $got == "$scratch/wp/moved.png" ]] || fail "wallpaper: with HASEEN_USER_STATE the backdrop was '$got', expected that directory's current/background"
 (( failed == 0 )) || exit 1
 echo "OK: the backdrop is the running shell's own wallpaper link, haseen's or Omarchy's"

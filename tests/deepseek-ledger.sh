@@ -5,8 +5,9 @@
 # behind with its last sample; reading only the old path pinned the tile to
 # that sample. Runs the real DeepSeekData against a scratch state directory:
 #   legacy only, haseen only, the newer `lastAt` winning in either direction,
-#   a broken new ledger losing to a readable old one, neither file, and two
-#   atomic replacements of the haseen ledger observed while the reader runs.
+#   a broken new ledger losing to a readable old one, neither file, an empty
+#   one, and two atomic replacements of the haseen ledger observed while the
+#   reader runs.
 set -euo pipefail
 root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 command -v qs >/dev/null || { echo 'SKIP: DeepSeek ledgers (qs unavailable)'; exit 0; }
@@ -33,6 +34,9 @@ check() {
   [[ $result == *DEEPSEEK_PASS* ]] || { printf 'FAIL: DeepSeek ledger selection (%s)\n%s\n' "$2" "$result"; exit 1; }
 }
 check none "neither ledger"
+: > "$native/usage.state"
+check none "an empty haseen ledger alone"
+rm "$native/usage.state"
 ledger "$legacy" 11.00 1789000000000
 check 11.00 "legacy only"
 ledger "$native" 22.00 1790000000000

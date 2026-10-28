@@ -1058,7 +1058,7 @@ bash "$SCRIPT_DIR/clock-visibility.sh"
 bash "$SCRIPT_DIR/deepseek-layout.sh"
 bash "$SCRIPT_DIR/deepseek-ledger.sh"
 
-# ── 16c. Every material draws on Qt's software scene graph ─────────────────
+# ── 16c. Frost and glass materials draw on Qt's software scene graph ───────
 bash "$SCRIPT_DIR/software-renderer.sh"
 
 # ── 17. The IPC verbs only write real settings ─────────────────────────────
