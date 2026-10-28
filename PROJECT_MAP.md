@@ -54,6 +54,14 @@ ClaudeUsageData → watches both `$XDG_STATE_HOME/{omarchy,haseen}/agents/usage/
   `tests/claude-record.sh` covers legacy-only, fork-only, newest-record selection,
   signed-out records and repeated atomic replacements while the reader is live.
 
+DeepSeekData → watches both DeepSpend ledgers, `$XDG_STATE_HOME/haseen/agents/deepseek/usage.state`
+  (where `t1nk33r.agents` writes now) and the abandoned
+  `$XDG_STATE_HOME/omarchy/t1nk33r.agents/deepseek/usage.state`, and shows the
+  one with the newer `lastAt`; a tie goes to the haseen one, and a ledger that
+  does not parse loses to one that does. `tests/deepseek-ledger.sh` covers each
+  path alone, either one newer, a broken new ledger, neither, and repeated atomic
+  replacements while the reader is live.
+
 widget browser (manifest kinds: "service" + "bar-widget" + "panel")
   → Panel.qml — the `panel` entry point, loaded by the shell's panel loader on
     summon and destroyed on hide (no `keepLoaded`). Nothing visual comes from
@@ -318,9 +326,12 @@ widget types with their own external data source (all inside the Loader above):
   `components/nothing/NTheme.qml` and the two digital clocks load them with
   `Qt.resolvedUrl("../../fonts/X.ttf")`. `icons/` works the same way, shared
   by the widget that needs it. See `PORTING.md` item 9.
-- `Wallpaper.qml` — hidden (`visible: false`) `Image` that mirrors
-  `~/.local/state/omarchy/current/background`'s resolved target, the same way
-  `/usr/share/omarchy/shell/plugins/background/Background.qml` does. Must
+- `Wallpaper.qml` — hidden (`visible: false`) `Image` that mirrors the
+  running shell's own wallpaper link, resolved: under haseen's shell
+  (`HASEEN_PATH` set) `$XDG_STATE_HOME/haseen/current/background`, which
+  haseen's swaybg paints, otherwise `~/.local/state/omarchy/current/background`,
+  the same way `/usr/share/omarchy/shell/plugins/background/Background.qml`
+  does. `tests/wallpaper.sh` covers both hosts. Must
   live in the same `PanelWindow` as every `LiquidGlass` that samples it —
   `ShaderEffectSource.sourceItem` does not work across windows. Plan 004's
   per-tile recapture-on-load/on-switch fix (nulling and re-setting
@@ -335,7 +346,11 @@ widget types with their own external data source (all inside the Loader above):
   runs) while the plugin-wide `frost` key is 0, which is its default. The
   consumer is `components/nothing/NFrost.qml` + `shaders/nfrost.frag`; the
   rule this is written under is PORTING.md item 20, and the control story is
-  `NTheme.frost`'s comment.
+  `NTheme.frost`'s comment. Also off under Qt's software scene graph
+  (`GraphicsInfo.api` Software - haseen's shell default), where no
+  ShaderEffect draws: the card then keeps its own surface fill, and
+  `LiquidGlass` likewise draws its fallback rectangle (opaque in solid mode).
+  `tests/software-renderer.sh` measures all three.
 - `components/` — a real directory at the repo root, imported by the runtime
   and by every widget body (`import "components"` at depth 0,
   `import "../../components"` from a widget). One copy, in the source tree and

@@ -19,7 +19,18 @@ Image {
 
   readonly property string home: Quickshell.env("HOME")
   readonly property string stateHome: home + "/.local/state"
-  readonly property string backgroundLink: stateHome + "/omarchy/current/background"
+  // The link is the one the running shell's own wallpaper draws, so the pixels
+  // refracted are the pixels behind the tile. haseen's shell runs with
+  // HASEEN_PATH set and paints $XDG_STATE_HOME/haseen/current/background
+  // (`haseen theme bg`); Omarchy's link is left as it was when haseen took
+  // over and no longer moves. Omarchy's own shell paints
+  // ~/.local/state/omarchy/current/background.
+  readonly property bool onHaseen: (Quickshell.env("HASEEN_PATH") || "") !== ""
+  readonly property string haseenStateHome:
+    (Quickshell.env("XDG_STATE_HOME") || wallpaper.stateHome) + "/haseen"
+  readonly property string backgroundLink: wallpaper.onHaseen
+    ? wallpaper.haseenStateHome + "/current/background"
+    : wallpaper.stateHome + "/omarchy/current/background"
 
   // Resolved by a `readlink -f` Process; the state path is a symlink that
   // theme switches repoint.

@@ -72,7 +72,15 @@ Item {
     // Item it can mapToItem() against, so both hosts work unchanged.
     property Item wallpaperItem: null
 
-    readonly property bool active: wallpaperItem !== null
+    // Qt's software scene graph (QT_QUICK_BACKEND=software, which haseen's
+    // shell sets by default) runs no ShaderEffect, so neither the glass nor
+    // the solid squircle below would draw anything: the tile would be bare
+    // text on the desktop. There the fallback rectangle is the material, in
+    // both modes. Unknown - the window not drawn yet - is not software.
+    readonly property bool shadersRun: glass.GraphicsInfo.api !== GraphicsInfo.Software
+
+    readonly property bool active: shadersRun
+                                   && wallpaperItem !== null
                                    && wallpaperItem.width > 0
                                    && wallpaperItem.height > 0
 
@@ -435,7 +443,7 @@ Item {
     ShaderEffect {
         id: glassShader
         anchors.fill: parent
-        visible: glass.solidMode || glass.active
+        visible: glass.shadersRun && (glass.solidMode || glass.active)
         fragmentShader: Qt.resolvedUrl("shaders/liquidglass.frag.qsb")
 
         property variant backdrop: glass._blurActive ? up1Tex : wallpaperTex
@@ -468,14 +476,15 @@ Item {
     // Used when the wallpaper containment is unavailable (panels,
     // plasmoidviewer) AND we're in glass mode. In solid mode the shader
     // above already renders an opaque tinted squircle, so no fallback
-    // needed.
+    // needed - unless no shader runs at all (`shadersRun`), and then this is
+    // the solid squircle too, opaque in the solid colour.
 
     Rectangle {
         id: fallback
         anchors.fill: parent
-        visible: !glass.solidMode && !glass.active
-        color: glass.tint
-        opacity: glass.fallbackOpacity
+        visible: !glass.shadersRun || (!glass.solidMode && !glass.active)
+        color: glass.solidMode ? glass.solidColor : glass.tint
+        opacity: glass.solidMode ? 1.0 : glass.fallbackOpacity
         radius: glass.radius
     }
 }

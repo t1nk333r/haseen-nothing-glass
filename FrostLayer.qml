@@ -43,7 +43,15 @@ Item {
   // it with mapToItem (NFrost.qml).
   readonly property Item output: frost.live ? up2Tex : null
 
-  readonly property bool live: frost.active && frost.wallpaper !== null
+  // Qt's software scene graph (QT_QUICK_BACKEND=software, which haseen's
+  // shell sets by default) runs no ShaderEffect: every pass below would draw
+  // nothing, and a card handed that output paints an empty material over a
+  // surface it has already made transparent. So the layer reports no output
+  // there, and NCard keeps its own surface fill instead. Unknown - the window
+  // not drawn yet - is not software, so a GPU window is never held back.
+  readonly property bool shadersRun: frost.GraphicsInfo.api !== GraphicsInfo.Software
+
+  readonly property bool live: frost.active && frost.shadersRun && frost.wallpaper !== null
                                && frost.width > 0 && frost.height > 0
 
   // The wallpaper in texels. It is normally the same size as this item; reading
