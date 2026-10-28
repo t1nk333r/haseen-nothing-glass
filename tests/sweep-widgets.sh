@@ -134,6 +134,19 @@ while [[ ! -S $runtime/gamescope-0 ]]; do
   waited=$((waited + 1))
 done
 
+# compositor_gone <pid>: whether the headless compositor exits within 10 s.
+# Asked only once a client has failed to connect to it, so a healthy run never
+# waits here. A process still writing its core dump answers `kill -0`, so one
+# look is not enough; `sleep` also lets bash reap the dead child.
+compositor_gone() {
+  local _
+  for _ in $(seq 100); do
+    kill -0 "$1" 2>/dev/null || return 0
+    sleep 0.1
+  done
+  return 1
+}
+
 # ── 2. run the sweep ──────────────────────────────────────────────────────
 # stdout and stderr into one file: the driver's protocol lines are prefixed
 # SWEEP and everything else in there is a QML diagnostic, which is half of
@@ -148,6 +161,14 @@ env HOME="$tmp/home" XDG_CONFIG_HOME="$tmp/home/.config" TMPDIR="$tmp" \
   timeout 180 qs -n -p "$tmp/widget-sweep.qml" >"$out" 2>&1 || true
 
 if ! grep -q 'SWEEP done ' "$out"; then
+  # gamescope can open its socket and then abort before it accepts a client
+  # (the CI container does). Then the driver never connected and no tile was
+  # rendered: the same skip as a compositor that never came up. A sweep that
+  # connected and stopped part-way still fails below.
+  if grep -qF 'Failed to create wl_display' "$out" && compositor_gone "$compositor_pid"; then
+    echo "SKIP: widget sweep (headless compositor did not come up)"
+    exit 0
+  fi
   # Nothing else can show why: the scratch tree (and this log with it) is
   # removed by the trap on the way out.
   echo "FAIL: the sweep did not finish"

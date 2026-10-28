@@ -67,6 +67,21 @@ runtime=""
 # come up, a later one that does not is a failure, so a partial run can never
 # pass as the known CI skip.
 compositor_seen=0
+# Likewise a host that has once printed READY proves the compositor works, so
+# only the first host may be skipped for a compositor that died under it.
+shell_seen=0
+# compositor_gone <pid>: whether the headless compositor exits within 10 s.
+# Asked only once a client has failed to connect to it, so a healthy run never
+# waits here. A process still writing its core dump answers `kill -0`, so one
+# look is not enough; `sleep` also lets bash reap the dead child.
+compositor_gone() {
+  local _
+  for _ in $(seq 100); do
+    kill -0 "$1" 2>/dev/null || return 0
+    sleep 0.1
+  done
+  return 1
+}
 start_compositor() {
   runtime="$1"
   mkdir -p "$runtime"
@@ -117,10 +132,18 @@ start_shell() {
   ready=""
   for _ in $(seq 200); do
     ready=$(grep -o 'READY.*' "$home/qs.log" || true)
-    [[ -n $ready ]] && return 0
+    [[ -n $ready ]] && { shell_seen=1; return 0; }
     kill -0 "$qpid" 2>/dev/null || break
     sleep 0.1
   done
+  # gamescope can open its socket and then abort before it accepts a client
+  # (the CI container does). The host then never connected and no check ran:
+  # the same skip as a compositor that never came up, on the first start only.
+  if (( ! shell_seen )) && grep -qF 'Failed to create wl_display' "$home/qs.log" \
+    && compositor_gone "$gpid"; then
+    echo "SKIP: settings IPC (headless compositor did not come up)"
+    exit 0
+  fi
   echo "settings IPC: the host did not start:" >&2
   grep -E 'ERROR|WARN qml' "$home/qs.log" | head -20 >&2
   exit 1
