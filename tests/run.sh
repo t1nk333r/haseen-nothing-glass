@@ -597,6 +597,19 @@ cleanup_tests() {
 #
 # The fixture function, if given, is handed the scratch HOME so it can write
 # the files the test expects to find there.
+# compositor_gone <pid>: whether the headless compositor exits within 10 s.
+# Asked only once a client has failed to connect to it, so a healthy run never
+# waits here. A process still writing its core dump answers `kill -0`, so one
+# look is not enough; `sleep` also lets bash reap the dead child.
+compositor_gone() {
+  local _
+  for _ in $(seq 100); do
+    kill -0 "$1" 2>/dev/null || return 0
+    sleep 0.1
+  done
+  return 1
+}
+
 run_qml_test() {
   local file="$1" marker="$2" fixture="${3:-}" mode="${4:-}"
   local name tmp home runtime="" out
@@ -672,6 +685,16 @@ run_qml_test() {
   out="$(env "${env_vars[@]}" timeout 120 qs -n -p "$tmp/$name" 2>&1 || true)"
   if grep -q "$marker" <<<"$out"; then
     grep -o "$marker.*" <<<"$out" | head -1
+  elif [[ $mode == wayland ]] && ! grep -q 'FAIL' <<<"$out" \
+    && grep -qE 'Failed to create wl_display|The Wayland connection broke' <<<"$out" \
+    && compositor_gone "$test_compositor_pid"; then
+    # gamescope can abort under the test ("Aborted (core dumped)"): the CI
+    # container's opens its socket and dies either before Quickshell connects
+    # or just after. With no marker and no FAIL line the test never reached a
+    # verdict, so that is the same skip as a compositor that never opened its
+    # socket, not a test failure. A test that printed a FAIL, or a compositor
+    # that stays up and refuses clients, still fails below.
+    echo "SKIP: $name (headless compositor did not come up)"
   else
     { echo "$name failed:"; grep -E 'FAIL|ERROR' <<<"$out" | head -20; } >&2
     exit 1
