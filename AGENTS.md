@@ -333,8 +333,11 @@ is measured: one that opens its socket and then dies, before the driver
 connects or before the first tile is grabbed, skips like one that never came up
 (the CI container's gamescope aborts both ways). A sweep that grabbed a tile
 first still fails. `tests/run.sh` and `tests/settings-ipc.sh` treat their
-Wayland cases the same way: no verdict yet, or no READY yet, is a skip. It
-finishes in well under a minute
+Wayland cases the same way: no verdict yet, or no READY yet on
+`settings-ipc.sh`'s first start, is a skip. A skip whose line goes on "it died
+after … connected" means the compositor died under a live client. CI's
+gamescope does that on its own; on a machine where gamescope works, read it
+as a failure, since the client may have crashed it. It finishes in well under a minute
 and prints `PASS n / FAIL m` last, with each failure naming the tile, its size,
 its measurements and the captured error.
 

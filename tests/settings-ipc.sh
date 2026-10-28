@@ -76,6 +76,8 @@ shell_seen=0
 # look is not enough; `sleep` also lets bash reap the dead child.
 compositor_gone() {
   local _
+  # No pid is no proof the compositor died: fail closed.
+  [[ -n $1 ]] || return 1
   for _ in $(seq 100); do
     kill -0 "$1" 2>/dev/null || return 0
     sleep 0.1
@@ -142,7 +144,13 @@ start_shell() {
   # on the first start only.
   if (( ! shell_seen )) && grep -qE 'Failed to create wl_display|The Wayland connection broke' "$home/qs.log" \
     && compositor_gone "$gpid"; then
-    echo "SKIP: settings IPC (headless compositor did not come up)"
+    # Died after the host connected: said after the CI's whitelisted text,
+    # since where gamescope works that skip means the host may have crashed it.
+    if grep -qF 'The Wayland connection broke' "$home/qs.log"; then
+      echo "SKIP: settings IPC (headless compositor did not come up): it died after the host connected, before READY"
+    else
+      echo "SKIP: settings IPC (headless compositor did not come up)"
+    fi
     exit 0
   fi
   echo "settings IPC: the host did not start:" >&2

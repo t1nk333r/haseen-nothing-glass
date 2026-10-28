@@ -603,6 +603,8 @@ cleanup_tests() {
 # look is not enough; `sleep` also lets bash reap the dead child.
 compositor_gone() {
   local _
+  # No pid is no proof the compositor died: fail closed.
+  [[ -n $1 ]] || return 1
   for _ in $(seq 100); do
     kill -0 "$1" 2>/dev/null || return 0
     sleep 0.1
@@ -693,8 +695,14 @@ run_qml_test() {
     # or just after. With no marker and no FAIL line the test never reached a
     # verdict, so that is the same skip as a compositor that never opened its
     # socket, not a test failure. A test that printed a FAIL, or a compositor
-    # that stays up and refuses clients, still fails below.
-    echo "SKIP: $name (headless compositor did not come up)"
+    # that stays up and refuses clients, still fails below. A compositor that
+    # died after Quickshell connected says so after the CI's whitelisted text:
+    # where gamescope works, that skip means the test may have crashed it.
+    if grep -qF 'The Wayland connection broke' <<<"$out"; then
+      echo "SKIP: $name (headless compositor did not come up): it died after Quickshell connected, before a verdict"
+    else
+      echo "SKIP: $name (headless compositor did not come up)"
+    fi
   else
     { echo "$name failed:"; grep -E 'FAIL|ERROR' <<<"$out" | head -20; } >&2
     exit 1
