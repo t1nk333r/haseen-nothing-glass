@@ -36,11 +36,25 @@ for row in card:0.6 glass:0.3 solid:0.8; do
   c=$(coverage "$tile")
   awk -v c="$c" -v f="$floor" 'BEGIN { exit !(c > f) }' || { echo "FAIL: the $tile tile painted ${c} coverage, under ${floor}" >&2; failed=1; }
 done
-# The solid tile asks for a vertical blend; the fallback must keep it.
+# The solid tile asks for a vertical #336699 -> #993366 blend; the fallback must
+# draw it as the shader does, top to bottom and opaque. Each sample is held to
+# within 6 of the straight line between the stops at its row, so a flat fill, a
+# reversed blend or another colour fails (measured on both renderers: rows 10
+# and 182 of the 192 px tile read 57,99,150 and 148,54,105).
 if [[ -f $scratch/out/solid.png ]]; then
-  top=$(magick "$scratch/out/solid.png" -crop 1x1+96+24 -format '%[pixel:p]' info:)
-  bottom=$(magick "$scratch/out/solid.png" -crop 1x1+96+168 -format '%[pixel:p]' info:)
-  [[ $top != "$bottom" ]] || { echo "FAIL: the solid tile's gradient drew one flat colour ($top)" >&2; failed=1; }
+  for y in 10 96 182; do
+    rgb=$(magick "$scratch/out/solid.png" -crop 1x1+96+"$y" \
+      -format '%[fx:int(255*r+0.5)] %[fx:int(255*g+0.5)] %[fx:int(255*b+0.5)] %[fx:int(255*a+0.5)]' info:)
+    awk -v y="$y" -v rgb="$rgb" 'BEGIN {
+      split(rgb, p, " "); t = (y + 0.5) / 192
+      split("51 102 153", top, " "); split("153 51 102", bot, " ")
+      for (i = 1; i <= 3; i++) {
+        d = p[i] - (top[i] + (bot[i] - top[i]) * t)
+        if (d > 6 || d < -6) exit 1
+      }
+      exit !(p[4] == 255)
+    }' || { echo "FAIL: the solid tile drew ($rgb) at row $y, not the opaque solidColor -> solidColorBottom blend" >&2; failed=1; }
+  done
 fi
 (( failed == 0 )) || exit 1
 echo 'OK: every tile paints its material under the software renderer, gradient included'

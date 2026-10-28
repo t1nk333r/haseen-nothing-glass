@@ -22,9 +22,11 @@ Image {
   // The link is the one the running shell's own wallpaper draws, so the pixels
   // refracted are the pixels behind the tile. haseen's shell runs with
   // HASEEN_PATH set and paints $HASEEN_USER_STATE/current/background
-  // (`haseen theme bg`; that directory defaults to $XDG_STATE_HOME/haseen, as
-  // haseen's lib/common.sh derives it); Omarchy's link is left as it was when
-  // haseen took over and no longer moves. Omarchy's own shell paints
+  // (`haseen theme bg`). haseen's lib/common.sh sets that variable without
+  // exporting it, so the shell sees it only when the user exported it, and
+  // then it must win; otherwise the directory is $XDG_STATE_HOME/haseen, as
+  // common.sh derives it. Omarchy's link is left as it was when haseen took
+  // over and no longer moves. Omarchy's own shell paints
   // ~/.local/state/omarchy/current/background.
   readonly property bool onHaseen: (Quickshell.env("HASEEN_PATH") || "") !== ""
   readonly property string haseenStateHome: Quickshell.env("HASEEN_USER_STATE")

@@ -485,15 +485,23 @@ Item {
         visible: !glass.shadersRun || (!glass.solidMode && !glass.active)
         color: glass.solidMode ? glass.solidColor : glass.tint
         // The shader's vertical solidColor -> solidColorBottom blend, when a
-        // solid tile asks for one (weather, now playing).
+        // solid tile asks for one (weather, now playing). Both stops are
+        // opaque, as the shader's tint and tintBottom are.
         gradient: glass.solidMode && glass.solidColorBottom.a > 0 ? fallbackGradient : null
         opacity: glass.solidMode ? 1.0 : glass.fallbackOpacity
         radius: glass.radius
 
         Gradient {
             id: fallbackGradient
-            GradientStop { position: 0; color: glass.solidColor }
-            GradientStop { position: 1; color: glass.solidColorBottom }
+            GradientStop {
+                position: 0
+                color: Qt.rgba(glass.solidColor.r, glass.solidColor.g, glass.solidColor.b, 1)
+            }
+            GradientStop {
+                position: 1
+                color: Qt.rgba(glass.solidColorBottom.r, glass.solidColorBottom.g,
+                    glass.solidColorBottom.b, 1)
+            }
         }
     }
 }

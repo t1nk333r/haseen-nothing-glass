@@ -98,8 +98,9 @@ QtObject {
   }
   readonly property string haseenLedgerPath: ds.stateHome + "/haseen/agents/deepseek/usage.state"
   readonly property string legacyLedgerPath: ds.stateHome + "/omarchy/t1nk33r.agents/deepseek/usage.state"
-  // The file the figures on the tile were read from, "" while there is no
-  // ledger to read (neither file, or the chosen one empty).
+  // The file the figures on the tile come from: "" while there is no ledger
+  // to read (neither file, or the chosen one empty). A ledger too large to
+  // read keeps its path, and the tile says why it shows no figures.
   property string ledgerPath: ""
   readonly property string configPath: {
     var base = Quickshell.env("XDG_CONFIG_HOME")
@@ -315,6 +316,8 @@ QtObject {
   // haseen one, which is where the plugin writes now. Nothing is chosen until
   // both views have answered once: the abandoned ledger is readable, and
   // applying it first would flash its weeks-old balance for a load cycle.
+  // Both views answer a missing file or directory with loadFailed; should one
+  // ever stay silent, the minute's reread re-arms both.
   function _selectLedger() {
     if (!ds._haseenAnswered || !ds._legacyAnswered) return
     var useHaseen = ds._haseenFound && (!ds._legacyFound
