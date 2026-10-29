@@ -995,15 +995,20 @@ that is NOT the bar panel, because the bar entry can be un-placed (item 34).
 The Liquid Glass style axis now lives in the launcher's Appearance
 pane as well as the panel.
 
-## 27. An offscreen harness cannot judge solid mode
+## 27. An offscreen harness draws the software fallbacks, not the shaders
 
-`LiquidGlass` renders solid mode through the same `.qsb` shader as glass mode
-(the fallback Rectangle is glass-only, by design - see its comment). Under
-`QT_QPA_PLATFORM=offscreen` that shader does not run, so a solid-mode widget
-grabs as EMPTY while a glass-mode one still shows its fallback rect. That is a
-harness artifact, not a bug: the same widget at `styleMode: 1/2` renders a
-proper opaque card on the real desktop. Verify solid mode with `grim`, never
-with `grabToImage` offscreen.
+`LiquidGlass` renders solid mode through the same `.qsb` shader as glass mode.
+Under `QT_QPA_PLATFORM=offscreen` - Qt's software scene graph, which is also
+haseen's default renderer - no shader or MultiEffect runs, so what an
+offscreen `grabToImage` shows is the fallback drawing: `LiquidGlass`'s
+squircle `Shape` (opaque in solid mode, the shader's blend included) and the
+`SoftwarePicture` paintings that stand in for every MultiEffect.
+`tests/software-renderer.sh` measures those offscreen, solid mode included.
+It used to be that the fallback was glass-only and a solid-mode widget grabbed
+as EMPTY offscreen; that was also what a software-rendered desktop showed, so
+it was a bug after all. The shaders themselves - refraction, blur, frost - are
+judged only on a GPU scene graph: `tests/sweep-widgets.sh` without
+`QT_QUICK_BACKEND=software`, or `grim` on the real desktop.
 
 ## 28. A PLACED bar widget cannot reach its own service
 

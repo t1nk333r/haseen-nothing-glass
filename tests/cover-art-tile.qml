@@ -110,7 +110,7 @@ FloatingWindow {
                     && k.visible && k.status === Image.Ready)
                 n++
             else if (name.indexOf("SoftwarePicture") === 0
-                    && String(k.source) === url && k.visible && k.ready)
+                    && String(k.source) === url && k.visible && k.ready && k.paints > 0)
                 n++
             n += probe.drawnCount(k, url)
         }

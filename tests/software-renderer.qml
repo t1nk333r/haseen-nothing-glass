@@ -81,6 +81,14 @@ ShellRoot {
       TimerButton { id: timerButton; x: 264; y: 228; diameter: 64; iconSource: host.dot; iconColor: "#00ff00"; backgroundColor: "transparent" }
       ControlButton { id: controlButton; x: 336; y: 228; iconSize: 24; iconSource: host.dot; iconColor: "#00ff00" }
       AlbumArt { id: albumArt; x: 408; y: 228; width: 120; height: 120; artUrl: host.halves; radius: 30 }
+      // Resized step by step, as the resize grip does on every mouse move: the
+      // picture must stay up throughout and be decoded again once, at the new
+      // bound, when the size holds.
+      SoftwarePicture {
+        id: resized; x: 620; y: 228; width: 120; height: 120; source: host.halves
+        property int drops: 0
+        onReadyChanged: if (!ready) drops++
+      }
       RollingDigit { id: digit; x: 536; y: 228; width: 70; height: 120; value: "1"; fontPixelSize: 72; textColor: "#ffffff"; digitOpacity: 1 }
 
       property int failures: 0
@@ -102,6 +110,29 @@ ShellRoot {
       function finish() {
         console.log(host.failures === 0 ? "OK: software renderer fallbacks" : "FAILED: software renderer fallbacks")
         Qt.quit()
+      }
+
+      Timer {
+        id: resizeSteps
+        interval: 40
+        repeat: true
+        property int step: 0
+        onTriggered: {
+          resized.width += 4
+          if (++step >= 8) { stop(); resizeSettled.start() }
+        }
+      }
+      Timer {
+        id: resizeSettled
+        interval: 1000
+        onTriggered: {
+          var data = resized.getContext("2d").createImageData(String(resized.source))
+          host.check("a resized picture never stops being ready", resized.drops === 0, "drops " + resized.drops)
+          host.check("a resized picture is decoded again at its new bound",
+                     resized.ready && data && data.width === resized.sourceSize.width,
+                     data ? data.width + " wide for a bound of " + resized.sourceSize.width : "no decode")
+          if (--host.pending === 0) host.finish()
+        }
       }
 
       // Mid-roll: both digits are layers, and a blurred layer drew nothing.
@@ -128,7 +159,7 @@ ShellRoot {
           }
           // The pictures decode asynchronously; a few ticks more lets the
           // components that load the same files catch up.
-          if (!picture.ready || !icon.ready) {
+          if (!picture.ready || !icon.ready || !resized.ready) {
             if (ticks >= 80) { console.log("FAIL the software pictures never loaded"); Qt.quit() }
             return
           }
@@ -160,6 +191,9 @@ ShellRoot {
           host.pending++
           digit.value = "8"
           rollGrab.start()
+          host.pending++
+          resized.drops = 0
+          resizeSteps.start()
         }
       }
     }

@@ -238,7 +238,7 @@ Appearance pane marks the knobs that do nothing there. To use the GPU, set
 Environment=QT_QUICK_BACKEND=rhi
 ```
 
-The GPU renderer uses more memory: about 170 MB more on one laptop.
+The GPU renderer uses more memory and some GPU time.
 
 **An animated wallpaper doesn't move behind the glass.** The glass is a still
 capture of the wallpaper, refreshed whenever a tile moves.

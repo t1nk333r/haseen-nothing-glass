@@ -62,12 +62,37 @@ Canvas {
 
     antialiasing: true
 
+    // A new picture: the old one is dropped and nothing is `ready` until the
+    // new one decodes.
     function _reload() {
+        resizeDecode.stop()
+        pic._redecoding = false
         if (String(pic._loaded) !== "") pic.unloadImage(pic._loaded)
         pic._loaded = pic.source
         pic._ready = false
         if (String(pic.source) !== "") pic.loadImage(pic.source, pic.sourceSize)
         pic.requestPaint()
+    }
+
+    // The same picture at a new decode bound - the item was resized, and a
+    // drag on the resize grip resizes it on every mouse move. Re-decoding on
+    // each step blanked the picture, flashed the empty state its users show
+    // while nothing is `ready`, and decoded the file again per step. So the
+    // decode waits until the size has held for a moment, the picture drawn
+    // meanwhile is the old decode scaled to the new size, and while the new
+    // decode loads the canvas keeps its last frame: `ready` does not drop.
+    // A Canvas holds one image per URL, so the old decode must go before the
+    // new one can load. If the new one never arrives the last frame stays.
+    property bool _redecoding: false
+    Timer {
+        id: resizeDecode
+        interval: 300
+        onTriggered: {
+            if (String(pic._loaded) === "") return
+            pic._redecoding = true
+            pic.unloadImage(pic._loaded)
+            pic.loadImage(pic._loaded, pic.sourceSize)
+        }
     }
 
     // Adds the outline to the current path as one closed subpath.
@@ -84,8 +109,12 @@ Canvas {
     }
 
     onSourceChanged: pic._reload()
-    onSourceSizeChanged: pic._reload()
+    onSourceSizeChanged: {
+        if (pic._ready && String(pic._loaded) === String(pic.source)) resizeDecode.restart()
+        else pic._reload()
+    }
     onImageLoaded: {
+        pic._redecoding = false
         pic._ready = String(pic.source) !== "" && pic.isImageLoaded(String(pic.source))
         pic.requestPaint()
     }
@@ -104,11 +133,13 @@ Canvas {
     Component.onDestruction: if (String(pic._loaded) !== "") pic.unloadImage(pic._loaded)
 
     onPaint: {
+        var w = pic.width, h = pic.height
+        // Mid re-decode the last frame stands (see resizeDecode); a collapsed
+        // item has nothing to paint. Neither counts as a paint.
+        if (pic._redecoding || w <= 0 || h <= 0) return
         var ctx = pic.getContext("2d")
         ctx.reset()
         pic._paints++
-        var w = pic.width, h = pic.height
-        if (w <= 0 || h <= 0) return
 
         // createImageData() finds a loaded image only by its URL as a string:
         // given the url value it returns undefined (measured, Qt 6.12).
