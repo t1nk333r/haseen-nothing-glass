@@ -225,6 +225,21 @@ refuses edits until you trim it.
 **A tile has no glass effect.** The shader failed to load. The log names the
 file.
 
+**Every tile is a flat card, with no blur or frost.** The shell is drawing
+with Qt's software renderer, which runs no shaders. haseen uses it unless told
+otherwise. Pictures, cover art, icons and the card shapes still draw, and the
+Appearance pane marks the knobs that do nothing there. To use the GPU, set
+`QT_QUICK_BACKEND=rhi` for the shell. On haseen, run
+`systemctl --user edit haseen-shell`, add these two lines, then run
+`haseen shell restart`:
+
+```ini
+[Service]
+Environment=QT_QUICK_BACKEND=rhi
+```
+
+The GPU renderer uses more memory and some GPU time.
+
 **An animated wallpaper doesn't move behind the glass.** The glass is a still
 capture of the wallpaper, refreshed whenever a tile moves.
 

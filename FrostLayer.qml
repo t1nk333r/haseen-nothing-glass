@@ -51,7 +51,16 @@ Item {
   // not drawn yet - is not software, so a GPU window is never held back.
   readonly property bool shadersRun: frost.GraphicsInfo.api !== GraphicsInfo.Software
 
-  readonly property bool live: frost.active && frost.shadersRun && frost.wallpaper !== null
+  // A wallpaper Image that failed to load, or has no file (a dangling
+  // background link), is no wallpaper: frosting it would hand every card an
+  // empty material. Loading keeps the last capture. Anything without a
+  // `status` - a test's Rectangle - counts as drawn. Read through a `var`:
+  // the property is an Item, and only an Image has a status.
+  readonly property var _wallpaperImage: frost.wallpaper
+  readonly property bool _wallpaperDrawn: frost.wallpaper !== null
+    && frost._wallpaperImage.status !== Image.Error && frost._wallpaperImage.status !== Image.Null
+
+  readonly property bool live: frost.active && frost.shadersRun && frost._wallpaperDrawn
                                && frost.width > 0 && frost.height > 0
 
   // The wallpaper in texels. It is normally the same size as this item; reading

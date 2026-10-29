@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Effects
+import "../../../components"
 
 Item {
     id: btn
@@ -7,6 +8,13 @@ Item {
     property string iconSource: ""
     property color iconColor: "#ffffff"
     property real iconSize: 24
+
+    // Qt's software scene graph, haseen's default, runs no MultiEffect, and
+    // the colourised layer below composites to nothing there (measured): the
+    // controls vanished. There the glyph is painted in its colour by a
+    // SoftwarePicture instead. Unknown, the window not drawn yet, is not
+    // software.
+    readonly property bool shadersRun: btn.GraphicsInfo.api !== GraphicsInfo.Software
 
     signal clicked()
 
@@ -20,7 +28,7 @@ Item {
         height: btn.iconSize
         scale: 1.0
 
-        layer.enabled: true
+        layer.enabled: btn.shadersRun
         layer.effect: MultiEffect {
             colorization: 1.0
             colorizationColor: btn.iconColor
@@ -28,10 +36,22 @@ Item {
 
         Image {
             anchors.fill: parent
-            source: btn.iconSource
+            visible: btn.shadersRun
+            source: btn.shadersRun ? btn.iconSource : ""
             sourceSize: Qt.size(btn.iconSize, btn.iconSize)
             fillMode: Image.PreserveAspectFit
             smooth: true
+        }
+
+        Loader {
+            anchors.fill: parent
+            active: !btn.shadersRun && btn.iconSource !== ""
+            sourceComponent: SoftwarePicture {
+                source: btn.iconSource
+                sourceSize: Qt.size(btn.iconSize, btn.iconSize)
+                crop: false
+                tint: btn.iconColor
+            }
         }
 
         SequentialAnimation {

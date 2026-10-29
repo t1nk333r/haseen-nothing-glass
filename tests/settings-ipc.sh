@@ -146,7 +146,9 @@ start_shell() {
     && compositor_gone "$gpid"; then
     # Died after the host connected: said after the CI's whitelisted text,
     # since where gamescope works that skip means the host may have crashed it.
-    if grep -qF 'The Wayland connection broke' "$home/qs.log"; then
+    # A log that also holds the failed connect is a client that never got in
+    # (a second client can log both), so only a broken connection alone is.
+    if grep -qF 'The Wayland connection broke' "$home/qs.log" && ! grep -qF 'Failed to create wl_display' "$home/qs.log"; then
       echo "SKIP: settings IPC (headless compositor did not come up): it died after the host connected, before READY"
     else
       echo "SKIP: settings IPC (headless compositor did not come up)"

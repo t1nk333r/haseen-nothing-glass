@@ -697,8 +697,10 @@ run_qml_test() {
     # socket, not a test failure. A test that printed a FAIL, or a compositor
     # that stays up and refuses clients, still fails below. A compositor that
     # died after Quickshell connected says so after the CI's whitelisted text:
-    # where gamescope works, that skip means the test may have crashed it.
-    if grep -qF 'The Wayland connection broke' <<<"$out"; then
+    # where gamescope works, that skip means the test may have crashed it. A
+    # log that also holds the failed connect is a client that never got in
+    # (a second client can log both), so only a broken connection alone is.
+    if grep -qF 'The Wayland connection broke' <<<"$out" && ! grep -qF 'Failed to create wl_display' <<<"$out"; then
       echo "SKIP: $name (headless compositor did not come up): it died after Quickshell connected, before a verdict"
     else
       echo "SKIP: $name (headless compositor did not come up)"

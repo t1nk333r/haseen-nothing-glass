@@ -167,11 +167,20 @@ Item {
   // binding (bound to this property via the `backdrop` id above) to
   // re-evaluate and re-capture, on both the very first paint (the wallpaper
   // file loads asynchronously) and every later wallpaper switch.
+  //
+  // A wallpaper that failed to load, or that has no file (a dangling
+  // background link), is no wallpaper: it is dropped, so the glass draws its
+  // fallback card instead of refracting an empty texture - which on the GPU
+  // scene graph was a tile with nothing behind its text. Loading keeps the
+  // last good one, so a switch does not flash the fallback.
   property Item _backdropItem: null
   function _refreshBackdrop() {
-    if (host.injectedBackdrop && host.injectedBackdrop.status === Image.Ready) {
+    var b = host.injectedBackdrop
+    if (b && b.status === Image.Ready) {
       host._backdropItem = null
-      host._backdropItem = host.injectedBackdrop
+      host._backdropItem = b
+    } else if (!b || b.status === Image.Error || b.status === Image.Null) {
+      host._backdropItem = null
     }
   }
 

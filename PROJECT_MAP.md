@@ -349,8 +349,22 @@ widget types with their own external data source (all inside the Loader above):
   `NTheme.frost`'s comment. Also off under Qt's software scene graph
   (`GraphicsInfo.api` Software - haseen's shell default), where no
   ShaderEffect draws: the card then keeps its own surface fill, and
-  `LiquidGlass` likewise draws its fallback rectangle (opaque in solid mode).
-  `tests/software-renderer.sh` measures all three.
+  `LiquidGlass` likewise draws its fallback card (the shader's squircle,
+  opaque in solid mode). Also off over a wallpaper Image that failed to load
+  or has no file (a dangling background link), which `WidgetHost` likewise
+  hands its glass as no wallpaper. `tests/software-renderer.sh` measures all
+  of these.
+- `components/SoftwarePicture.qml` + `components/Squircle.js` — what the
+  MultiEffect layers draw, for where none runs. On the software scene graph a
+  masked Image, a colourised icon and a blurred Text each composite to nothing,
+  so every MultiEffect site reads `GraphicsInfo.api` and, there, either drops
+  the effect (the timer's rolling digits roll unblurred) or stands its layers
+  down and loads a SoftwarePicture instead: a Canvas that paints the picture
+  cropped, tinted, under a caption band and cut to an outline (the photos
+  frames, now playing's covers and buttons, the timer's buttons). Its Images
+  load nothing there, so a picture is decoded once. `Squircle.outline()` is
+  liquidglass.frag's superellipse with its clamps, the one trace behind the
+  photos mask, SquareLayout's mask and LiquidGlass's fallback.
 - `components/` — a real directory at the repo root, imported by the runtime
   and by every widget body (`import "components"` at depth 0,
   `import "../../components"` from a widget). One copy, in the source tree and

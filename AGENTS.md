@@ -283,8 +283,12 @@ came from a real bug:
     while hidden (`tests/wallpaper.sh`, `tests/clock-visibility.sh`). The
     DeepSeek tile shows the newer of the two DeepSpend ledgers
     (`tests/deepseek-ledger.sh`), and on Qt's software scene graph - haseen's
-    default renderer, where no ShaderEffect draws - the frosted card keeps its
-    surface and LiquidGlass draws its fallback (`tests/software-renderer.sh`).
+    default renderer, where no ShaderEffect or MultiEffect draws - the frosted
+    card keeps its surface, LiquidGlass draws its squircle fallback, and every
+    MultiEffect site paints through `components/SoftwarePicture.qml` or drops
+    its effect: pictures, covers, icons and rolling digits all draw
+    (`tests/software-renderer.sh`). A wallpaper that failed to load is no
+    wallpaper to the glass or the frost.
 17. The IPC `option` and `set` verbs write only declared settings with finite,
     bounded values (`tests/settings-ipc.sh`). The store's own guards are in
     `tests/runtime-store.qml`:
@@ -339,8 +343,11 @@ connects or before the first tile is grabbed, skips like one that never came up
 (the CI container's gamescope aborts both ways). A sweep that grabbed a tile
 first still fails. `tests/run.sh` and `tests/settings-ipc.sh` treat their
 Wayland cases the same way: no verdict yet, or no READY yet on
-`settings-ipc.sh`'s first start, is a skip. A skip whose line goes on "it died
-after … connected" means the compositor died under a live client. CI's
+`settings-ipc.sh`'s first start, is a skip. Its later starts are never
+skipped: once one compositor has run the shell, a later one that cannot host it
+fails the run. A skip whose line goes on "it died after … connected" means the
+compositor died under a live client: the log shows the connection breaking
+and no failed connect. CI's
 gamescope does that on its own; on a machine where gamescope works, read it
 as a failure, since the client may have crashed it. It finishes in well under a minute
 and prints `PASS n / FAIL m` last, with each failure naming the tile, its size,
@@ -380,6 +387,16 @@ Templates: `widgets/clock-digital/main.qml` (Liquid Glass) and
       realtimeRefraction: plugin.settings.realtimeRefraction
   }
   ```
+- No effect draws on Qt's software scene graph, haseen's default renderer: a
+  `MultiEffect` mask, colourisation or blur composites to nothing there
+  (measured). Gate every layer effect on
+  `GraphicsInfo.api !== GraphicsInfo.Software` and give it a drawing for where
+  it does not run: drop an effect that only decorates (the rolling digits'
+  blur), or stand the layers down and paint with
+  `components/SoftwarePicture.qml` - crop, tint, caption band, outline -
+  through a Loader active only there, with the Images loading nothing so a
+  picture is decoded once. Measure it with `tests/software-renderer.sh` and
+  `QT_QUICK_BACKEND=software bash tests/sweep-widgets.sh`.
 - Widget-specific components go in `widgets/<type>/widget/` with a `qmldir`
   (e.g. calendar's `TodayBadge.qml`, clock-digital's `TickRing.qml`).
 - The shared tree is reached by a **relative directory import**, by depth,
@@ -413,11 +430,13 @@ Pipeline:
    (0 makes the chain inert and the glass shader samples the capture direct).
 4. `liquidglass.frag` — Snell-on-a-dome edge refraction, chromatic dispersion,
    tint, corner specular, squircle silhouette mask.
-5. Fallback `Rectangle` (flat tinted rounded rect) whenever `wallpaperItem` is
-   null or zero-sized, and in both modes on Qt's software scene graph
-   (`glass.shadersRun` false), where no shader draws. `glass.active` switches
-   between the two, so a flat uniform tile in a screenshot means the capture
-   failed or no shader runs.
+5. Fallback `Shape` (a flat tinted card in the shader's own squircle,
+   `components/Squircle.js`) whenever `wallpaperItem` is null or zero-sized,
+   and in both modes on Qt's software scene graph (`glass.shadersRun` false),
+   where no shader draws. `glass.active` switches between the two, so a flat
+   uniform tile in a screenshot means the capture failed or no shader runs.
+   `WidgetHost` hands a wallpaper that failed to load as null, since the
+   shader over an empty capture draws an opaque black card.
 
 Important nuances:
 - **`realtimeRefraction: false` by default.** `wallpaperTex.live` binds to it;

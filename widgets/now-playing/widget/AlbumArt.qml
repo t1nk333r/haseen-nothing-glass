@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Effects
 import Quickshell
+import "../../../components"
 
 // Copied from packages/music/contents/ui/widget/AlbumArt.qml. One change: the
 // no-art fallback was a `Kirigami.Icon`, which does not exist here. It is now
@@ -16,10 +17,17 @@ Item {
     property real radius: 12
     property color fallbackIconColor: "#ffffff"
 
+    // Qt's software scene graph, haseen's default, runs no MultiEffect: the
+    // masked cover and the tinted glyph below composite to nothing there
+    // (measured). There `softCover` and `softGlyph` paint them with QPainter
+    // instead, and the Images below load nothing, so the cover is decoded
+    // once. Unknown, the window not drawn yet, is not software.
+    readonly property bool shadersRun: art.GraphicsInfo.api !== GraphicsInfo.Software
+
     Image {
         id: coverImage
         anchors.fill: parent
-        source: art.artUrl
+        source: art.shadersRun ? art.artUrl : ""
         fillMode: Image.PreserveAspectCrop
         smooth: true
         mipmap: true
@@ -28,7 +36,7 @@ Item {
         // one is the effect's source. See SquareLayout's background layer and
         // the photo frame's mask for the measured shape of the defect.
         opacity: 0
-        layer.enabled: true
+        layer.enabled: art.shadersRun
         cache: false
         // Decode at the drawn size, not the file's: a 1500px cover decoded
         // for a 400px slot is ~9 MB of pixmap, and this widget holds one of
@@ -57,7 +65,7 @@ Item {
     Item {
         id: roundMask
         anchors.fill: parent
-        layer.enabled: true
+        layer.enabled: art.shadersRun
         opacity: 0
 
         Rectangle {
@@ -79,7 +87,17 @@ Item {
         source: coverImage
         maskEnabled: true
         maskSource: roundMask
-        visible: art.artUrl !== ""
+        visible: art.shadersRun && art.artUrl !== ""
+    }
+
+    Loader {
+        id: softCover
+        anchors.fill: parent
+        active: !art.shadersRun && art.artUrl !== ""
+        sourceComponent: SoftwarePicture {
+            source: art.artUrl
+            radius: art.radius
+        }
     }
 
     // The no-art fallback: the theme's optical-disc glyph over a faint plate
@@ -91,12 +109,12 @@ Item {
         anchors.centerIn: parent
         width: Math.round(parent.width * 0.35)
         height: Math.round(parent.height * 0.35)
-        source: Quickshell.iconPath("media-optical-audio", true)
+        source: art.shadersRun ? Quickshell.iconPath("media-optical-audio", true) : ""
         fillMode: Image.PreserveAspectFit
         smooth: true
         mipmap: true
         opacity: 0
-        layer.enabled: true
+        layer.enabled: art.shadersRun
     }
 
     MultiEffect {
@@ -108,6 +126,18 @@ Item {
         // `status`, not Quickshell.hasThemeIcon: hasThemeIcon reports false for
         // "media-optical-audio" on this machine, yet the path iconPath returns
         // does load (Image.Ready), while a bogus name never leaves Image.Null.
-        visible: art.artUrl === "" && fallbackIcon.status === Image.Ready
+        visible: art.shadersRun && art.artUrl === "" && fallbackIcon.status === Image.Ready
+    }
+
+    Loader {
+        id: softGlyph
+        anchors.fill: fallbackIcon
+        active: !art.shadersRun && art.artUrl === ""
+        sourceComponent: SoftwarePicture {
+            source: Quickshell.iconPath("media-optical-audio", true)
+            crop: false
+            tint: art.fallbackIconColor
+            opacity: 0.4
+        }
     }
 }
