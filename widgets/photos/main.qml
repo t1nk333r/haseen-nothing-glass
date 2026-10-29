@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Effects
 import QtQuick.Shapes
 import "../../components"
+import "../../components/Squircle.js" as Squircle
 
 // Photos, Liquid Glass - the glass twin of widgets-nothing/photos/main.qml.
 //
@@ -95,6 +96,19 @@ Item {
 
     readonly property bool hasPicture: photos.count > 0 && photos.current !== ""
 
+    // Qt's software scene graph, haseen's default, runs no MultiEffect: the
+    // masked frame below composites to nothing there, photo and caption and
+    // empty state alike (measured). There the frame is painted by `softFrame`
+    // instead - the same picture, wash, scrim and hairline, cut to the same
+    // outline - and the frame's own picture, wash, scrim and hairline stand
+    // down. Unknown, the window not drawn yet, is not software.
+    readonly property bool shadersRun: full.GraphicsInfo.api !== GraphicsInfo.Software
+
+    // A picture is up: decoded by whichever path draws it.
+    readonly property bool pictureShown: full.shadersRun
+        ? full.hasPicture && picture.status === Image.Ready
+        : softFrame.item !== null && (softFrame.item as SoftwarePicture).ready
+
     // The mat: the gap between the card's edge and the picture.
     readonly property real frameInset: gscale.pad
 
@@ -122,7 +136,8 @@ Item {
     // The mask's outline: the same parametric superellipse the shader draws
     // for the card - the exponent `roundness` and the radius `frameRadius`,
     // both clamped the way the SDF clamps - as a polyline the scene graph
-    // draws directly.
+    // draws directly. The trace is components/Squircle.js, shared with the
+    // card's own software fallback and now-playing's SquareLayout.
     //
     // Not a `Canvas`, deliberately. A Canvas owns a texture of its own, filled
     // by a deferred `onPaint`, and that deferred paint is what the guest
@@ -134,7 +149,9 @@ Item {
     // and with nothing logged. `Canvas.Immediate` did not help, and a
     // `requestPaint()` retry repainted the mask but never re-rendered the
     // layer that had already sampled it. Geometry the scene graph draws has no
-    // second texture to wait for.
+    // second texture to wait for. (`softFrame`, where no shader runs, is a
+    // Canvas too, but there nothing samples it: the Canvas is what is drawn,
+    // and a late paint is a late picture, not a frame lost for the session.)
     //
     // Guest, 400x192, 24 store writes x 4 tiles (2 glass, 2 Nothing), fresh
     // ids per write: the Canvas mask blanked 9 of 48 glass tiles across 8 of
@@ -144,43 +161,8 @@ Item {
     // produced before the effect samples it. It is shared, unfixed, with
     // widgets/now-playing's AlbumArt and SquareLayout, which use the same
     // hidden-layer mask idiom.
-    readonly property var maskPoints: {
-        var w = frameMask.width, h = frameMask.height
-        var r = Math.max(0, Math.min(full.frameRadius, w / 2, h / 2))
-        var n = full.maskRoundness
-        var steps = 32
-        var pts = []
-
-        // Corner boundary of the shader's SDF: q = abs(p) - b + r, and
-        // (qx^n + qy^n)^(1/n) = r, so parametrically
-        // qx = r*cos(t)^(2/n), qy = r*sin(t)^(2/n).
-        function cornerX(t) { return r * Math.pow(Math.abs(Math.cos(t)), 2.0 / n) }
-        function cornerY(t) { return r * Math.pow(Math.abs(Math.sin(t)), 2.0 / n) }
-
-        pts.push(Qt.point(r, 0))
-        pts.push(Qt.point(w - r, 0))
-        for (var i = 1; i <= steps; i++) {
-            var t = (1 - i / steps) * Math.PI / 2
-            pts.push(Qt.point(w - r + cornerX(t), r - cornerY(t)))
-        }
-        pts.push(Qt.point(w, h - r))
-        for (var j = 1; j <= steps; j++) {
-            var t2 = (1 - j / steps) * Math.PI / 2
-            pts.push(Qt.point(w - r + cornerY(t2), h - r + cornerX(t2)))
-        }
-        pts.push(Qt.point(r, h))
-        for (var k = 1; k <= steps; k++) {
-            var t3 = (1 - k / steps) * Math.PI / 2
-            pts.push(Qt.point(r - cornerX(t3), h - r + cornerY(t3)))
-        }
-        pts.push(Qt.point(0, r))
-        for (var m = 1; m <= steps; m++) {
-            var t4 = (1 - m / steps) * Math.PI / 2
-            pts.push(Qt.point(r - cornerY(t4), r - cornerX(t4)))
-        }
-        pts.push(Qt.point(r, 0))
-        return pts
-    }
+    readonly property var maskPoints: Squircle.outline(frameMask.width, frameMask.height,
+                                                       full.frameRadius, full.maskRoundness)
 
     // The mask itself: never drawn, only sampled. It traces the SAME
     // superellipse the shader draws for the card - the exponent `roundness`
@@ -205,7 +187,7 @@ Item {
         // opacity is applied where the item is composited, not to the layer it
         // provides as a mask.
         opacity: 0
-        layer.enabled: true
+        layer.enabled: full.shadersRun
 
         Shape {
             anchors.fill: parent
@@ -226,7 +208,7 @@ Item {
         anchors.margins: full.frameInset
         clip: true
 
-        layer.enabled: true
+        layer.enabled: full.shadersRun
         layer.smooth: true
         layer.effect: MultiEffect {
             maskEnabled: true
@@ -242,11 +224,33 @@ Item {
             maskSpreadAtMin: 1.0
         }
 
+        // Where no shader runs: the frame painted with QPainter, under the
+        // words. One decode, not two - the Image below loads nothing then.
+        Loader {
+            id: softFrame
+            anchors.fill: parent
+            active: !full.shadersRun
+            sourceComponent: SoftwarePicture {
+                source: full.hasPicture ? photos.current : ""
+                points: full.maskPoints
+                fill: ready ? "transparent"
+                    : Qt.rgba(colors.foreground.r, colors.foreground.g, colors.foreground.b,
+                              colors.foreground.a * 0.08)
+                overlayTop: height - strip.height
+                overlayStops: ready ? [
+                    { position: 0.0, color: Qt.rgba(colors.glassTint.r, colors.glassTint.g, colors.glassTint.b, 0.0) },
+                    { position: 1.0, color: Qt.rgba(colors.glassTint.r, colors.glassTint.g, colors.glassTint.b, 0.70) }
+                ] : []
+                strokeColor: colors.separator
+                strokeWidth: 1
+            }
+        }
+
         Image {
             id: picture
             anchors.fill: parent
-            visible: full.hasPicture && picture.status === Image.Ready
-            source: photos.current
+            visible: full.shadersRun && full.hasPicture && picture.status === Image.Ready
+            source: full.shadersRun ? photos.current : ""
             fillMode: Image.PreserveAspectCrop
             asynchronous: true
             cache: false
@@ -269,14 +273,14 @@ Item {
             anchors.fill: parent
             color: colors.foreground
             opacity: 0.08
-            visible: !picture.visible
+            visible: full.shadersRun && !full.pictureShown
         }
 
         Column {
             anchors.centerIn: parent
             width: Math.max(0, parent.width - 2 * full.captionPad)
             spacing: gscale.gap
-            visible: !picture.visible
+            visible: !full.pictureShown
 
             Text {
                 textFormat: Text.PlainText
@@ -313,7 +317,7 @@ Item {
         // zero alpha at the top so the photograph is never cut by a hard line.
         Item {
             id: strip
-            visible: picture.visible
+            visible: full.pictureShown
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.bottom: parent.bottom
@@ -321,6 +325,7 @@ Item {
 
             Rectangle {
                 anchors.fill: parent
+                visible: full.shadersRun
                 gradient: Gradient {
                     GradientStop { position: 0.0; color: Qt.rgba(colors.glassTint.r, colors.glassTint.g, colors.glassTint.b, 0.0) }
                     GradientStop { position: 1.0; color: Qt.rgba(colors.glassTint.r, colors.glassTint.g, colors.glassTint.b, 0.70) }
@@ -408,6 +413,7 @@ Item {
         // same mask, for the same reason as the wash above.
         Rectangle {
             anchors.fill: parent
+            visible: full.shadersRun
             color: "transparent"
             border.width: 1
             border.color: colors.separator

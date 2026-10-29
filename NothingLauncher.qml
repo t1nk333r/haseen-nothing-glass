@@ -226,6 +226,13 @@ Item {
   // do not, and `valueAt()` would snap those to `Math.round(raw / undefined) *
   // undefined`, i.e. NaN, were the field removed; the five number-typed keys
   // declare a step and it wins over this one.
+  // Qt's software scene graph - the one haseen draws its shell with unless
+  // told otherwise - runs no shader, so most refraction knobs and the frost
+  // knob change nothing there. The two hints below say so beside the knobs,
+  // rather than leaving the user dragging a slider at a flat card. Unknown,
+  // the window not drawn yet, is not software.
+  readonly property bool shadersRun: launcher.GraphicsInfo.api !== GraphicsInfo.Software
+
   readonly property var glassKnobs: [
     { key: "cornerRadius", label: "Corner radius", step: 2, mult: 1, unit: " px" },
     { key: "roundness", label: "Roundness", step: 0.5, mult: 1, unit: "" },
@@ -1032,6 +1039,15 @@ Item {
             }
 
             NLabel { theme: nothing; loud: true; text: "Refraction" }
+            NMono {
+              theme: nothing
+              visible: !launcher.shadersRun
+              color: nothing.onDim
+              font.pixelSize: nothing.fMicro
+              width: appearance.width
+              wrapMode: Text.WordWrap
+              text: "This shell draws with Qt's software renderer, which runs no shaders: glass tiles are flat cards, and only the corner radius and roundness below change them. Set QT_QUICK_BACKEND=rhi in the shell's environment to turn the glass on (README, Troubleshooting)."
+            }
             Repeater {
               model: launcher.glassKnobRows
               // The row itself is KnobRow.qml, shared with the Nothing section
@@ -1149,6 +1165,15 @@ Item {
             // the wallpaper - composed together rather than chosen between,
             // which is why they share a heading.
             NLabel { theme: nothing; loud: true; text: "Card material" }
+            NMono {
+              theme: nothing
+              visible: !launcher.shadersRun
+              color: nothing.onDim
+              font.pixelSize: nothing.fMicro
+              width: appearance.width
+              wrapMode: Text.WordWrap
+              text: "Frost needs shaders, and this shell's software renderer runs none, so it changes nothing here. Card opacity still applies."
+            }
             Repeater {
               model: launcher.nothingKnobRows
               delegate: KnobRow {

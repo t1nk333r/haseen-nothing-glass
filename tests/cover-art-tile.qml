@@ -92,17 +92,25 @@ FloatingWindow {
 
     function log(s) { console.log("RESULT|" + s) }
 
-    // Every Image in the tile that shows `url`, visibly, and has decoded it.
+    // Every Image in the tile that shows `url`, visibly, and has decoded it -
+    // or, where no shader runs (this probe's offscreen platform is Qt's
+    // software scene graph), every SoftwarePicture that has: the cover's
+    // Images stand down and load nothing there, and the SoftwarePicture is
+    // what paints the cover (components/SoftwarePicture.qml).
     function drawnCount(item, url) {
         var n = 0
         var kids = item.children || []
         for (var i = 0; i < kids.length; i++) {
             var k = kids[i]
+            var name = String(k)
             // Older FlipAlbumArt stamped its drawn URL with ?_t=. Compare the
             // same picture, not that incidental cache key, on the baseline too.
-            if (String(k).indexOf("QQuickImage") === 0
+            if (name.indexOf("QQuickImage") === 0
                     && String(k.source).replace(/[?&]_t=[0-9]+$/, "") === url
                     && k.visible && k.status === Image.Ready)
+                n++
+            else if (name.indexOf("SoftwarePicture") === 0
+                    && String(k.source) === url && k.visible && k.ready)
                 n++
             n += probe.drawnCount(k, url)
         }

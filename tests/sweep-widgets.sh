@@ -174,7 +174,9 @@ if ! grep -q 'SWEEP done ' "$out"; then
     && compositor_gone "$compositor_pid"; then
     # Died after the driver connected: said after the CI's whitelisted text,
     # since where gamescope works that skip means a tile may have crashed it.
-    if grep -qF 'The Wayland connection broke' "$out"; then
+    # A log that also holds the failed connect is a client that never got in
+    # (a second client can log both), so only a broken connection alone is.
+    if grep -qF 'The Wayland connection broke' "$out" && ! grep -qF 'Failed to create wl_display' "$out"; then
       echo "SKIP: widget sweep (headless compositor did not come up): it died after the driver connected, before the first grab"
     else
       echo "SKIP: widget sweep (headless compositor did not come up)"

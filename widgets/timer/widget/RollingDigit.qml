@@ -10,6 +10,12 @@ Item {
     property real fontPixelSize: 96
     property real digitOpacity: 0.7
     property real maxBlur: 1.0
+
+    // Qt's software scene graph, haseen's default, runs no MultiEffect, and a
+    // blurred layer composites to nothing there (measured): every digit
+    // vanished for the length of each roll. There the digits roll unblurred.
+    // Unknown, the window not drawn yet, is not software.
+    readonly property bool shadersRun: root.GraphicsInfo.api !== GraphicsInfo.Software
     property int duration: 520
 
     readonly property real _glyphHeight: fm.ascent + fm.descent
@@ -104,7 +110,7 @@ Item {
             xScale: root._outgoingScale
             yScale: root._outgoingScale
         }
-        layer.enabled: true
+        layer.enabled: root.shadersRun
         layer.smooth: true
         layer.effect: MultiEffect {
             blurEnabled: true
@@ -138,7 +144,7 @@ Item {
             xScale: root._incomingScale
             yScale: root._incomingScale
         }
-        layer.enabled: true
+        layer.enabled: root.shadersRun
         layer.smooth: true
         layer.effect: MultiEffect {
             blurEnabled: true

@@ -34,6 +34,23 @@ Item {
 
     readonly property bool hasPicture: photos.count > 0 && photos.current !== ""
 
+    // Qt's software scene graph, haseen's default, runs no MultiEffect: the
+    // masked frame below composites to nothing there, photo and caption and
+    // empty state alike (measured). There `softFrame` paints the picture,
+    // scrim and hairline cut to the same rounded outline, and the frame's own
+    // picture, scrim and hairline stand down. Unknown, the window not drawn
+    // yet, is not software.
+    readonly property bool shadersRun: root.GraphicsInfo.api !== GraphicsInfo.Software
+
+    // A picture is up: decoded by whichever path draws it.
+    readonly property bool pictureShown: root.shadersRun
+        ? root.hasPicture && picture.status === Image.Ready
+        : softFrame.item !== null && (softFrame.item as SoftwarePicture).ready
+
+    // The frame's corner: the card's less the inset, so the curves are
+    // concentric.
+    readonly property real frameRadius: Math.max(0, card.radius - nothing.gap)
+
     // The mask itself: never drawn, only sampled. Its radius is the card's
     // less the inset, so the two curves are concentric.
     //
@@ -53,11 +70,11 @@ Item {
         id: frameMask
         anchors.fill: parent
         anchors.margins: nothing.gap
-        radius: Math.max(0, card.radius - nothing.gap)
+        radius: root.frameRadius
         color: "white"
         antialiasing: true
         opacity: 0
-        layer.enabled: true
+        layer.enabled: root.shadersRun
     }
 
     NCard {
@@ -80,7 +97,7 @@ Item {
             anchors.margins: nothing.gap
             clip: true
 
-            layer.enabled: true
+            layer.enabled: root.shadersRun
             layer.smooth: true
             layer.effect: MultiEffect {
                 maskEnabled: true
@@ -92,11 +109,30 @@ Item {
                 maskThresholdMin: 0.5
             }
 
+            // Where no shader runs: the frame painted with QPainter, under
+            // the words. One decode, not two - the Image below loads nothing
+            // then.
+            Loader {
+                id: softFrame
+                anchors.fill: parent
+                active: !root.shadersRun
+                sourceComponent: SoftwarePicture {
+                    source: root.hasPicture ? photos.current : ""
+                    radius: root.frameRadius
+                    overlayTop: height - strip.height
+                    overlayStops: ready
+                        ? [{ position: 0, color: nothing.scrim }, { position: 1, color: nothing.scrim }]
+                        : []
+                    strokeColor: nothing.outline
+                    strokeWidth: nothing.hair
+                }
+            }
+
             Image {
                 id: picture
                 anchors.fill: parent
-                visible: root.hasPicture && picture.status === Image.Ready
-                source: photos.current
+                visible: root.shadersRun && root.hasPicture && picture.status === Image.Ready
+                source: root.shadersRun ? photos.current : ""
                 fillMode: Image.PreserveAspectCrop
                 asynchronous: true
                 cache: false
@@ -113,16 +149,17 @@ Item {
             NDotField {
                 theme: nothing
                 anchors.fill: parent
-                visible: !picture.visible
+                visible: !root.pictureShown
                 spacing: nothing.px(12)
                 intensity: 0.8
+                cornerRadius: root.shadersRun ? 0 : root.frameRadius
             }
 
             Column {
                 anchors.centerIn: parent
                 width: parent.width - nothing.pad * 2
                 spacing: nothing.px(4)
-                visible: !picture.visible
+                visible: !root.pictureShown
 
                 NLabel {
                     theme: nothing
@@ -153,11 +190,11 @@ Item {
             // the caption is laid over its bottom edge.
             Rectangle {
                 id: strip
-                visible: picture.visible
+                visible: root.pictureShown
                 anchors.left: parent.left
                 anchors.right: parent.right
                 anchors.bottom: parent.bottom
-                color: nothing.scrim
+                color: root.shadersRun ? nothing.scrim : "transparent"
                 height: caption.height + nothing.px(10) * 2
                      + (setBar.visible ? setBar.height + nothing.px(8) : 0)
 
@@ -222,6 +259,7 @@ Item {
             // same weight whatever the photograph does at its edges.
             Rectangle {
                 anchors.fill: parent
+                visible: root.shadersRun
                 color: "transparent"
                 radius: nothing.rDot
                 border.width: nothing.hair

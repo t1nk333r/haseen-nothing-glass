@@ -1,4 +1,6 @@
 import QtQuick
+import QtQuick.Shapes
+import "Squircle.js" as Squircle
 
 // Reusable frosted/liquid-glass background.
 // Host-agnostic: the host must bind wallpaperItem to a sized Item to
@@ -478,21 +480,30 @@ Item {
     // above already renders an opaque tinted squircle, so no fallback
     // needed - unless no shader runs at all (`shadersRun`), and then this is
     // the solid squircle too, opaque in the solid colour.
-
-    Rectangle {
+    //
+    // The shader's own outline, not a `Rectangle { radius }`: at this
+    // family's radius (100, clamped to 96 on a 192 px tile) a rounded
+    // rectangle is a disc, and the software card came out a circle around a
+    // square tile's text. The trace is liquidglass.frag's superellipse with
+    // its clamps (Squircle.js). The curve renderer is the one that
+    // antialiases this edge on the GPU scene graph without a multisampled
+    // layer; the software scene graph paints the path with QPainter, which
+    // antialiases it anyway.
+    Shape {
         id: fallback
         anchors.fill: parent
         visible: !glass.shadersRun || (!glass.solidMode && !glass.active)
-        color: glass.solidMode ? glass.solidColor : glass.tint
-        // The shader's vertical solidColor -> solidColorBottom blend, when a
-        // solid tile asks for one (weather, now playing). Both stops are
-        // opaque, as the shader's tint and tintBottom are.
-        gradient: glass.solidMode && glass.solidColorBottom.a > 0 ? fallbackGradient : null
         opacity: glass.solidMode ? 1.0 : glass.fallbackOpacity
-        radius: glass.radius
+        antialiasing: true
+        preferredRendererType: Shape.CurveRenderer
 
-        Gradient {
-            id: fallbackGradient
+        // The shader's vertical solidColor -> solidColorBottom blend, when a
+        // solid tile asks for one (weather, now playing). Opaque at both
+        // ends, as glassShader's `tint` and `tintBottom` are (alpha 1.0
+        // whatever alpha the colours carry).
+        readonly property LinearGradient solidGradient: LinearGradient {
+            x1: 0; y1: 0
+            x2: 0; y2: fallback.height
             GradientStop {
                 position: 0
                 color: Qt.rgba(glass.solidColor.r, glass.solidColor.g, glass.solidColor.b, 1)
@@ -501,6 +512,23 @@ Item {
                 position: 1
                 color: Qt.rgba(glass.solidColorBottom.r, glass.solidColorBottom.g,
                     glass.solidColorBottom.b, 1)
+            }
+        }
+
+        ShapePath {
+            strokeColor: "transparent"
+            strokeWidth: 0
+            // Solid mode is opaque, as glassShader's solid `tint` is: a
+            // translucent solidColor must not let the desktop through only
+            // where no shader runs.
+            fillColor: glass.solidMode
+                ? Qt.rgba(glass.solidColor.r, glass.solidColor.g, glass.solidColor.b, 1)
+                : glass.tint
+            fillGradient: glass.solidMode && glass.solidColorBottom.a > 0
+                ? fallback.solidGradient : null
+            PathPolyline {
+                path: Squircle.outline(fallback.width, fallback.height,
+                                       glass.radius, glass.roundness)
             }
         }
     }

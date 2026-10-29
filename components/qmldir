@@ -30,6 +30,7 @@ PerfData 1.0 PerfData.qml
 PhotoData 1.0 PhotoData.qml
 PrayerCard 1.0 PrayerCard.qml
 PrayerTimes 1.0 PrayerTimes.qml
+SoftwarePicture 1.0 SoftwarePicture.qml
 StorageData 1.0 StorageData.qml
 TailscaleData 1.0 TailscaleData.qml
 TzClock 1.0 TzClock.qml

@@ -1,6 +1,8 @@
 import QtQuick
 import QtQuick.Effects
 import QtQuick.Shapes
+import "../../../components"
+import "../../../components/Squircle.js" as Squircle
 
 Item {
     id: layout
@@ -35,10 +37,19 @@ Item {
 
     clip: true
 
+    // Qt's software scene graph, haseen's default, runs no MultiEffect: the
+    // masked background below composites to nothing there (measured), and
+    // the cover never showed. There `softArt` paints it with QPainter - the
+    // cover, the same darkening, cut to the same outline - and the layers
+    // below stand down, the Image with them, so the cover is decoded once.
+    // Unknown, the window not drawn yet, is not software.
+    readonly property bool shadersRun: layout.GraphicsInfo.api !== GraphicsInfo.Software
+
     // The mask's outline: the same parametric superellipse the shader draws
     // for the card - the exponent `roundness` and the radius `cornerRadius`,
     // both clamped the way the SDF clamps - as a polyline the scene graph
-    // draws directly.
+    // draws directly. The trace is components/Squircle.js, shared with the
+    // card's own software fallback and the photos frame.
     //
     // Not a `Canvas`, deliberately. A Canvas owns a texture of its own, filled
     // by a deferred `onPaint`, and that deferred paint is what the guest
@@ -49,44 +60,10 @@ Item {
     // transparent, so the whole background layer drew nothing - cover and
     // gradient alike - permanently and with nothing logged. A `requestPaint()`
     // repaint did not bring the layer back. Geometry the scene graph draws has
-    // no second texture to wait for.
-    readonly property var maskPoints: {
-        var w = bgArtMask.width, h = bgArtMask.height
-        var r = Math.max(0, Math.min(layout.cornerRadius, w / 2, h / 2))
-        var n = Math.max(layout.roundness, 2.0)
-        var steps = 32
-        var pts = []
-
-        // Corner boundary of the shader's SDF: q = abs(p) - b + r, and
-        // (qx^n + qy^n)^(1/n) = r, so parametrically
-        // qx = r*cos(t)^(2/n), qy = r*sin(t)^(2/n).
-        function cornerX(t) { return r * Math.pow(Math.abs(Math.cos(t)), 2.0 / n) }
-        function cornerY(t) { return r * Math.pow(Math.abs(Math.sin(t)), 2.0 / n) }
-
-        pts.push(Qt.point(r, 0))
-        pts.push(Qt.point(w - r, 0))
-        for (var i = 1; i <= steps; i++) {
-            var t = (1 - i / steps) * Math.PI / 2
-            pts.push(Qt.point(w - r + cornerX(t), r - cornerY(t)))
-        }
-        pts.push(Qt.point(w, h - r))
-        for (var j = 1; j <= steps; j++) {
-            var t2 = (1 - j / steps) * Math.PI / 2
-            pts.push(Qt.point(w - r + cornerY(t2), h - r + cornerX(t2)))
-        }
-        pts.push(Qt.point(r, h))
-        for (var k = 1; k <= steps; k++) {
-            var t3 = (1 - k / steps) * Math.PI / 2
-            pts.push(Qt.point(r - cornerX(t3), h - r + cornerY(t3)))
-        }
-        pts.push(Qt.point(0, r))
-        for (var m = 1; m <= steps; m++) {
-            var t4 = (1 - m / steps) * Math.PI / 2
-            pts.push(Qt.point(r - cornerY(t4), r - cornerX(t4)))
-        }
-        pts.push(Qt.point(r, 0))
-        return pts
-    }
+    // no second texture to wait for. (`softArt`, where no shader runs, is a
+    // Canvas too, but nothing samples it: it is what is drawn.)
+    readonly property var maskPoints: Squircle.outline(bgArtMask.width, bgArtMask.height,
+                                                       layout.cornerRadius, layout.roundness)
 
     // Album art as full background with gradient fade-out toward bottom
     Item {
@@ -108,11 +85,11 @@ Item {
             // `opacity: 0` is applied where the item is composited, not to the
             // layer texture the effect below reads.
             opacity: 0
-            layer.enabled: true
+            layer.enabled: layout.shadersRun
 
             Image {
                 anchors.fill: parent
-                source: layout.albumArt
+                source: layout.shadersRun ? layout.albumArt : ""
                 fillMode: Image.PreserveAspectCrop
                 smooth: true
                 mipmap: true
@@ -146,7 +123,7 @@ Item {
             id: bgArtMask
             anchors.fill: parent
             opacity: 0
-            layer.enabled: true
+            layer.enabled: layout.shadersRun
 
             Shape {
                 anchors.fill: parent
@@ -175,7 +152,25 @@ Item {
             // reason.
             maskThresholdMin: 0.5
             maskSpreadAtMin: 1.0
-            visible: layout.hasRealArt
+            visible: layout.shadersRun && layout.hasRealArt
+        }
+
+        Loader {
+            id: softArt
+            anchors.fill: parent
+            active: !layout.shadersRun && layout.hasRealArt
+            sourceComponent: SoftwarePicture {
+                source: layout.albumArt
+                points: layout.maskPoints
+                // bgArtSource's darkening, over the whole cover.
+                overlayTop: 0
+                overlayStops: [
+                    { position: 0.0,  color: Qt.rgba(0, 0, 0, 0.35) },
+                    { position: 0.35, color: Qt.rgba(0, 0, 0, 0.45) },
+                    { position: 0.85, color: Qt.rgba(0, 0, 0, 0.90) },
+                    { position: 1.0,  color: Qt.rgba(0, 0, 0, 0.97) }
+                ]
+            }
         }
     }
 
